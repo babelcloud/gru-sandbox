@@ -1,0 +1,30 @@
+name: Build Sandbox Images
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build-python:
+    uses: ./.github/workflows/build-sandbox-image.yml
+    with:
+      build_default_branch_manifest: true
+      timeout_minutes: 30
+      image_name: python
+      build_context: ./images/python
+      file: ./images/python/Dockerfile
+    secrets:
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  build-typescript:
+    uses: ./.github/workflows/build-sandbox-image.yml
+    with:
+      build_default_branch_manifest: true
+      timeout_minutes: 30
+      image_name: typescript
+      build_context: ./images/typescript
+      file: ./images/typescript/Dockerfile
+    secrets:
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}

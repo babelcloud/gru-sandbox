@@ -1,0 +1,16 @@
+name: gbox
+
+services:
+  api-server:
+    container_name: gbox-api-server
+    build:
+      context: ../../packages/api-server
+      dockerfile: ../../packages/api-server/Dockerfile
+    image: ghcr.io/babelcloud/gbox-api-server:latest
+    ports:
+      - "28080:28080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped 

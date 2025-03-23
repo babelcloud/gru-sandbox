@@ -1,0 +1,15 @@
+# Server configuration
+server:
+  port: 28080
+
+# Cluster configuration
+cluster:
+  mode: docker # Possible values: docker, k8s
+
+# Docker specific configuration
+docker:
+  host: "" # If empty, will try default socket paths
+
+# Kubernetes specific configuration
+k8s:
+  cfg: "" # If empty, will try default paths

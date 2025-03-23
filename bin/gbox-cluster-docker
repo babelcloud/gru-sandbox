@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+# gbox-cluster-docker - Handles docker cluster setup and cleanup operations
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common"
+
+# Setup command
+setup() {
+    echo "Setting up docker box environment..."
+    mkdir -p "$GBOX_HOME"
+    
+    # Check and create Docker socket symlink if needed
+    if [ ! -L /var/run/docker.sock ]; then
+        echo "Docker socket symlink not found at /var/run/docker.sock"
+        echo "This symlink is required for Docker Desktop for Mac to work properly"
+        echo "We need sudo to create the symlink at /var/run/docker.sock"
+        echo "This is a one-time operation that will be remembered"
+        sudo ln -sf "$HOME/.docker/run/docker.sock" /var/run/docker.sock
+    fi
+
+    # Start docker-compose services
+    echo "Starting docker-compose services..."
+    docker compose -f "$SCRIPT_DIR/../manifests/docker/docker-compose.yml" up -d
+    
+    echo "Docker setup completed successfully"
+}
+
+# Cleanup command
+cleanup() {
+    echo "Cleaning up docker box environment..."
+    
+    # Stop docker-compose services
+    echo "Stopping docker-compose services..."
+    docker compose -f "$SCRIPT_DIR/../manifests/docker/docker-compose.yml" down
+    
+    echo "Docker cleanup completed successfully"
+}
+
+# Main command handler
+case "$1" in
+    setup)
+        shift
+        setup "$@"
+        ;;
+    cleanup)
+        shift
+        cleanup "$@"
+        ;;
+    *)
+        echo "Unknown command: $1"
+        exit 1
+        ;;
+esac 

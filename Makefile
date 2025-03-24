@@ -5,6 +5,25 @@ VERSION ?= $(shell git rev-parse --short HEAD)
 DIST_DIR := dist
 DIST_PACKAGE := $(DIST_DIR)/gbox-$(VERSION).tar.gz
 
+# Function to get git commit hash for a path
+define get_git_hash
+$(shell git log --pretty=tformat:"%h" -n1 -- $(1))
+endef
+
+# Image tags
+API_SERVER_TAG := $(call get_git_hash,packages/api-server)
+PY_IMG_TAG := $(call get_git_hash,images/python)
+TS_IMG_TAG := $(call get_git_hash,images/typescript)
+
+# Function to write env var to file (usage: $(call write_env,FILE,VAR,VALUE))
+define write_env
+	@echo "$(2)=$(3)" > $(1)/.env
+endef
+
+define append_env
+	@echo "$(2)=$(3)" >> $(1)/.env
+endef
+
 # Check and enable pnpm via corepack
 .PHONY: check-pnpm
 check-pnpm: ## Check and enable pnpm via corepack
@@ -23,7 +42,6 @@ help: ## Show this help message
 .PHONY: build
 build: check-pnpm ## Build all components
 	@echo "Building components..."
-	@make -C packages/api-server docker-build
 	@cd packages/mcp-server && pnpm install && pnpm build
 
 # Create distribution package
@@ -44,8 +62,14 @@ dist: build ## Create distribution package
 	@rsync -av --exclude='node_modules' packages/mcp-server/ $(DIST_DIR)/packages/mcp-server/
 	@cp LICENSE README.md $(DIST_DIR)/
 
+	# Generate .env files
+	$(call write_env,$(DIST_DIR)/manifests/docker,API_SERVER_IMG_TAG,$(API_SERVER_TAG))
+	$(call write_env,$(DIST_DIR)/packages/mcp-server,PY_IMG_TAG,$(PY_IMG_TAG))
+	$(call append_env,$(DIST_DIR)/packages/mcp-server,TS_IMG_TAG,$(TS_IMG_TAG))
+
 	# Create tar.gz package
 	@cd $(DIST_DIR) && tar -czf gbox-$(VERSION).tar.gz *
+	@cd $(DIST_DIR) && sha256sum gbox-$(VERSION).tar.gz > gbox-$(VERSION).tar.gz.sha256
 	@echo "Distribution package created: $(DIST_PACKAGE)"
 
 # Build and push docker images

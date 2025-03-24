@@ -1,9 +1,8 @@
-// API server configuration
-const API_SERVER_URL = "http://localhost:28080/api/v1";
+import { config } from "./config";
 
 // HTTP client for API calls
 async function apiRequest(path: string, options: RequestInit = {}) {
-  const response = await fetch(`${API_SERVER_URL}${path}`, {
+  const response = await fetch(`${config.apiServer.url}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -176,7 +175,7 @@ export async function runPython(
 }> {
   const id = await getOrCreateBox({
     boxId,
-    image: "python:3.13-bookworm",
+    image: config.images.python,
     sessionId,
     signal,
   });
@@ -195,7 +194,7 @@ export async function runBash(
 }> {
   const id = await getOrCreateBox({
     boxId,
-    image: "ubuntu:latest",
+    image: config.images.bash,
     sessionId,
     signal,
   });

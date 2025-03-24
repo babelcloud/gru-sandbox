@@ -16,9 +16,12 @@
   "license": "ISC",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.7.0",
+    "dotenv-defaults": "^5.0.2",
+    "dotenv-expand": "^12.0.1",
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/dotenv-defaults": "^2.0.4",
     "@types/node": "^22.13.0",
     "tsup": "^8.4.0",
     "tsx": "^4.7.1",

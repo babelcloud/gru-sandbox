@@ -1,4 +1,4 @@
-name: Build Sandbox Images
+name: Build Gbox Images
 
 on:
   push:
@@ -7,36 +7,54 @@ on:
     branches: ["**"]
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: api-server
+            dir: packages/api-server
+          - name: python
+            dir: images/python
+          - name: typescript
+            dir: images/typescript
+    permissions:
+      contents: read
+      packages: write
 
-  build-api-server:
-    uses: ./.github/workflows/build-gbox-image.yml
-    with:
-      build_default_branch_manifest: true
-      timeout_minutes: 30
-      image_name: gbox-api-server
-      build_context: ./packages/api-server
-      file: ./packages/api-server/Dockerfile
-    secrets:
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
-  build-python:
-    uses: ./.github/workflows/build-gbox-image.yml
-    with:
-      build_default_branch_manifest: true
-      timeout_minutes: 30
-      image_name: gbox-python
-      build_context: ./images/python
-      file: ./images/python/Dockerfile
-    secrets:
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v46
+        with:
+          files: |
+            ${{ matrix.dir }}/**
 
-  build-typescript:
-    uses: ./.github/workflows/build-gbox-image.yml
-    with:
-      build_default_branch_manifest: true
-      timeout_minutes: 30
-      image_name: gbox-typescript
-      build_context: ./images/typescript
-      file: ./images/typescript/Dockerfile
-    secrets:
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Check directory changes
+        id: check-changes
+        run: |
+          if [ "${{ steps.changed-files.outputs.any_changed }}" = "true" ]; then
+            # Get the short commit hash for this directory
+            DIR_COMMIT=$(git log --pretty=tformat:"%h" -n1 -- ${{ matrix.dir }})
+            echo "Directory ${{ matrix.dir }} has changes, commit: $DIR_COMMIT"
+            echo "commit=$DIR_COMMIT" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "No changes in ${{ matrix.dir }}"
+          exit 0
+
+      - name: Build and push image
+        if: steps.check-changes.outputs.commit != ''
+        uses: ./.github/workflows/build-gbox-image.yml
+        with:
+          build_default_branch_manifest: true
+          timeout_minutes: 30
+          image_name: gbox-${{ matrix.name }}
+          build_context: ./${{ matrix.dir }}
+          file: ./${{ matrix.dir }}/Dockerfile

@@ -7,23 +7,35 @@ on:
     branches: ["**"]
 
 jobs:
-  build-python:
-    uses: ./.github/workflows/build-sandbox-image.yml
+
+  build-api-server:
+    uses: ./.github/workflows/build-gbox-image.yml
     with:
       build_default_branch_manifest: true
       timeout_minutes: 30
-      image_name: python
+      image_name: gbox-api-server
+      build_context: ./packages/api-server
+      file: ./packages/api-server/Dockerfile
+    secrets:
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+  build-python:
+    uses: ./.github/workflows/build-gbox-image.yml
+    with:
+      build_default_branch_manifest: true
+      timeout_minutes: 30
+      image_name: gbox-python
       build_context: ./images/python
       file: ./images/python/Dockerfile
     secrets:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   build-typescript:
-    uses: ./.github/workflows/build-sandbox-image.yml
+    uses: ./.github/workflows/build-gbox-image.yml
     with:
       build_default_branch_manifest: true
       timeout_minutes: 30
-      image_name: typescript
+      image_name: gbox-typescript
       build_context: ./images/typescript
       file: ./images/typescript/Dockerfile
     secrets:

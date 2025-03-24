@@ -43,7 +43,7 @@ jobs:
           fetch-depth: ${{ inputs.fetch_depth }}
       - name: Resolve commit id and image name
         run: |
-          echo "IMAGE_NAME=grusandbox/${{ inputs.image_name }}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=babelcloud/${{ inputs.image_name }}" >> $GITHUB_ENV
           echo "COMMIT_ID=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - name: Resolve image tag with rev
         run: echo "IMAGE_TAGS=${IMAGE_TAGS},${IMAGE_NAME}:$(git rev-parse --short HEAD)" >> $GITHUB_ENV
@@ -57,7 +57,7 @@ jobs:
       - name: Login to registry
         uses: docker/login-action@v3
         with:
-          username: grusandbox
+          username: babelcloud
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Calculate CACHEBUST value
@@ -79,7 +79,7 @@ jobs:
           provenance: false
           build-args: |
             CACHEBUST=${{ env.CACHEBUST }}
-            COMMIT_ID=${{ env.COMMIT_ID  }}
+            COMMIT_ID=${{ env.COMMIT_ID }}
           cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
           cache-to: type=gha,scope=${{ env.CACHE_SCOPE }},mode=max
           target: ${{ inputs.target }}

@@ -1,4 +1,4 @@
-name: Build Sandbox Image
+name: Build Gbox Image
 
 on:
   workflow_call:
@@ -27,10 +27,6 @@ on:
         type: string
         default: .
 
-    secrets:
-      DOCKER_PASSWORD:
-        required: true
-
 jobs:
   build-image:
     runs-on: ubuntu-24.04
@@ -46,10 +42,10 @@ jobs:
           echo "IMAGE_NAME=babelcloud/${{ inputs.image_name }}" >> $GITHUB_ENV
           echo "COMMIT_ID=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - name: Resolve image tag with rev
-        run: echo "IMAGE_TAGS=${IMAGE_TAGS},${IMAGE_NAME}:$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        run: echo "IMAGE_TAGS=${IMAGE_NAME}:$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - name: Resolve image tag with branch name
         if: ${{ inputs.build_default_branch_manifest && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
-        run: echo "IMAGE_TAGS=${IMAGE_TAGS},${IMAGE_NAME}:${GITHUB_REF_NAME}" >> $GITHUB_ENV
+        run: echo "IMAGE_TAGS=${IMAGE_TAGS},${IMAGE_NAME}:${GITHUB_REF_NAME},${IMAGE_NAME}:latest" >> $GITHUB_ENV
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx

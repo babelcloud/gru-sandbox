@@ -6,7 +6,7 @@ services:
     build:
       context: ../../packages/api-server
       dockerfile: ../../packages/api-server/Dockerfile
-    image: ghcr.io/babelcloud/gbox-api-server:latest
+    image: ghcr.io/babelcloud/gbox-api-server:${API_SERVER_IMG_TAG:-latest}
     ports:
       - "28080:28080"
     volumes:

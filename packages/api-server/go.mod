@@ -1,7 +1,6 @@
 module github.com/babelcloud/gru-sandbox/packages/api-server
 
 go 1.22.12
-toolchain go1.24.1
 
 require (
 	github.com/docker/docker v25.0.6+incompatible

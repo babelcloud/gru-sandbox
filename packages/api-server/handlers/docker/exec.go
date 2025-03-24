@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types"
 	"github.com/emicklei/go-restful/v3"
 
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
@@ -102,7 +102,7 @@ func (h *DockerBoxHandler) handleCommandExecution(ctx context.Context, container
 	}
 
 	// Create exec configuration
-	execConfig := container.ExecOptions{
+	execConfig := types.ExecConfig{
 		User:         "", // Use default user
 		Privileged:   false,
 		Tty:          execReq.TTY,
@@ -126,7 +126,7 @@ func (h *DockerBoxHandler) handleCommandExecution(ctx context.Context, container
 	log.Printf("Created exec instance: %s", execCreate.ID)
 
 	// Attach to exec instance
-	execAttach, err := h.client.ContainerExecAttach(ctx, execCreate.ID, container.ExecAttachOptions{
+	execAttach, err := h.client.ContainerExecAttach(ctx, execCreate.ID, types.ExecStartCheck{
 		Detach: false,
 		Tty:    execReq.TTY,
 	})

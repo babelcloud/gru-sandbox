@@ -7,12 +7,12 @@ import (
 
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
-	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 )
 
 // getContainerByID finds a container by its ID label
-func (h *DockerBoxHandler) getContainerByID(ctx context.Context, boxID string) (*container.Summary, error) {
+func (h *DockerBoxHandler) getContainerByID(ctx context.Context, boxID string) (*types.Container, error) {
 	if boxID == "" {
 		return nil, fmt.Errorf("box ID is required")
 	}
@@ -21,7 +21,7 @@ func (h *DockerBoxHandler) getContainerByID(ctx context.Context, boxID string) (
 	filterArgs := filters.NewArgs()
 	filterArgs.Add("label", fmt.Sprintf("%s=%s", GboxLabelID, boxID))
 
-	containers, err := h.client.ContainerList(ctx, container.ListOptions{
+	containers, err := h.client.ContainerList(ctx, types.ContainerListOptions{
 		All:     true,
 		Filters: filterArgs,
 	})
@@ -37,7 +37,7 @@ func (h *DockerBoxHandler) getContainerByID(ctx context.Context, boxID string) (
 }
 
 // getAllContainers finds all containers with gbox label
-func (h *DockerBoxHandler) getAllContainers(ctx context.Context) ([]container.Summary, error) {
+func (h *DockerBoxHandler) getAllContainers(ctx context.Context) ([]types.Container, error) {
 	logger := log.New()
 	logger.Debug("Getting all containers")
 
@@ -46,7 +46,7 @@ func (h *DockerBoxHandler) getAllContainers(ctx context.Context) ([]container.Su
 	filterArgs.Add("label", fmt.Sprintf("%s=gbox", GboxLabelName))
 	logger.Debug("Added base filter for gbox label: %v", filterArgs)
 
-	containers, err := h.client.ContainerList(ctx, container.ListOptions{
+	containers, err := h.client.ContainerList(ctx, types.ContainerListOptions{
 		All:     true, // Include stopped containers
 		Filters: filterArgs,
 	})
@@ -97,19 +97,19 @@ func containerToBox(c interface{}) models.Box {
 	logger.Debug("Converting container to box, type: %T", c)
 
 	switch c := c.(type) {
-	case container.InspectResponse:
+	case types.ContainerJSON:
 		logger.Debug("Handling InspectResponse")
 		id = c.Config.Labels[GboxLabelID]
 		status = mapContainerState(c.State.Status)
 		image = c.Config.Image
 		labels = c.Config.Labels
-	case container.Summary:
+	case types.Container:
 		logger.Debug("Handling Summary")
 		id = c.Labels[GboxLabelID]
 		status = mapContainerState(c.State)
 		image = c.Image
 		labels = c.Labels
-	case *container.Summary:
+	case *types.Container:
 		logger.Debug("Handling *Summary")
 		id = c.Labels[GboxLabelID]
 		status = mapContainerState(c.State)

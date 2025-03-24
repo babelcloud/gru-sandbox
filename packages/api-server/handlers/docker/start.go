@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types"
 	"github.com/emicklei/go-restful/v3"
 )
 
@@ -36,7 +36,7 @@ func handleStartBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Res
 	}
 
 	// Start the container
-	err = h.client.ContainerStart(req.Request.Context(), containerSummary.ID, container.StartOptions{})
+	err = h.client.ContainerStart(req.Request.Context(), containerSummary.ID, types.ContainerStartOptions{})
 	if err != nil {
 		log.Printf("Error starting container: %v", err)
 		resp.WriteError(http.StatusInternalServerError, err)

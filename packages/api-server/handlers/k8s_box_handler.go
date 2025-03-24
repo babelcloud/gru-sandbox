@@ -307,7 +307,7 @@ func (h *K8sBoxHandler) ExecBox(req *restful.Request, resp *restful.Response) {
 	}
 
 	// Start streaming with context
-	err = exec.StreamWithContext(req.Request.Context(), streamOptions)
+	err = exec.Stream(streamOptions)
 	if err != nil {
 		log.Printf("Error executing command: %v", err)
 	}

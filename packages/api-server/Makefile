@@ -5,6 +5,12 @@ IMG ?= ghcr.io/babelcloud/gbox-api-server:latest
 PLATFORMS ?= linux/amd64,linux/arm64
 BUILDX_BUILDER ?= gbox-builder
 
+# Binary build variables
+BINARY_NAME ?= api-server
+BUILD_DIR ?= build
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
+
 # Show help
 .PHONY: help
 help: ## Show this help message
@@ -14,6 +20,25 @@ help: ## Show this help message
 .PHONY: dev
 dev: ## Run the API server in development mode
 	go run main.go
+
+# Build binary for current platform
+.PHONY: binary
+binary: ## Build binary for current platform
+	@echo "Building binary for $(GOOS)/$(GOARCH)..."
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BUILD_DIR)/$(BINARY_NAME) main.go
+	@echo "Binary built: $(BUILD_DIR)/$(BINARY_NAME)"
+
+# Build binaries for all platforms
+.PHONY: binary-all
+binary-all: ## Build binaries for all platforms
+	@echo "Building binaries for all platforms..."
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 main.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 main.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 main.go
+	@echo "Binaries built in $(BUILD_DIR)"
 
 # Build the docker image locally
 .PHONY: docker-build
@@ -37,7 +62,8 @@ docker-buildx: ## Build multi-architecture docker image
 	docker buildx build --platform $(PLATFORMS) \
 		-t ${IMG} \
 		--push \
-		--builder $$BUILDER \
+		--builder "$$BUILDER" \
+		-f Dockerfile \
 		.
 
 # Push the docker image

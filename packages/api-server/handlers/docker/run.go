@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types"
 	"github.com/emicklei/go-restful/v3"
 
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
@@ -130,7 +130,7 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 	}
 
 	// Create exec configuration
-	execConfig := container.ExecOptions{
+	execConfig := types.ExecConfig{
 		User:         "", // Use default user
 		Privileged:   false,
 		Tty:          false,
@@ -155,7 +155,7 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 	}
 
 	// Attach to exec instance
-	execAttach, err := h.client.ContainerExecAttach(req.Request.Context(), execCreate.ID, container.ExecAttachOptions{
+	execAttach, err := h.client.ContainerExecAttach(req.Request.Context(), execCreate.ID, types.ExecStartCheck{
 		Detach: false,
 		Tty:    false,
 	})

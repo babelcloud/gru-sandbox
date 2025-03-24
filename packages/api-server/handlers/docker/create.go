@@ -6,8 +6,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/google/uuid"
 
@@ -34,7 +34,7 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 	logger.Info("Pulling image: %q", img)
 
 	// Prepare pull options
-	pullOptions := image.PullOptions{}
+	pullOptions := types.ImagePullOptions{}
 	if boxReq.ImagePullSecret != "" {
 		pullOptions.RegistryAuth = boxReq.ImagePullSecret
 	}
@@ -108,7 +108,7 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 	}
 
 	// Start container
-	if err := h.client.ContainerStart(req.Request.Context(), containerResp.ID, container.StartOptions{}); err != nil {
+	if err := h.client.ContainerStart(req.Request.Context(), containerResp.ID, types.ContainerStartOptions{}); err != nil {
 		logger.Error("Error starting container: %v", err)
 		resp.WriteError(http.StatusInternalServerError, err)
 		return

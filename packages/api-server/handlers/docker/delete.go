@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/emicklei/go-restful/v3"
@@ -59,7 +60,7 @@ func handleDeleteBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 	}
 
 	// Remove box with force option
-	if err := h.client.ContainerRemove(req.Request.Context(), box.ID, container.RemoveOptions{
+	if err := h.client.ContainerRemove(req.Request.Context(), box.ID, types.ContainerRemoveOptions{
 		Force: deleteReq.Force,
 	}); err != nil {
 		resp.WriteHeader(http.StatusInternalServerError)
@@ -98,7 +99,7 @@ func handleDeleteAllBoxes(h *DockerBoxHandler, req *restful.Request, resp *restf
 
 	// Get containers with filters
 	logger.Debug("Querying Docker with filters: %v", filterArgs)
-	containerList, err := h.client.ContainerList(req.Request.Context(), container.ListOptions{
+	containerList, err := h.client.ContainerList(req.Request.Context(), types.ContainerListOptions{
 		All:     true,
 		Filters: filterArgs,
 	})
@@ -146,7 +147,7 @@ func handleDeleteAllBoxes(h *DockerBoxHandler, req *restful.Request, resp *restf
 
 		// Remove box with force option
 		logger.Debug("Removing box %s", box.ID)
-		if err := h.client.ContainerRemove(req.Request.Context(), box.ID, container.RemoveOptions{
+		if err := h.client.ContainerRemove(req.Request.Context(), box.ID, types.ContainerRemoveOptions{
 			Force: deleteReq.Force,
 		}); err != nil {
 			logger.Error("Failed to remove box %s: %v", box.ID, err)

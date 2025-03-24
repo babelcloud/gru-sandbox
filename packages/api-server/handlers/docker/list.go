@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/emicklei/go-restful/v3"
 
@@ -73,10 +72,7 @@ func handleListBoxes(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 
 	// Get containers with filters
 	logger.Debug("Querying Docker with filters: %v", filterArgs)
-	containerList, err := h.client.ContainerList(req.Request.Context(), container.ListOptions{
-		All:     true,
-		Filters: filterArgs,
-	})
+	containerList, err := h.getAllContainers(req.Request.Context())
 	if err != nil {
 		logger.Error("Failed to list containers: %v", err)
 		resp.WriteError(http.StatusInternalServerError, err)

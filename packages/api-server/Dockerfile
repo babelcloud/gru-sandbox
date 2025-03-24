@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24.1-alpine3.21 AS builder
+FROM golang:1.21.13-alpine3.20 AS builder
 
 # Set working directory
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o api-server
 
 # Final stage
-FROM alpine:3.21
+FROM alpine:3.20
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata

@@ -21,7 +21,19 @@ brew tap babelcloud/gru && brew install gbox
 # Initialize environment
 gbox setup
 
-# Export MCP config
+# Export MCP config and merge into Claude Desktop
+gbox mcp export --merge
+
+# Restart Claude Desktop
+```
+
+### Update Steps
+
+```bash
+# Update gbox to the latest version
+brew update && brew upgrade gbox
+
+# Export and merge latest MCP config into Claude Desktop
 gbox mcp export --merge
 
 # Restart Claude Desktop

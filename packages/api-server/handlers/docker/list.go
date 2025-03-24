@@ -94,5 +94,5 @@ func handleListBoxes(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 		Boxes: boxes,
 	}
 	logger.Debug("Sending response with %d boxes", len(boxes))
-	resp.WriteEntity(response)
+	resp.WriteAsJson(response)
 }

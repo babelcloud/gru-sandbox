@@ -1,12 +1,14 @@
 package docker
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
 
+	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/types"
 	"github.com/emicklei/go-restful/v3"
@@ -49,7 +51,9 @@ func NewBoxReclaimer(handler types.BoxHandler, config BoxReclaimConfig) *BoxRecl
 
 // handleReclaimBoxes handles the reclamation of inactive boxes
 func handleReclaimBoxes(h types.BoxHandler, req *restful.Request, resp *restful.Response) {
+	logger := log.New()
 	now := time.Now()
+	logger.Info("Starting box reclamation at %v", now)
 
 	// Get all existing boxes
 	var boxes []models.Box
@@ -58,40 +62,41 @@ func handleReclaimBoxes(h types.BoxHandler, req *restful.Request, resp *restful.
 			Path: "/api/v1/boxes",
 		},
 	})
-	listResp := restful.NewResponse(&responseWriter{})
+	writer := &responseWriter{}
+	listResp := restful.NewResponse(writer)
 	h.ListBoxes(listReq, listResp)
 
 	// Get boxes from response
 	var listResponse models.BoxListResponse
-	if err := listResp.WriteEntity(&listResponse); err != nil {
+	if err := json.Unmarshal(writer.body, &listResponse); err != nil {
+		logger.Error("Failed to get boxes list: %v, body: %s", err, string(writer.body))
 		resp.WriteError(http.StatusInternalServerError, fmt.Errorf("failed to get boxes list: %v", err))
 		return
 	}
 	boxes = listResponse.Boxes
-
-	// Create a map of existing box IDs for quick lookup
-	existingBoxes := make(map[string]bool)
-	for _, box := range boxes {
-		existingBoxes[box.ID] = true
-	}
+	logger.Info("Found %d existing boxes", len(boxes))
 
 	// Get the wrapped handler to access the reclaimer
 	wrapped, ok := h.(*wrappedHandler)
 	if !ok {
+		logger.Error("Handler is not properly wrapped")
 		resp.WriteError(http.StatusInternalServerError, fmt.Errorf("handler is not properly wrapped"))
 		return
+	}
+
+	// Create a map of existing box IDs and their status for quick lookup
+	existingBoxes := make(map[string]bool)
+	stoppedBoxes := make(map[string]bool)
+	for _, box := range boxes {
+		existingBoxes[box.ID] = true
+		if box.Status == "stopped" {
+			stoppedBoxes[box.ID] = true
+		}
 	}
 
 	// Track stopped and deleted boxes
 	stoppedIDs := make([]string, 0)
 	deletedIDs := make([]string, 0)
-
-	// First, add current time as access record for boxes without access history
-	for _, box := range boxes {
-		if _, exists := wrapped.reclaimer.lastAccess.Load(box.ID); !exists {
-			wrapped.reclaimer.lastAccess.Store(box.ID, now)
-		}
-	}
 
 	// Iterate through all boxes and check their last access time
 	wrapped.reclaimer.lastAccess.Range(func(key, value interface{}) bool {
@@ -100,35 +105,70 @@ func handleReclaimBoxes(h types.BoxHandler, req *restful.Request, resp *restful.
 
 		// Remove record if box no longer exists
 		if !existingBoxes[boxID] {
+			logger.Debug("Removing access record for non-existent box %s", boxID)
 			wrapped.reclaimer.lastAccess.Delete(boxID)
 			return true
 		}
 
 		// Calculate inactivity duration
 		inactiveDuration := now.Sub(accessTime)
+		logger.Debug("Box %s: last access at %v, inactive for %v", boxID, accessTime, inactiveDuration)
 
 		// Stop inactive boxes to free up resources
 		if inactiveDuration >= wrapped.reclaimer.config.StopInterval {
+			logger.Info("Stopping box %s: inactive for %v", boxID, inactiveDuration)
 			// Create a new request for stopping the box
 			stopReq := restful.NewRequest(req.Request)
 			stopReq.PathParameters()["id"] = boxID
-			stopResp := restful.NewResponse(resp.ResponseWriter)
-			h.StopBox(stopReq, stopResp)
-			stoppedIDs = append(stoppedIDs, boxID)
+			stopWriter := &responseWriter{}
+			stopResp := restful.NewResponse(stopWriter)
+			wrapped.reclaimer.handler.StopBox(stopReq, stopResp)
+			if stopResp.StatusCode() == http.StatusOK {
+				stoppedIDs = append(stoppedIDs, boxID)
+				logger.Info("Successfully stopped box %s", boxID)
+				// Update access time after stopping to prevent repeated attempts
+				wrapped.reclaimer.lastAccess.Store(boxID, now)
+			} else if stopResp.StatusCode() == http.StatusBadRequest && string(stopWriter.body) == "box is already stopped" {
+				// If box is already stopped, just update its access time
+				logger.Debug("Box %s is already stopped, updating access time", boxID)
+				wrapped.reclaimer.lastAccess.Store(boxID, now)
+			} else {
+				logger.Error("Failed to stop box %s: status code %d, body: %s", boxID, stopResp.StatusCode(), string(stopWriter.body))
+			}
 		}
 
 		// Delete very inactive boxes to completely free resources
 		if inactiveDuration >= wrapped.reclaimer.config.DeleteInterval {
+			logger.Info("Deleting box %s: inactive for %v", boxID, inactiveDuration)
 			// Create a new request for deleting the box
 			deleteReq := restful.NewRequest(req.Request)
 			deleteReq.PathParameters()["id"] = boxID
-			deleteResp := restful.NewResponse(resp.ResponseWriter)
-			h.DeleteBox(deleteReq, deleteResp)
-			deletedIDs = append(deletedIDs, boxID)
+			deleteWriter := &responseWriter{}
+			deleteResp := restful.NewResponse(deleteWriter)
+			wrapped.reclaimer.handler.DeleteBox(deleteReq, deleteResp)
+			if deleteResp.StatusCode() == http.StatusOK {
+				deletedIDs = append(deletedIDs, boxID)
+				logger.Info("Successfully deleted box %s", boxID)
+				// Remove access record after successful deletion
+				wrapped.reclaimer.lastAccess.Delete(boxID)
+			} else {
+				logger.Error("Failed to delete box %s: status code %d, body: %s", boxID, deleteResp.StatusCode(), string(deleteWriter.body))
+			}
 		}
 
 		return true
 	})
+
+	// Initialize access records for new boxes
+	for _, box := range boxes {
+		if _, exists := wrapped.reclaimer.lastAccess.Load(box.ID); !exists {
+			logger.Debug("Initializing access time for new box %s", box.ID)
+			wrapped.reclaimer.lastAccess.Store(box.ID, now)
+		}
+	}
+
+	logger.Info("Reclamation completed: stopped %d boxes, deleted %d boxes",
+		len(stoppedIDs), len(deletedIDs))
 
 	// Write response
 	resp.Header().Set("Content-Type", "application/json")
@@ -177,21 +217,27 @@ func (w *wrappedHandler) DeleteBoxes(req *restful.Request, resp *restful.Respons
 
 // ExecBox implements BoxHandler interface
 func (w *wrappedHandler) ExecBox(req *restful.Request, resp *restful.Response) {
+	logger := log.New()
 	boxID := req.PathParameter("id")
+	logger.Debug("Updating access time for box %s (ExecBox)", boxID)
 	w.reclaimer.lastAccess.Store(boxID, time.Now())
 	w.reclaimer.handler.ExecBox(req, resp)
 }
 
 // RunBox implements BoxHandler interface
 func (w *wrappedHandler) RunBox(req *restful.Request, resp *restful.Response) {
+	logger := log.New()
 	boxID := req.PathParameter("id")
+	logger.Debug("Updating access time for box %s (RunBox)", boxID)
 	w.reclaimer.lastAccess.Store(boxID, time.Now())
 	w.reclaimer.handler.RunBox(req, resp)
 }
 
 // StartBox implements BoxHandler interface
 func (w *wrappedHandler) StartBox(req *restful.Request, resp *restful.Response) {
+	logger := log.New()
 	boxID := req.PathParameter("id")
+	logger.Debug("Updating access time for box %s (StartBox)", boxID)
 	w.reclaimer.lastAccess.Store(boxID, time.Now())
 	w.reclaimer.handler.StartBox(req, resp)
 }

@@ -29,56 +29,20 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 
 	logger.Info("Received create request with image: %q", boxReq.Image)
 
-	// Pull image if not exists
+	// Get image name
 	img := common.GetImage(boxReq.Image)
-	logger.Info("Pulling image: %q", img)
+	logger.Info("Checking image: %q", img)
 
-	// Prepare pull options
-	pullOptions := types.ImagePullOptions{}
-	if boxReq.ImagePullSecret != "" {
-		pullOptions.RegistryAuth = boxReq.ImagePullSecret
-	}
-
-	reader, err := h.client.ImagePull(req.Request.Context(), img, pullOptions)
-	if err != nil {
-		logger.Error("Error pulling image: %v", err)
-		resp.WriteError(http.StatusInternalServerError, err)
-		return
-	}
-	defer reader.Close()
-
-	// Wait for image pull to complete and decode the JSON stream
-	decoder := json.NewDecoder(reader)
-	for {
-		var event struct {
-			Status         string `json:"status"`
-			Error          string `json:"error"`
-			Progress       string `json:"progress"`
-			ProgressDetail struct {
-				Current int `json:"current"`
-				Total   int `json:"total"`
-			} `json:"progressDetail"`
-		}
-
-		if err := decoder.Decode(&event); err != nil {
-			if err == io.EOF {
-				break
-			}
-			logger.Error("Error decoding pull response: %v", err)
-			resp.WriteError(http.StatusInternalServerError, err)
+	// Check if image exists
+	_, _, err := h.client.ImageInspectWithRaw(req.Request.Context(), img)
+	if err == nil {
+		logger.Info("Using existing image: %q", img)
+	} else {
+		logger.Info("Image %q not found, pulling", img)
+		if err := pullImage(h, req, resp, img, boxReq.ImagePullSecret); err != nil {
 			return
 		}
-
-		if event.Error != "" {
-			logger.Error("Error pulling image: %s", event.Error)
-			resp.WriteError(http.StatusInternalServerError, fmt.Errorf("error pulling image: %s", event.Error))
-			return
-		}
-
-		logger.Debug("Pull status: %s %s", event.Status, event.Progress)
 	}
-
-	logger.Info("Image pulled successfully: %q", img)
 
 	boxID := uuid.New().String()
 	containerName := fmt.Sprintf("gbox-%s", boxID)
@@ -157,4 +121,55 @@ func prepareLabels(boxID string, boxReq *models.BoxCreateRequest) map[string]str
 	}
 
 	return labels
+}
+
+// pullImage pulls the specified image
+func pullImage(h *DockerBoxHandler, req *restful.Request, resp *restful.Response, img, imagePullSecret string) error {
+	// Prepare pull options
+	pullOptions := types.ImagePullOptions{}
+	if imagePullSecret != "" {
+		pullOptions.RegistryAuth = imagePullSecret
+	}
+
+	reader, err := h.client.ImagePull(req.Request.Context(), img, pullOptions)
+	if err != nil {
+		logger.Error("Error pulling image: %v", err)
+		resp.WriteError(http.StatusInternalServerError, err)
+		return err
+	}
+	defer reader.Close()
+
+	// Wait for image pull to complete and decode the JSON stream
+	decoder := json.NewDecoder(reader)
+	for {
+		var event struct {
+			Status         string `json:"status"`
+			Error          string `json:"error"`
+			Progress       string `json:"progress"`
+			ProgressDetail struct {
+				Current int `json:"current"`
+				Total   int `json:"total"`
+			} `json:"progressDetail"`
+		}
+
+		if err := decoder.Decode(&event); err != nil {
+			if err == io.EOF {
+				break
+			}
+			logger.Error("Error decoding pull response: %v", err)
+			resp.WriteError(http.StatusInternalServerError, err)
+			return err
+		}
+
+		if event.Error != "" {
+			logger.Error("Error pulling image: %s", event.Error)
+			resp.WriteError(http.StatusInternalServerError, fmt.Errorf("error pulling image: %s", event.Error))
+			return fmt.Errorf("error pulling image: %s", event.Error)
+		}
+
+		logger.Debug("Pull status: %s %s", event.Status, event.Progress)
+	}
+
+	logger.Info("Image pulled successfully: %q", img)
+	return nil
 }

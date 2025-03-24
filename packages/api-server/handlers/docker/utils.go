@@ -103,18 +103,21 @@ func containerToBox(c interface{}) models.Box {
 		status = mapContainerState(c.State.Status)
 		image = c.Config.Image
 		labels = c.Config.Labels
+		logger.Debug("ContainerJSON labels: %v", labels)
 	case types.Container:
 		logger.Debug("Handling Summary")
 		id = c.Labels[GboxLabelID]
 		status = mapContainerState(c.State)
 		image = c.Image
 		labels = c.Labels
+		logger.Debug("Container labels: %v", labels)
 	case *types.Container:
 		logger.Debug("Handling *Summary")
 		id = c.Labels[GboxLabelID]
 		status = mapContainerState(c.State)
 		image = c.Image
 		labels = c.Labels
+		logger.Debug("*Container labels: %v", labels)
 	default:
 		logger.Debug("Unknown type: %T", c)
 	}

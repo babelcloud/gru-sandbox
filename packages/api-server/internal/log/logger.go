@@ -3,9 +3,16 @@ package log
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/fatih/color"
 	"github.com/sirupsen/logrus"
+)
+
+var (
+	// logger is the global logger instance
+	logger *Logger
+	once   sync.Once
 )
 
 // Logger wraps the standard logger with color support
@@ -21,32 +28,33 @@ type Logger struct {
 
 // New creates a new logger with color support
 func New() *Logger {
-	logger := &Logger{
-		Logger: logrus.New(),
-		green:  color.New(color.FgGreen),
-		cyan:   color.New(color.FgCyan),
-		red:    color.New(color.FgRed),
-		blue:   color.New(color.FgBlue),
-		yellow: color.New(color.FgYellow),
-		bold:   color.New(color.Bold),
-	}
+	once.Do(func() {
+		logger = &Logger{
+			Logger: logrus.New(),
+			green:  color.New(color.FgGreen),
+			cyan:   color.New(color.FgCyan),
+			red:    color.New(color.FgRed),
+			blue:   color.New(color.FgBlue),
+			yellow: color.New(color.FgYellow),
+			bold:   color.New(color.Bold),
+		}
 
-	// Configure logrus
-	logger.SetFormatter(&logrus.TextFormatter{
-		TimestampFormat: "2006/01/02 15:04:05",
-		FullTimestamp:   true,
-		ForceColors:     true,
-		DisableSorting:  true,
+		// Configure logrus
+		logger.SetFormatter(&logrus.TextFormatter{
+			TimestampFormat: "2006/01/02 15:04:05",
+			FullTimestamp:   true,
+			ForceColors:     true,
+			DisableSorting:  true,
+		})
+
+		// Set log level based on environment variable
+		if os.Getenv("DEBUG") == "true" {
+			logger.SetLevel(logrus.DebugLevel)
+			logger.Info("Debug logging enabled")
+		} else {
+			logger.SetLevel(logrus.InfoLevel)
+		}
 	})
-
-	// Set log level based on environment variable
-	if os.Getenv("DEBUG") == "true" {
-		logger.SetLevel(logrus.DebugLevel)
-		logger.Info("Debug logging enabled")
-	} else {
-		logger.SetLevel(logrus.InfoLevel)
-	}
-
 	return logger
 }
 

@@ -11,7 +11,7 @@ WORKDIR /root
 ENV PATH="/root/.local/bin:${PATH}"
 
 # Install python packages
-RUN uv pip install --system numpy scipy pandas scikit-learn requests
+RUN uv pip install --system numpy scipy pandas scikit-learn requests beautifulsoup4 pillow
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["sleep", "infinity"]

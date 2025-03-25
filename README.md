@@ -34,6 +34,9 @@ gbox mcp export --merge-to claude
 # Update gbox to the latest version
 brew update && brew upgrade gbox
 
+# Update the environment
+gbox setup
+
 # Export and merge latest MCP config into Claude Desktop
 gbox mcp export --merge-to claude
 # or gbox mcp export --merge-to cursor 

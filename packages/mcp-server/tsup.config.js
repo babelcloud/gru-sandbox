@@ -11,5 +11,9 @@ export default {
     keepNames: true,
     external: ['node:*'],
     noExternal: [/(.*)/],
+    shims: true,
+    banner: {
+        js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
+    },
     outDir: 'dist',
 } 

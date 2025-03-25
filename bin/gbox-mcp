@@ -32,12 +32,13 @@ help() {
 export_config() {
     if [[ "$1" == "--help" ]]; then
         show_help "$2" "gbox mcp export" "Export MCP configuration for Claude Desktop" \
-            "gbox mcp export [--merge] [--dry-run]" \
-            "    --merge          Merge configuration into Claude Desktop config file" \
-            "    --dry-run        Preview merge result without applying changes" \
-            "    gbox mcp export         # Export MCP configuration for Claude Desktop" \
-            "    gbox mcp export --merge # Export and merge into Claude Desktop config" \
-            "    gbox mcp export --merge --dry-run # Preview merge result"
+            "gbox mcp export [--merge-to <target>] [--dry-run]" \
+            "    --merge-to <target>  Merge configuration into target config file (claude|cursor)" \
+            "    --dry-run            Preview merge result without applying changes" \
+            "    gbox mcp export                     # Export MCP configuration" \
+            "    gbox mcp export --merge-to claude   # Export and merge into Claude Desktop config" \
+            "    gbox mcp export --merge-to cursor   # Export and merge into Cursor config" \
+            "    gbox mcp export --merge-to claude --dry-run # Preview merge result"
         return
     fi
 
@@ -45,8 +46,9 @@ export_config() {
     local mcp_server_dir="$SCRIPT_DIR/../packages/mcp-server"
     local server_script="$mcp_server_dir/dist/index.js"
     local claude_config="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+    local cursor_config="$HOME/.cursor/mcp.json"
     local dry_run=false
-    local do_merge=false
+    local merge_target=""
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -55,12 +57,21 @@ export_config() {
                 dry_run=true
                 shift
                 ;;
-            --merge)
-                do_merge=true
-                shift
+            --merge-to)
+                if [[ -z "$2" ]]; then
+                    echo "Error: --merge-to requires a target (claude|cursor)"
+                    exit 1
+                fi
+                merge_target="$2"
+                if [[ "$merge_target" != "claude" && "$merge_target" != "cursor" ]]; then
+                    echo "Error: --merge-to target must be either 'claude' or 'cursor'"
+                    exit 1
+                fi
+                shift 2
                 ;;
             *)
-                shift
+                echo "Error: Invalid parameter '$1'"
+                exit 1
                 ;;
         esac
     done
@@ -106,30 +117,48 @@ EOF
 )
     fi
 
-    # Check if Claude config exists
-    if [[ -f "$claude_config" ]]; then
-        if [[ "$do_merge" == "true" ]]; then
-            # Merge the configuration
-            local temp_config=$(mktemp)
-            echo "$config" > "$temp_config"
-            
-            if [[ "$dry_run" == "true" ]]; then
-                echo "Preview of merged configuration:"
-                echo "----------------------------------------"
-                jq -s '.[0] * .[1]' "$claude_config" "$temp_config"
+    # Handle merging if specified
+    if [[ -n "$merge_target" ]]; then
+        local target_config
+        case "$merge_target" in
+            claude)
+                target_config="$claude_config"
+                ;;
+            cursor)
+                target_config="$cursor_config"
+                ;;
+        esac
+
+        # Create target directory if it doesn't exist
+        mkdir -p "$(dirname "$target_config")"
+
+        # Merge the configuration
+        local temp_config=$(mktemp)
+        echo "$config" > "$temp_config"
+        
+        if [[ "$dry_run" == "true" ]]; then
+            echo "Preview of merged configuration:"
+            echo "----------------------------------------"
+            if [[ -f "$target_config" ]]; then
+                jq -s '.[0] * .[1]' "$target_config" "$temp_config"
             else
-                jq -s '.[0] * .[1]' "$claude_config" "$temp_config" > "${claude_config}.new"
-                mv "${claude_config}.new" "$claude_config"
-                echo "Configuration merged into $claude_config"
+                cat "$temp_config"
             fi
         else
-            echo "$config"
-            echo
-            echo "To merge this configuration into Claude Desktop config, run:"
-            echo "  gbox mcp export --merge"
+            if [[ -f "$target_config" ]]; then
+                jq -s '.[0] * .[1]' "$target_config" "$temp_config" > "${target_config}.new"
+                mv "${target_config}.new" "$target_config"
+            else
+                mv "$temp_config" "$target_config"
+            fi
+            echo "Configuration merged into $target_config"
         fi
     else
         echo "$config"
+        echo
+        echo "To merge this configuration, run:"
+        echo "  gbox mcp export --merge-to claude   # For Claude Desktop"
+        echo "  gbox mcp export --merge-to cursor  # For Cursor"
     fi
 }
 

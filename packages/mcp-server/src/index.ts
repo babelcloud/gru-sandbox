@@ -65,14 +65,24 @@ mcpServer.tool("list-boxes", "List all boxes.", {}, handleListBoxes(log));
 // Register run tools with descriptions
 mcpServer.tool(
   "run-python",
-  "Run Python code in a sandbox. If no boxId is provided, the system will try to reuse an existing box with matching image. The system will first try to use a running box, then a stopped box (which will be started), and finally create a new one if needed. Note that without boxId, multiple calls may use different boxes even if they exist. If you need to ensure multiple calls use the same box, you must provide a boxId.",
+  `Run Python code in a sandbox. 
+If no boxId is provided, the system will try to reuse an existing box with matching image. 
+The system will first try to use a running box, then a stopped box (which will be started), and finally create a new one if needed. 
+Note that without boxId, multiple calls may use different boxes even if they exist. 
+If you need to ensure multiple calls use the same box, you must provide a boxId. 
+The Python image comes with uv package manager pre-installed and pip is not available. 
+Please use uv for installing Python packages.`,
   runToolParams,
   handleRunPython(log)
 );
 
 mcpServer.tool(
   "run-bash",
-  "Run Bash commands in a sandbox. If no boxId is provided, the system will try to reuse an existing box with matching image. The system will first try to use a running box, then a stopped box (which will be started), and finally create a new one if needed. Note that without boxId, multiple calls may use different boxes even if they exist. If you need to ensure multiple calls use the same box, you must provide a boxId.",
+  `Run Bash commands in a sandbox. 
+If no boxId is provided, the system will try to reuse an existing box with matching image. 
+The system will first try to use a running box, then a stopped box (which will be started), and finally create a new one if needed. 
+Note that without boxId, multiple calls may use different boxes even if they exist. 
+If you need to ensure multiple calls use the same box, you must provide a boxId.`,
   runToolParams,
   handleRunBash(log)
 );

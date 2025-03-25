@@ -51,10 +51,11 @@ jobs:
 
       - name: Build and push image
         if: steps.check-changes.outputs.commit != ''
-        uses: ./.github/workflows/build-gbox-image.yml
+        uses: ./.github/actions/build-gbox-image
         with:
           build_default_branch_manifest: true
           timeout_minutes: 30
           image_name: gbox-${{ matrix.name }}
           build_context: ./${{ matrix.dir }}
           file: ./${{ matrix.dir }}/Dockerfile
+          docker_password: ${{ secrets.DOCKER_PASSWORD }}

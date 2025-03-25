@@ -1,0 +1,103 @@
+name: "Build Gbox Image"
+description: "Build and push Docker image for Gbox"
+
+inputs:
+  build_default_branch_manifest:
+    description: "Whether to build default branch manifest"
+    required: false
+    type: boolean
+    default: false
+  timeout_minutes:
+    description: "Timeout in minutes"
+    required: false
+    type: number
+    default: 15
+  image_name:
+    description: "Name of the image to build"
+    required: true
+    type: string
+  file:
+    description: "Path to Dockerfile"
+    required: false
+    type: string
+  target:
+    description: "Target build stage"
+    required: false
+    type: string
+  fetch_depth:
+    description: "Git fetch depth"
+    required: false
+    type: number
+    default: 1
+  build_context:
+    description: "Build context"
+    required: false
+    type: string
+    default: "."
+  docker_password:
+    description: "Docker registry password"
+    required: true
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+        fetch-depth: ${{ inputs.fetch_depth }}
+
+    - name: Resolve commit id and image name
+      shell: bash
+      run: |
+        echo "IMAGE_NAME=babelcloud/${{ inputs.image_name }}" >> $GITHUB_ENV
+        echo "COMMIT_ID=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+    - name: Resolve image tag with rev
+      shell: bash
+      run: echo "IMAGE_TAGS=${IMAGE_NAME}:$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+    - name: Resolve image tag with branch name
+      if: inputs.build_default_branch_manifest == true && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      shell: bash
+      run: echo "IMAGE_TAGS=${IMAGE_TAGS},${IMAGE_NAME}:${GITHUB_REF_NAME},${IMAGE_NAME}:latest" >> $GITHUB_ENV
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to registry
+      uses: docker/login-action@v3
+      with:
+        username: babelcloud
+        password: ${{ inputs.docker_password }}
+
+    - name: Calculate CACHEBUST value
+      shell: bash
+      run: echo "CACHEBUST=$(echo -n ${{ github.token }} | md5sum | awk '{print $1}')" >> $GITHUB_ENV
+
+    - name: Set cache scope
+      shell: bash
+      run: |
+        CACHE_SCOPE=${{ inputs.image_name }}
+        CACHE_SCOPE=${CACHE_SCOPE//\//-}
+        echo "CACHE_SCOPE=${CACHE_SCOPE}" >> $GITHUB_ENV
+
+    - name: Build and push
+      uses: docker/build-push-action@v6
+      with:
+        context: ${{ inputs.build_context }}
+        push: true
+        file: ${{ inputs.file || './Dockerfile' }}
+        tags: ${{ env.IMAGE_TAGS }}
+        provenance: false
+        build-args: |
+          CACHEBUST=${{ env.CACHEBUST }}
+          COMMIT_ID=${{ env.COMMIT_ID }}
+        cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
+        cache-to: type=gha,scope=${{ env.CACHE_SCOPE }},mode=max
+        target: ${{ inputs.target }}
+        platforms: linux/amd64,linux/arm64

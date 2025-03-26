@@ -131,7 +131,7 @@ main() {
                 # Only show header and data if there are results
                 echo "ID                                      IMAGE               STATUS"
                 echo "---------------------------------------- ------------------- ---------------"
-                echo "$response" | jq -r '.boxes[] | "\(.id) \(.image) \(.status)"' | column -t
+                echo "$response" | jq -r '.boxes[] | "\(.id) \(if (.image | startswith("sha256:")) then (.image | sub("^sha256:"; "") | if length > 12 then .[0:12] else . end) else .image end) \(.status)"' | column -t
             fi
             ;;
         "404")

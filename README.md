@@ -1,6 +1,10 @@
 # gru-sandbox
 
-A self-hostable sandbox for MCP and AI agents. This project provides a secure and isolated environment for running AI agents and MCP (Model Control Protocol) tasks.
+Gru-sandbox(gbox) is an opensource project that provides a self-hostable sandbox for MCP integration or other AI agent usecases.
+
+As MCP is getting more and more popular, we find there is no easy way to enable MCP client such as Claude Desktop/Cursor to execute commands locally and securely. This project is based on the technology behined [gru.ai](https://gru.ai) and we wrap it into a system command and MCP server to make it easy to use. 
+
+For advanced scenarios, we also kept the ability to run sandboxes in k8s cluster locally or remotely. 
 
 ## Installation
 

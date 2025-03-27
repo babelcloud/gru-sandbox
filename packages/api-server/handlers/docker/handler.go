@@ -85,6 +85,21 @@ func (h *DockerBoxHandler) GetBox(req *restful.Request, resp *restful.Response) 
 	handleGetBox(h, req, resp)
 }
 
+// GetArchive gets a tar archive of a resource in the container's filesystem
+func (h *DockerBoxHandler) GetArchive(req *restful.Request, resp *restful.Response) {
+	handleGetArchive(h, req, resp)
+}
+
+// HeadArchive gets metadata about a resource in the container's filesystem
+func (h *DockerBoxHandler) HeadArchive(req *restful.Request, resp *restful.Response) {
+	handleHeadArchive(h, req, resp)
+}
+
+// ExtractArchive extracts a tar archive to a directory in the container
+func (h *DockerBoxHandler) ExtractArchive(req *restful.Request, resp *restful.Response) {
+	handleExtractArchive(h, req, resp)
+}
+
 // ReclaimBoxes performs the cleanup of inactive boxes
 func (h *DockerBoxHandler) ReclaimBoxes(req *restful.Request, resp *restful.Response) {
 	handleReclaimBoxes(h, req, resp)

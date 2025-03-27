@@ -17,13 +17,21 @@ type APIEndpoint struct {
 func FormatHTTPMethod(method string) string {
 	switch method {
 	case "GET":
-		return color.New(color.Bold, color.FgGreen).Sprint(method)
+		return color.New(color.Bold, color.FgGreen).Sprint(method) // Green for safe operations
 	case "POST":
-		return color.New(color.Bold, color.FgYellow).Sprint(method)
+		return color.New(color.Bold, color.FgYellow).Sprint(method) // Yellow for creation
+	case "PUT":
+		return color.New(color.Bold, color.FgBlue).Sprint(method) // Blue for updates
+	case "PATCH":
+		return color.New(color.Bold, color.FgCyan).Sprint(method) // Cyan for partial updates
 	case "DELETE":
-		return color.New(color.Bold, color.FgRed).Sprint(method)
+		return color.New(color.Bold, color.FgRed).Sprint(method) // Red for deletion
+	case "HEAD":
+		return color.New(color.Bold, color.FgMagenta).Sprint(method) // Magenta for metadata
+	case "OPTIONS":
+		return color.New(color.Bold, color.FgWhite).Sprint(method) // White for capabilities
 	default:
-		return color.New(color.Bold).Sprint(method)
+		return color.New(color.Bold).Sprint(method) // Default bold for unknown methods
 	}
 }
 

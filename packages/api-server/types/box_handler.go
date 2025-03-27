@@ -15,5 +15,8 @@ type BoxHandler interface {
 	StartBox(req *restful.Request, resp *restful.Response)
 	StopBox(req *restful.Request, resp *restful.Response)
 	GetBox(req *restful.Request, resp *restful.Response)
-	ReclaimBoxes(req *restful.Request, resp *restful.Response) 
+	GetArchive(req *restful.Request, resp *restful.Response)
+	HeadArchive(req *restful.Request, resp *restful.Response)
+	ExtractArchive(req *restful.Request, resp *restful.Response)
+	ReclaimBoxes(req *restful.Request, resp *restful.Response)
 }

@@ -14,6 +14,14 @@ import http.client
 
 # Constants
 BUFFER_SIZE = 4096
+MEDIA_TYPE_RAW_STREAM = "application/vnd.gbox.raw-stream"
+MEDIA_TYPE_MULTIPLEXED_STREAM = "application/vnd.gbox.multiplexed-stream"
+DEBUG = os.environ.get('DEBUG', '').lower() in ('true', '1', 'yes')
+
+def debug_log(message):
+    """Print debug message if DEBUG mode is enabled"""
+    if DEBUG:
+        print(f"DEBUG: {message}", file=sys.stderr)
 
 def print_error(message):
     """Print error message to stderr"""
@@ -22,13 +30,19 @@ def print_error(message):
 def handle_error_response(response):
     """Handle error response from server"""
     try:
-        error_data = json.loads(response.read().decode('utf-8'))
-        if isinstance(error_data, dict) and 'message' in error_data:
-            print_error(error_data['message'])
-        else:
-            print_error(f"Server returned status code {response.status}")
-    except json.JSONDecodeError:
-        print_error(f"Server returned status code {response.status}")
+        response_body = response.read()
+        debug_log(f"Response body: {response_body.decode('utf-8')}")
+        
+        try:
+            error_data = json.loads(response_body.decode('utf-8'))
+            if isinstance(error_data, dict) and 'message' in error_data:
+                print_error(error_data['message'])
+            else:
+                print_error(f"Server returned status code {response.status}")
+            if DEBUG:
+                debug_log(f"Full error response: {error_data}")
+        except json.JSONDecodeError:
+            print_error(f"Server returned status code {response.status}: {response_body.decode('utf-8')}")
     except Exception as e:
         print_error(f"Failed to parse error response: {e}")
     sys.exit(1)
@@ -213,6 +227,7 @@ def main():
     term_size = None
     if args.tty:
         term_size = get_terminal_size()
+        debug_log(f"Terminal size: {term_size}")
 
     # Prepare request body
     request = {
@@ -225,6 +240,8 @@ def main():
     }
     if term_size:
         request["term_size"] = term_size
+    
+    debug_log(f"Request body: {json.dumps(request, indent=2)}")
 
     # Create HTTP connection
     conn = http.client.HTTPConnection('localhost', 28080)
@@ -237,18 +254,23 @@ def main():
     }
     if args.tty:
         # In TTY mode, use raw stream
-        headers["Accept"] = "application/vnd.gbox.raw-stream"
+        headers["Accept"] = MEDIA_TYPE_RAW_STREAM
     else:
         # In non-TTY mode, use multiplexed stream
-        headers["Accept"] = "application/vnd.gbox.multiplexed-stream"
+        headers["Accept"] = MEDIA_TYPE_MULTIPLEXED_STREAM
+    
+    debug_log(f"Request headers: {json.dumps(headers, indent=2)}")
 
     try:
         # Send request
+        debug_log(f"Sending request to: POST /api/v1/boxes/{args.box_id}/exec")
         conn.request('POST', f'/api/v1/boxes/{args.box_id}/exec', 
                     json.dumps(request), headers)
         
         # Get response
         response = conn.getresponse()
+        debug_log(f"Response status: {response.status}")
+        debug_log(f"Response headers: {dict(response.getheaders())}")
         
         # Check response status
         if response.status not in (200, 101):

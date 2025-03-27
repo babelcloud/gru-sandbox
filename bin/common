@@ -13,14 +13,15 @@ GBOX_HOME=${GBOX_HOME:-"$HOME/.gbox"}
 GBOX_KUBECFG=${GBOX_KUBECFG:-"$GBOX_HOME/kubeconfig"}
 
 # Common help message handler
-# Usage: show_help <help_type> <cmd_name> <cmd_short_desc> <cmd_usage> <cmd_commands> <cmd_examples>
+# Usage: show_help <help_type> <cmd_name> <cmd_short_desc> <cmd_usage> <cmd_commands> <cmd_args> <cmd_examples>
 show_help() {
     local help_type="${1:-all}"
     local cmd_name="$2"
     local cmd_short_desc="$3"
     local cmd_usage="$4"
     local cmd_commands="$5"
-    local cmd_examples="$6"
+    local cmd_args="$6"
+    local cmd_examples="$7"
     
     case "$help_type" in
         short)
@@ -28,18 +29,24 @@ show_help() {
             return 0
             ;;
         all)
-            cat <<EOF
-Usage: $cmd_usage
+            # Build help message dynamically based on available content
+            local help_msg="Usage: $cmd_usage\n"
 
-Commands:
-$cmd_commands
+            if [ -n "$cmd_args" ]; then
+                help_msg+="\nArguments:\n$cmd_args"
+            fi
 
-Examples:
-$cmd_examples
+            if [ -n "$cmd_commands" ]; then
+                help_msg+="\n\nCommands:\n$cmd_commands"
+            fi
 
-Options:
-    --help [short|all]  Show this help message (default: all)
-EOF
+            help_msg+="\n\nOptions:\n    --help [short|all]  Show this help message (default: all)"
+
+            if [ -n "$cmd_examples" ]; then
+                help_msg+="\n\nExamples:\n$cmd_examples"
+            fi
+
+            echo -e "$help_msg"
             ;;
         *)
             echo "Invalid help type: $help_type" >&2

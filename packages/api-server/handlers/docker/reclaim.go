@@ -185,11 +185,15 @@ func handleReclaimBoxes(h types.BoxHandler, req *restful.Request, resp *restful.
 // wrappedHandler wraps a BoxHandler to track last access times
 type wrappedHandler struct {
 	reclaimer *BoxReclaimer
+	logger    *log.Logger
 }
 
 // WrapHandler wraps a BoxHandler to track last access times for exec, run, and start operations
 func (r *BoxReclaimer) WrapHandler(handler types.BoxHandler) types.BoxHandler {
-	return &wrappedHandler{reclaimer: r}
+	return &wrappedHandler{
+		reclaimer: r,
+		logger:    log.New(),
+	}
 }
 
 // ListBoxes implements BoxHandler interface
@@ -217,27 +221,24 @@ func (w *wrappedHandler) DeleteBoxes(req *restful.Request, resp *restful.Respons
 
 // ExecBox implements BoxHandler interface
 func (w *wrappedHandler) ExecBox(req *restful.Request, resp *restful.Response) {
-	logger := log.New()
 	boxID := req.PathParameter("id")
-	logger.Debug("Updating access time for box %s (ExecBox)", boxID)
+	w.logger.Debug("Updating access time for box %s (ExecBox)", boxID)
 	w.reclaimer.lastAccess.Store(boxID, time.Now())
 	w.reclaimer.handler.ExecBox(req, resp)
 }
 
 // RunBox implements BoxHandler interface
 func (w *wrappedHandler) RunBox(req *restful.Request, resp *restful.Response) {
-	logger := log.New()
 	boxID := req.PathParameter("id")
-	logger.Debug("Updating access time for box %s (RunBox)", boxID)
+	w.logger.Debug("Updating access time for box %s (RunBox)", boxID)
 	w.reclaimer.lastAccess.Store(boxID, time.Now())
 	w.reclaimer.handler.RunBox(req, resp)
 }
 
 // StartBox implements BoxHandler interface
 func (w *wrappedHandler) StartBox(req *restful.Request, resp *restful.Response) {
-	logger := log.New()
 	boxID := req.PathParameter("id")
-	logger.Debug("Updating access time for box %s (StartBox)", boxID)
+	w.logger.Debug("Updating access time for box %s (StartBox)", boxID)
 	w.reclaimer.lastAccess.Store(boxID, time.Now())
 	w.reclaimer.handler.StartBox(req, resp)
 }
@@ -250,6 +251,30 @@ func (w *wrappedHandler) StopBox(req *restful.Request, resp *restful.Response) {
 // GetBox implements BoxHandler interface
 func (w *wrappedHandler) GetBox(req *restful.Request, resp *restful.Response) {
 	w.reclaimer.handler.GetBox(req, resp)
+}
+
+// GetArchive implements BoxHandler interface
+func (w *wrappedHandler) GetArchive(req *restful.Request, resp *restful.Response) {
+	boxID := req.PathParameter("id")
+	w.logger.Debug("Updating access time for box %s (GetArchive)", boxID)
+	w.reclaimer.lastAccess.Store(boxID, time.Now())
+	w.reclaimer.handler.GetArchive(req, resp)
+}
+
+// HeadArchive implements BoxHandler interface
+func (w *wrappedHandler) HeadArchive(req *restful.Request, resp *restful.Response) {
+	boxID := req.PathParameter("id")
+	w.logger.Debug("Updating access time for box %s (HeadArchive)", boxID)
+	w.reclaimer.lastAccess.Store(boxID, time.Now())
+	w.reclaimer.handler.HeadArchive(req, resp)
+}
+
+// ExtractArchive implements BoxHandler interface
+func (w *wrappedHandler) ExtractArchive(req *restful.Request, resp *restful.Response) {
+	boxID := req.PathParameter("id")
+	w.logger.Debug("Updating access time for box %s (ExtractArchive)", boxID)
+	w.reclaimer.lastAccess.Store(boxID, time.Now())
+	w.reclaimer.handler.ExtractArchive(req, resp)
 }
 
 // ReclaimBoxes implements BoxHandler interface

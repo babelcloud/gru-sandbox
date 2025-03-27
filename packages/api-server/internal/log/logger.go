@@ -77,3 +77,8 @@ func (l *Logger) Debug(format string, v ...interface{}) {
 	msg := fmt.Sprintf(format, v...)
 	l.Logger.Debug(msg)
 }
+
+// IsDebugEnabled returns true if debug logging is enabled
+func (l *Logger) IsDebugEnabled() bool {
+	return l.GetLevel() == logrus.DebugLevel
+}

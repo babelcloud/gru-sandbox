@@ -180,7 +180,7 @@ delete() {
     
     # Make API call and handle potential errors
     if ! response=$(curl -s -f -X DELETE -H "Content-Type: application/json" -d '{"force":true}' "$api_url"); then
-        echo "Error: Failed to delete box. Make sure the API server is running and the ID is correct" >&2
+        echo "Error: Failed to delete box. Make sure the API server is running and the ID '$box_id' is correct" >&2
         if [[ "$DEBUG" == "true" ]]; then
             echo "Response:" >&2
             echo "$response" >&2

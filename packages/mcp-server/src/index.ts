@@ -2,13 +2,25 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { boxTemplate, handleBoxResource } from "./resources.js";
 import {
-  runToolParams,
+  LIST_BOXES_TOOL,
+  LIST_BOXES_DESCRIPTION,
+  RUN_PYTHON_TOOL,
+  RUN_PYTHON_DESCRIPTION,
+  RUN_BASH_TOOL,
+  RUN_BASH_DESCRIPTION,
+  READ_FILE_TOOL,
+  READ_FILE_DESCRIPTION,
+  handleListBoxes,
   handleRunPython,
   handleRunBash,
-  handleListBoxes,
-} from "./tools.js";
+  handleReadFile,
+  runPythonParams,
+  runBashParams,
+  readFileParams,
+} from "./tools/index.js";
 import type { LoggingMessageNotification } from "@modelcontextprotocol/sdk/types.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
+import type { LogFn } from "./types.js";
 
 const enableLogging = true;
 
@@ -27,7 +39,7 @@ const mcpServer = new McpServer(
     },
   }
 );
-const log = async (
+const log: LogFn = async (
   params: LoggingMessageNotification["params"]
 ): Promise<void> => {
   if (enableLogging) {
@@ -38,9 +50,10 @@ const log = async (
 // Register box resource
 mcpServer.resource("box", boxTemplate(log), handleBoxResource(log));
 
+// Register run-python prompt
 mcpServer.prompt(
-  "run-python",
-  "Run Python code in a sandbox.",
+  RUN_PYTHON_TOOL,
+  RUN_PYTHON_DESCRIPTION,
   (_: RequestHandlerExtra) => {
     return {
       messages: [
@@ -60,30 +73,32 @@ mcpServer.prompt(
   }
 );
 
-mcpServer.tool("list-boxes", "List all boxes.", {}, handleListBoxes(log));
-
-// Register run tools with descriptions
+// Register tools
 mcpServer.tool(
-  "run-python",
-  `Run Python code in a sandbox. 
-If no boxId is provided, the system will try to reuse an existing box with matching image. 
-The system will first try to use a running box, then a stopped box (which will be started), and finally create a new one if needed. 
-Note that without boxId, multiple calls may use different boxes even if they exist. 
-If you need to ensure multiple calls use the same box, you must provide a boxId. 
-The Python image comes with uv package manager pre-installed and pip is not available. 
-Please use uv for installing Python packages.`,
-  runToolParams,
+  LIST_BOXES_TOOL,
+  LIST_BOXES_DESCRIPTION,
+  {},
+  handleListBoxes(log)
+);
+
+mcpServer.tool(
+  READ_FILE_TOOL,
+  READ_FILE_DESCRIPTION,
+  readFileParams,
+  handleReadFile(log)
+);
+
+mcpServer.tool(
+  RUN_PYTHON_TOOL,
+  RUN_PYTHON_DESCRIPTION,
+  runPythonParams,
   handleRunPython(log)
 );
 
 mcpServer.tool(
-  "run-bash",
-  `Run Bash commands in a sandbox. 
-If no boxId is provided, the system will try to reuse an existing box with matching image. 
-The system will first try to use a running box, then a stopped box (which will be started), and finally create a new one if needed. 
-Note that without boxId, multiple calls may use different boxes even if they exist. 
-If you need to ensure multiple calls use the same box, you must provide a boxId.`,
-  runToolParams,
+  RUN_BASH_TOOL,
+  RUN_BASH_DESCRIPTION,
+  runBashParams,
   handleRunBash(log)
 );
 

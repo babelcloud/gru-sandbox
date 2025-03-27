@@ -21,6 +21,7 @@ CMD_COMMANDS=$(cat <<'EOF'
     stop <id>      Stop a running box
     inspect <id>   Get detailed information about a box
     reclaim        Reclaim inactive boxes
+    cp <src> <dst> Copy files/folders between a box and the local filesystem
 EOF
 )
 
@@ -34,6 +35,8 @@ CMD_EXAMPLES=$(cat <<'EOF'
     gbox box stop 550e8400-e29b-41d4-a716-446655440000           # Stop a running box
     gbox box inspect 550e8400-e29b-41d4-a716-446655440000        # Get box details
     gbox box reclaim                                              # Reclaim inactive boxes
+    gbox box cp ./local_file 550e8400-e29b-41d4-a716-446655440000:/work  # Copy local file to box
+    gbox box cp 550e8400-e29b-41d4-a716-446655440000:/var/logs/ /tmp/app_logs  # Copy from box to local
 EOF
 )
 
@@ -75,6 +78,10 @@ case "$1" in
     reclaim)
         shift
         "$(dirname "$0")/gbox-box-reclaim" "$@"
+        ;;
+    cp)
+        shift
+        "$(dirname "$0")/gbox-box-cp" "$@"
         ;;
     --help|help)
         help "${2:-all}"

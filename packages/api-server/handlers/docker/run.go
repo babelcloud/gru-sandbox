@@ -213,7 +213,11 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 
 	// Prepare response
 	result := models.BoxRunResponse{
-		BoxID:    boxID,
+		Box: models.Box{
+			ID:          boxID,
+			Status:      box.State,
+			Image:       box.Image,
+		},
 		ExitCode: exitCode,
 		Stdout:   output.stdout,
 		Stderr:   output.stderr,

@@ -1,4 +1,4 @@
-import type { Logger, SDKConfig } from "./types";
+import type { Logger, GBoxConfig } from "./types";
 
 export interface ClientRequestOptions extends RequestInit {
   params?: Record<string, string>;
@@ -9,7 +9,7 @@ export class Client {
   private readonly baseUrl: string;
   private readonly logger?: Logger;
 
-  constructor(config: SDKConfig) {
+  constructor(config: GBoxConfig) {
     this.baseUrl = config.apiUrl;
     this.logger = config.logger;
   }

@@ -149,8 +149,8 @@ func (h *K8sBoxHandler) CreateBox(req *restful.Request, resp *restful.Response) 
 						{
 							Name:       "box",
 							Image:      getImage(boxReq.Image),
-							Command:    common.GetCommand(boxReq.Cmd),
-							Args:       boxReq.Args,
+							Command:    common.GetCommand(boxReq.Cmd, boxReq.Args),
+							Env:        getEnvVars(boxReq.Env),
 							WorkingDir: boxReq.WorkingDir,
 						},
 					},
@@ -712,4 +712,19 @@ func parseInt64(s string) int64 {
 
 func writeError(resp *restful.Response, status int, code, message string) {
 	resp.WriteError(status, fmt.Errorf("%s: %s", code, message))
+}
+
+// getEnvVars converts map to k8s env vars
+func getEnvVars(env map[string]string) []corev1.EnvVar {
+	if env == nil {
+		return nil
+	}
+	vars := make([]corev1.EnvVar, 0, len(env))
+	for k, v := range env {
+		vars = append(vars, corev1.EnvVar{
+			Name:  k,
+			Value: v,
+		})
+	}
+	return vars
 }

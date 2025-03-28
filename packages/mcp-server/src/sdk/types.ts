@@ -7,7 +7,7 @@ export interface Logger {
 }
 
 // SDK Configuration
-export interface SDKConfig {
+export interface GBoxConfig {
   apiUrl: string;
   logger?: Logger;
 }
@@ -21,7 +21,6 @@ export interface Box {
 }
 
 export interface BoxRunResult {
-  boxId?: string;
   exitCode: number;
   stdout: string;
   stderr: string;
@@ -35,7 +34,6 @@ export interface CreateBoxOptions {
 }
 
 export interface RunOptions {
-  boxId?: string;
   sessionId?: string;
   signal?: AbortSignal;
 }

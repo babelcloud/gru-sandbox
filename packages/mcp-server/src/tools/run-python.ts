@@ -57,7 +57,6 @@ export const handleRunPython = withLogging(
     const result = await gbox.box.runInBox(
       id,
       ["python3"],
-      [],
       code,
       100, // stdoutLineLimit
       100, // stderrLineLimit

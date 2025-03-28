@@ -84,7 +84,7 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 		req.Request.Context(),
 		&container.Config{
 			Image:      img,
-			Cmd:        common.GetCommand(boxReq.Cmd),
+			Cmd:        common.GetCommand(boxReq.Cmd, boxReq.Args),
 			Env:        common.GetEnvVars(boxReq.Env),
 			WorkingDir: boxReq.WorkingDir,
 			Labels:     labels,

@@ -55,7 +55,6 @@ export const handleRunBash = withLogging(
     const result = await gbox.box.runInBox(
       id,
       ["/bin/bash"],
-      [],
       code,
       100, // stdoutLineLimit
       100, // stderrLineLimit

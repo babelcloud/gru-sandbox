@@ -183,13 +183,21 @@ main() {
     # Call API server to create box
     local api_url="http://localhost:28080/api/v1/boxes"
     local response
+    local http_code
     
     # Make API call and handle potential errors
-    if ! response=$(curl -s -f -X POST -H "Content-Type: application/json" -d "$request_body" "$api_url"); then
-        echo "Error: Failed to connect to API server at $api_url" >&2
-        if [[ "$DEBUG" == "true" ]]; then
-            echo "Response:" >&2
-            echo "$response" >&2
+    response=$(curl -s -w "%{http_code}" -X POST -H "Content-Type: application/json" -d "$request_body" "$api_url")
+    http_code=${response: -3}
+    response=${response:0:-3}
+
+    if [[ "$http_code" != "201" ]]; then
+        if [[ "$http_code" == "000" ]]; then
+            echo "Error: Failed to connect to API server at $api_url" >&2
+        else
+            echo "Error: API server returned HTTP $http_code" >&2
+            if [[ -n "$response" ]]; then
+                echo "Response: $response" >&2
+            fi
         fi
         exit 1
     fi

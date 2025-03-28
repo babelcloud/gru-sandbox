@@ -1,14 +1,23 @@
-import type { Box, BoxRunResult, CreateBoxOptions, RunOptions } from "./types";
+import type {
+  Box,
+  BoxRunResult,
+  CreateBoxOptions,
+  RunOptions,
+  Logger,
+  GBoxConfig,
+} from "./types";
 import { Client } from "./client";
 
 export class BoxService {
   private readonly client: Client;
-  private readonly defaultCmd = ["/bin/bash"];
+  private readonly logger?: Logger;
+  private readonly defaultCmd = ["sleep", "infinity"];
   private readonly defaultStdoutLimit = 100;
   private readonly defaultStderrLimit = 100;
 
-  constructor(client: Client) {
+  constructor(client: Client, config: GBoxConfig) {
     this.client = client;
+    this.logger = config.logger;
   }
 
   // Helper function to build query parameters for filters
@@ -72,28 +81,102 @@ export class BoxService {
     return newBox.id;
   }
 
+  // Create a new box
+  private async createBox(
+    image: string,
+    cmd: string | string[],
+    { sessionId, signal }: RunOptions
+  ): Promise<Box> {
+    let command: string;
+    let commandArgs: string[] | undefined;
+
+    if (Array.isArray(cmd)) {
+      [command, ...commandArgs] = cmd;
+    } else {
+      command = cmd;
+    }
+
+    try {
+      const response = await this.client.post("/boxes", {
+        body: JSON.stringify({
+          image,
+          cmd: command,
+          args: commandArgs,
+          labels: sessionId ? { sessionId } : undefined,
+        }),
+        signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        this.logger?.error(
+          "Failed to create box. Status: %d, Error: %s",
+          response.status,
+          errorText
+        );
+        throw new Error(
+          `Failed to create box: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const result = await response.json();
+      this.logger?.debug("Box created successfully: %o", result);
+      return result as Box;
+    } catch (error) {
+      this.logger?.error("Error creating box: %o", error);
+      throw error;
+    }
+  }
+
   // Run command in a box and return output
   async runInBox(
     id: string,
-    command: string[],
-    args: string[] = [],
+    command: string | string[],
     stdin: string = "",
     stdoutLineLimit: number = this.defaultStdoutLimit,
     stderrLineLimit: number = this.defaultStderrLimit,
     { signal }: RunOptions
   ): Promise<BoxRunResult> {
-    const response = await this.client.post(`/boxes/${id}/run`, {
-      body: JSON.stringify({
-        cmd: command,
-        args,
-        stdin,
-        stdoutLineLimit,
-        stderrLineLimit,
-      }),
-      signal,
-    });
-    const result = await response.json();
-    return result as BoxRunResult;
+    let cmd: string;
+    let args: string[] | undefined;
+
+    if (Array.isArray(command)) {
+      [cmd, ...args] = command;
+    } else {
+      cmd = command;
+    }
+
+    try {
+      const response = await this.client.post(`/boxes/${id}/run`, {
+        body: JSON.stringify({
+          cmd: [cmd],
+          args,
+          stdin,
+          stdoutLineLimit,
+          stderrLineLimit,
+        }),
+        signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        this.logger?.error(
+          "Failed to run command in box. Status: %d, Error: %s",
+          response.status,
+          errorText
+        );
+        throw new Error(
+          `Failed to run command in box: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const result = await response.json();
+      this.logger?.debug("Command executed successfully: %o", result);
+      return result as BoxRunResult;
+    } catch (error) {
+      this.logger?.error("Error running command in box: %o", error);
+      throw error;
+    }
   }
 
   // List all boxes
@@ -128,24 +211,6 @@ export class BoxService {
     );
 
     return response.json();
-  }
-
-  // Create a new box
-  private async createBox(
-    image: string,
-    cmd: string[],
-    { sessionId, signal }: RunOptions
-  ): Promise<Box> {
-    const response = await this.client.post("/boxes", {
-      body: JSON.stringify({
-        image,
-        cmd,
-        labels: sessionId ? { sessionId } : undefined,
-      }),
-      signal,
-    });
-    const result = await response.json();
-    return result as Box;
   }
 
   // Start a box

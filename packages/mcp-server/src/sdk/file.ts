@@ -1,4 +1,9 @@
-import type { FileMetadataResponse, FileShareResponse } from "./types";
+import type {
+  FileMetadataResponse,
+  FileShareResponse,
+  GBoxConfig,
+  Logger,
+} from "./types";
 import { Client } from "./client";
 
 interface FileShareRequest {
@@ -8,9 +13,11 @@ interface FileShareRequest {
 
 export class FileService {
   private readonly client: Client;
+  private readonly logger?: Logger;
 
-  constructor(client: Client) {
+  constructor(client: Client, config: GBoxConfig) {
     this.client = client;
+    this.logger = config.logger;
   }
 
   // Get file metadata

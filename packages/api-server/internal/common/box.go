@@ -15,11 +15,16 @@ func GetImage(image string) string {
 }
 
 // GetCommand returns the command to run, falling back to default if none specified
-func GetCommand(cmd string) []string {
+func GetCommand(cmd string, args []string) []string {
 	if cmd == "" {
 		return []string{"sleep", "infinity"}
 	}
-	return []string{"/bin/sh", "-c", cmd}
+	if len(args) == 0 {
+		// If no args provided, use shell to parse the command string
+		return []string{"/bin/sh", "-c", cmd}
+	}
+	// If args are provided, use direct command array
+	return append([]string{cmd}, args...)
 }
 
 // JoinArgs converts a string array to a JSON string

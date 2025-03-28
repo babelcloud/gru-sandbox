@@ -10,6 +10,7 @@
     "build": "tsup",
     "typecheck": "tsc --noEmit",
     "inspect": "SERVER_PORT=9090 npx @modelcontextprotocol/inspector tsx src/index.ts",
+    "inspect:dist": "SERVER_PORT=9090 npx @modelcontextprotocol/inspector node dist/index.js",
     "log": "tail -n 20 -F ~/Library/Logs/Claude/mcp-server-gbox.log"
   },
   "keywords": [],

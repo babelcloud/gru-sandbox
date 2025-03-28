@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -9,6 +10,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/emicklei/go-restful/v3"
 	"github.com/google/uuid"
@@ -24,6 +27,7 @@ import (
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/types"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 const (
@@ -381,6 +385,274 @@ func (h *K8sBoxHandler) ReclaimBoxes(req *restful.Request, resp *restful.Respons
 	resp.WriteErrorString(http.StatusNotImplemented, "Kubernetes box reclamation not implemented")
 }
 
+// GetArchive implements BoxHandler interface
+func (h *K8sBoxHandler) GetArchive(req *restful.Request, resp *restful.Response) {
+	boxID := req.PathParameter("id")
+	path := req.QueryParameter("path")
+
+	log.Printf("Received get archive request for box: %s, path: %s", boxID, path)
+
+	if path == "" {
+		log.Printf("Invalid request: path is required")
+		writeError(resp, http.StatusBadRequest, "INVALID_REQUEST", "Path is required")
+		return
+	}
+
+	// Get the pod name for the deployment
+	pods, err := h.client.CoreV1().Pods(tenantNamespace).List(req.Request.Context(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=gbox,%s=%s", labelName, labelInstance, boxID),
+	})
+	if err != nil {
+		log.Printf("Error listing pods: %v", err)
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error listing pods: %v", err))
+		return
+	}
+
+	if len(pods.Items) == 0 {
+		log.Printf("Box not found: %s", boxID)
+		writeError(resp, http.StatusNotFound, "BOX_NOT_FOUND", fmt.Sprintf("Box not found: %s", boxID))
+		return
+	}
+
+	pod := pods.Items[0]
+	if pod.Status.Phase != corev1.PodRunning {
+		log.Printf("Box is not running: %s", boxID)
+		writeError(resp, http.StatusBadRequest, "BOX_NOT_RUNNING", fmt.Sprintf("Box is not running: %s", boxID))
+		return
+	}
+
+	// Create command to get file/directory
+	cmd := []string{"tar", "czf", "-", path}
+	exec, err := h.client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Namespace(tenantNamespace).
+		Name(pod.Name).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Command: cmd,
+			Stdin:   false,
+			Stdout:  true,
+			Stderr:  true,
+			TTY:     false,
+		}, scheme.ParameterCodec).
+		Stream(req.Request.Context())
+	if err != nil {
+		log.Printf("Error creating exec: %v", err)
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error creating exec: %v", err))
+		return
+	}
+	defer exec.Close()
+
+	// Set response headers
+	resp.Header().Set("Content-Type", "application/x-tar")
+
+	// Copy the archive to response
+	if _, err := io.Copy(resp, exec); err != nil {
+		log.Printf("Error copying archive to response: %v", err)
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error copying archive: %v", err))
+		return
+	}
+}
+
+// HeadArchive implements BoxHandler interface
+func (h *K8sBoxHandler) HeadArchive(req *restful.Request, resp *restful.Response) {
+	boxID := req.PathParameter("id")
+	path := req.QueryParameter("path")
+
+	log.Printf("Received head archive request for box: %s, path: %s", boxID, path)
+
+	if path == "" {
+		log.Printf("Invalid request: path is required")
+		writeError(resp, http.StatusBadRequest, "INVALID_REQUEST", "Path is required")
+		return
+	}
+
+	// Get the pod name for the deployment
+	pods, err := h.client.CoreV1().Pods(tenantNamespace).List(req.Request.Context(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=gbox,%s=%s", labelName, labelInstance, boxID),
+	})
+	if err != nil {
+		log.Printf("Error listing pods: %v", err)
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error listing pods: %v", err))
+		return
+	}
+
+	if len(pods.Items) == 0 {
+		log.Printf("Box not found: %s", boxID)
+		writeError(resp, http.StatusNotFound, "BOX_NOT_FOUND", fmt.Sprintf("Box not found: %s", boxID))
+		return
+	}
+
+	pod := pods.Items[0]
+	if pod.Status.Phase != corev1.PodRunning {
+		log.Printf("Box is not running: %s", boxID)
+		writeError(resp, http.StatusBadRequest, "BOX_NOT_RUNNING", fmt.Sprintf("Box is not running: %s", boxID))
+		return
+	}
+
+	// Create command to get file/directory metadata
+	cmd := []string{"stat", "-f", "%N:%z:%m:%a:%U:%G", path}
+	exec, err := h.client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Namespace(tenantNamespace).
+		Name(pod.Name).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Command: cmd,
+			Stdin:   false,
+			Stdout:  true,
+			Stderr:  true,
+			TTY:     false,
+		}, scheme.ParameterCodec).
+		Stream(req.Request.Context())
+	if err != nil {
+		log.Printf("Error creating exec: %v", err)
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error creating exec: %v", err))
+		return
+	}
+	defer exec.Close()
+
+	// Read the output
+	output, err := io.ReadAll(exec)
+	if err != nil {
+		log.Printf("Error reading exec output: %v", err)
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error reading exec output: %v", err))
+		return
+	}
+
+	// Parse the output
+	parts := strings.Split(string(output), ":")
+	if len(parts) != 6 {
+		log.Printf("Invalid stat output: %s", string(output))
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", "Invalid stat output")
+		return
+	}
+
+	// Create stat response
+	stat := struct {
+		Name    string `json:"name"`
+		Size    int64  `json:"size"`
+		ModTime string `json:"modTime"`
+		Mode    string `json:"mode"`
+		UID     string `json:"uid"`
+		GID     string `json:"gid"`
+	}{
+		Name:    parts[0],
+		Size:    parseInt64(parts[1]),
+		ModTime: parts[2],
+		Mode:    parts[3],
+		UID:     parts[4],
+		GID:     strings.TrimSpace(parts[5]),
+	}
+
+	// Convert stat to JSON string
+	statJSON, err := json.Marshal(stat)
+	if err != nil {
+		log.Printf("Error marshaling stat: %v", err)
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error marshaling stat: %v", err))
+		return
+	}
+
+	// Set response headers
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("X-Gbox-Path-Stat", string(statJSON))
+	resp.WriteHeader(http.StatusOK)
+}
+
+// ExtractArchive implements BoxHandler interface
+func (h *K8sBoxHandler) ExtractArchive(req *restful.Request, resp *restful.Response) {
+	boxID := req.PathParameter("id")
+	path := req.QueryParameter("path")
+
+	log.Printf("Received extract archive request for box: %s, path: %s", boxID, path)
+
+	if path == "" {
+		log.Printf("Invalid request: path is required")
+		writeError(resp, http.StatusBadRequest, "INVALID_REQUEST", "Path is required")
+		return
+	}
+
+	// Get the pod name for the deployment
+	pods, err := h.client.CoreV1().Pods(tenantNamespace).List(req.Request.Context(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=gbox,%s=%s", labelName, labelInstance, boxID),
+	})
+	if err != nil {
+		log.Printf("Error listing pods: %v", err)
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error listing pods: %v", err))
+		return
+	}
+
+	if len(pods.Items) == 0 {
+		log.Printf("Box not found: %s", boxID)
+		writeError(resp, http.StatusNotFound, "BOX_NOT_FOUND", fmt.Sprintf("Box not found: %s", boxID))
+		return
+	}
+
+	pod := pods.Items[0]
+	if pod.Status.Phase != corev1.PodRunning {
+		log.Printf("Box is not running: %s", boxID)
+		writeError(resp, http.StatusBadRequest, "BOX_NOT_RUNNING", fmt.Sprintf("Box is not running: %s", boxID))
+		return
+	}
+
+	// Create command to extract archive
+	cmd := []string{"tar", "xzf", "-", "-C", path}
+	exec, err := h.client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Namespace(tenantNamespace).
+		Name(pod.Name).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Command: cmd,
+			Stdin:   true,
+			Stdout:  true,
+			Stderr:  true,
+			TTY:     false,
+		}, scheme.ParameterCodec).
+		Stream(req.Request.Context())
+	if err != nil {
+		log.Printf("Error creating exec: %v", err)
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error creating exec: %v", err))
+		return
+	}
+	defer exec.Close()
+
+	// Create a buffer to store the output
+	var stdout, stderr bytes.Buffer
+
+	// Create remote command executor
+	executor, err := remotecommand.NewSPDYExecutor(h.config, "POST", h.client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Namespace(tenantNamespace).
+		Name(pod.Name).
+		SubResource("exec").
+		URL())
+	if err != nil {
+		log.Printf("Error creating executor: %v", err)
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error creating executor: %v", err))
+		return
+	}
+
+	// Execute the command with stdin from request body
+	err = executor.Stream(remotecommand.StreamOptions{
+		Stdin:  req.Request.Body,
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Tty:    false,
+	})
+	if err != nil {
+		log.Printf("Error executing command: %v", err)
+		writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error executing command: %v", err))
+		return
+	}
+
+	// Write response
+	resp.WriteHeader(http.StatusOK)
+	resp.WriteEntity(models.BoxExtractArchiveResponse{
+		Success: true,
+	})
+}
+
 // multiplexedWriter implements io.Writer for multiplexed streams
 type multiplexedWriter struct {
 	writer io.Writer
@@ -427,4 +699,17 @@ func joinArgs(args []string) string {
 
 func int32Ptr(i int32) *int32 {
 	return &i
+}
+
+func parseInt64(s string) int64 {
+	i, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		log.Printf("Error parsing int64: %v", err)
+		return 0
+	}
+	return i
+}
+
+func writeError(resp *restful.Response, status int, code, message string) {
+	resp.WriteError(status, fmt.Errorf("%s: %s", code, message))
 }

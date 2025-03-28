@@ -12,26 +12,34 @@ import (
 
 // Manager manages cron jobs
 type Manager struct {
-	cron    *cron.Cron
-	logger  *log.Logger
-	handler types.BoxHandler
+	cron        *cron.Cron
+	logger      *log.Logger
+	boxHandler  types.BoxHandler
+	fileHandler types.FileHandler
 }
 
 // NewManager creates a new cron manager
-func NewManager(logger *log.Logger, handler types.BoxHandler) *Manager {
+func NewManager(logger *log.Logger, boxHandler types.BoxHandler, fileHandler types.FileHandler) *Manager {
 	return &Manager{
-		cron:    cron.New(cron.WithLogger(cron.VerbosePrintfLogger(logger))),
-		logger:  logger,
-		handler: handler,
+		cron:        cron.New(cron.WithLogger(cron.DefaultLogger)),
+		logger:      logger,
+		boxHandler:  boxHandler,
+		fileHandler: fileHandler,
 	}
 }
 
 // Start starts the cron manager
 func (m *Manager) Start() {
-	// Add reclaim job - run every 10 minutes
+	// Add reclaim jobs
 	_, err := m.cron.AddFunc("*/10 * * * *", m.reclaimBoxes)
 	if err != nil {
-		m.logger.Fatal("Failed to add reclaim job: %v", err)
+		m.logger.Fatal("Failed to add box reclaim job: %v", err)
+	}
+
+	// Run file reclamation daily at midnight
+	_, err = m.cron.AddFunc("0 0 * * *", m.reclaimFiles)
+	if err != nil {
+		m.logger.Fatal("Failed to add file reclaim job: %v", err)
 	}
 
 	m.cron.Start()
@@ -49,7 +57,15 @@ func (m *Manager) reclaimBoxes() {
 	m.logger.Info("Running scheduled box reclamation")
 	req := restful.NewRequest(&http.Request{})
 	resp := restful.NewResponse(&discardResponseWriter{})
-	m.handler.ReclaimBoxes(req, resp)
+	m.boxHandler.ReclaimBoxes(req, resp)
+}
+
+// reclaimFiles runs the file reclamation job
+func (m *Manager) reclaimFiles() {
+	m.logger.Info("Running scheduled file reclamation")
+	req := restful.NewRequest(&http.Request{})
+	resp := restful.NewResponse(&discardResponseWriter{})
+	m.fileHandler.ReclaimFiles(req, resp)
 }
 
 // discardResponseWriter implements http.ResponseWriter but discards all writes

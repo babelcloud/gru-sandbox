@@ -27,8 +27,10 @@ func init() {
 	v.AutomaticEnv()
 	v.BindEnv("cluster.mode", "CLUSTER_MODE")
 	v.BindEnv("server.port", "PORT")
-	v.BindEnv("docker.host", "DOCKER_HOST")
-	v.BindEnv("k8s.cfg", "KUBECONFIG")
+	v.BindEnv("cluster.docker.host", "DOCKER_HOST")
+	v.BindEnv("cluster.k8s.cfg", "KUBECONFIG")
+	v.BindEnv("gbox.home", "GBOX_HOME")
+	v.BindEnv("gbox.share", "GBOX_SHARE")
 
 	// Config file
 	v.SetConfigName("config")
@@ -37,8 +39,8 @@ func init() {
 	// Look for config in the following paths
 	configPaths := []string{
 		".",
-		"$HOME/.gru",
-		"/etc/gru",
+		"$HOME/.gbox",
+		"/etc/gbox",
 	}
 
 	for _, path := range configPaths {

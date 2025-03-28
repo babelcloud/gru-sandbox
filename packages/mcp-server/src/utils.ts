@@ -17,23 +17,7 @@ export function withLogging<T extends (...args: any[]) => any>(
 ): (log: LogFunction) => T {
   return (log: LogFunction) => {
     return (async (...args: Parameters<T>) => {
-      try {
-        log({ level: "info", data: `Starting ${handler.name}` });
-
-        const result = await handler(log, ...args);
-
-        log({ level: "info", data: `Completed ${handler.name} successfully` });
-
-        return result;
-      } catch (error) {
-        log({
-          level: "error",
-          data: `Error in ${handler.name}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        });
-        throw error;
-      }
+      return await handler(log, ...args);
     }) as T;
   };
 }
@@ -56,10 +40,13 @@ export function withLoggingResourceTemplate(
     const wrappedOptions = {
       ...options,
       list: async (extra: RequestHandlerExtra): Promise<ListResourcesResult> =>
-        options.list(log,extra),
+        options.list(log, extra),
     };
 
     // Create and return the ResourceTemplate instance
     return new ResourceTemplate(uri, wrappedOptions);
   };
 }
+
+// This file is intentionally empty as the snake_case to camelCase conversion
+// is no longer needed since the API now uses camelCase by default.

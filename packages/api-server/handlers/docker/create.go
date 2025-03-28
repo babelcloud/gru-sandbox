@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/emicklei/go-restful/v3"
 	"github.com/google/uuid"
 
+	"github.com/babelcloud/gru-sandbox/packages/api-server/config"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/common"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
@@ -50,6 +54,31 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 	// Prepare labels
 	labels := prepareLabels(boxID, &boxReq)
 
+	// Get share directory from config
+	fileConfig := config.NewFileConfig().(*config.FileConfig)
+	if err := fileConfig.Initialize(logger); err != nil {
+		logger.Error("Error initializing file config: %v", err)
+		resp.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	// Create share directory for the box
+	shareDir := filepath.Join(fileConfig.GetFileShareDir(), boxID)
+	if err := os.MkdirAll(shareDir, 0755); err != nil {
+		logger.Error("Error creating share directory: %v", err)
+		resp.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	// Prepare volume mounts
+	mounts := []mount.Mount{
+		{
+			Type:   mount.TypeBind,
+			Source: shareDir,
+			Target: "/var/gbox/share",
+		},
+	}
+
 	// Create container
 	containerResp, err := h.client.ContainerCreate(
 		req.Request.Context(),
@@ -60,7 +89,9 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 			WorkingDir: boxReq.WorkingDir,
 			Labels:     labels,
 		},
-		&container.HostConfig{},
+		&container.HostConfig{
+			Mounts: mounts,
+		},
 		nil,
 		nil,
 		containerName,

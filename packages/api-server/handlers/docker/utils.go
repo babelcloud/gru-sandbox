@@ -8,6 +8,7 @@ import (
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 )
 
@@ -21,7 +22,7 @@ func (h *DockerBoxHandler) getContainerByID(ctx context.Context, boxID string) (
 	filterArgs := filters.NewArgs()
 	filterArgs.Add("label", fmt.Sprintf("%s=%s", GboxLabelID, boxID))
 
-	containers, err := h.client.ContainerList(ctx, types.ContainerListOptions{
+	boxes, err := h.client.ContainerList(ctx, container.ListOptions{
 		All:     true,
 		Filters: filterArgs,
 	})
@@ -29,11 +30,11 @@ func (h *DockerBoxHandler) getContainerByID(ctx context.Context, boxID string) (
 		return nil, fmt.Errorf("failed to list containers: %v", err)
 	}
 
-	if len(containers) == 0 {
+	if len(boxes) == 0 {
 		return nil, fmt.Errorf("box not found")
 	}
 
-	return &containers[0], nil
+	return &boxes[0], nil
 }
 
 // getAllContainers finds all containers with gbox label

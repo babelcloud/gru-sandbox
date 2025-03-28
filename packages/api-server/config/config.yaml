@@ -2,14 +2,20 @@
 server:
   port: 28080
 
+# Application configuration
+gbox:
+  # Base directories
+  home: "${HOME}/.gbox" # Base directory for all application data
+  share: "${gbox.home}/share" # Directory for shared files
+
 # Cluster configuration
 cluster:
   mode: docker # Possible values: docker, k8s
 
-# Docker specific configuration
-docker:
-  host: "" # If empty, will try default socket paths
+  # Docker specific settings
+  docker:
+    host: "" # If empty, will try default socket paths
 
-# Kubernetes specific configuration
-k8s:
-  cfg: "" # If empty, will try default paths
+  # Kubernetes specific settings
+  k8s:
+    cfg: "" # If empty, will try default paths

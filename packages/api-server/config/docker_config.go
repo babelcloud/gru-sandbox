@@ -16,7 +16,14 @@ type DockerConfig struct {
 
 // NewDockerConfig creates a new DockerConfig
 func NewDockerConfig() Config {
-	return &DockerConfig{}
+	cfg := &DockerConfig{}
+	// Initialize with default logger
+	logger := log.New()
+	if err := cfg.Initialize(logger); err != nil {
+		// Log error but don't fail, let the caller handle initialization errors
+		logger.Error("Failed to initialize Docker config: %v", err)
+	}
+	return cfg
 }
 
 // Initialize validates and initializes the configuration
@@ -24,7 +31,7 @@ func (c *DockerConfig) Initialize(logger *log.Logger) error {
 	logger.Info("%s", format.FormatServerMode("docker"))
 
 	// Check configuration from Viper
-	if host := v.GetString("docker.host"); host != "" {
+	if host := v.GetString("cluster.docker.host"); host != "" {
 		c.Host = host
 		logger.Info("Using Docker configuration with host: \"%s\"", c.Host)
 		return nil

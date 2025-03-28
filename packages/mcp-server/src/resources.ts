@@ -1,10 +1,6 @@
-import {
-  ResourceTemplate,
-  ReadResourceTemplateCallback,
-} from "@modelcontextprotocol/sdk/server/mcp.js";
-import { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
-import { Variables } from "@modelcontextprotocol/sdk/shared/uriTemplate.js";
-import { getBoxes, getBox } from "./box.js";
+import { config } from "./config.js";
+import { GBox } from "./sdk/index.js";
+import { MCPLogger } from "./mcp-logger.js";
 import {
   withLogging,
   withLoggingResourceTemplate,
@@ -23,16 +19,22 @@ const boxTemplate = withLoggingResourceTemplate("gbox:///boxes/{boxId}", {
   list: async (log: LogFunction, { signal, sessionId }) => {
     log({ level: "info", data: "Starting to fetch boxes" });
 
-    const boxes = await getBoxes({ signal, sessionId });
-    log({ level: "info", data: `Found ${boxes?.length || 0} boxes` });
+    const logger = new MCPLogger(log);
+    const sdk = new GBox({
+      apiUrl: config.apiServer.url,
+      logger,
+    });
 
-    if (!boxes || boxes.length === 0) {
+    const response = await sdk.box.getBoxes({ signal, sessionId });
+    log({ level: "info", data: `Found ${response.boxes.length} boxes` });
+
+    if (!response.boxes || response.boxes.length === 0) {
       log({ level: "info", data: "No boxes found, returning empty list" });
       return { resources: [] };
     }
 
     log({ level: "info", data: "Mapping boxes to resource format" });
-    const resources = boxes.map((box: Box) => {
+    const resources = response.boxes.map((box: Box) => {
       const resource = {
         uri: `gbox:///boxes/${box.id}`,
         name: `Box ${box.id}`,
@@ -65,7 +67,13 @@ export const handleBoxResource = withLogging(
       };
     }
 
-    const box = await getBox(boxId, { signal, sessionId });
+    const logger = new MCPLogger(log);
+    const sdk = new GBox({
+      apiUrl: config.apiServer.url,
+      logger,
+    });
+
+    const box = await sdk.box.getBox(boxId, { signal, sessionId });
     log({ level: "info", data: `Successfully fetched box ${boxId}` });
     return {
       contents: [

@@ -11,6 +11,10 @@ The system will first try to use a running box, then a stopped box (which will b
 Note that without boxId, multiple calls may use different boxes even if they exist. 
 If you need to ensure multiple calls use the same box, you must provide a boxId.
 
+When running in gbox-python image, you MUST use 'uv pip install --system <package_name>' to install Python packages. 
+The --system flag is required as pip is not available and virtual environments are not supported. 
+Without --system flag, package installation will fail.
+
 To persist files after sandbox reclamation, save them to /var/gbox/share directory. 
 Files in this directory will be retained for a period of time after the sandbox is reclaimed.
 
@@ -41,7 +45,6 @@ export const handleRunBash = withLogging(
         sessionId ? `for session: ${sessionId}` : ""
       }`
     );
-
 
     // Get or create box
     const id = await gbox.box.getOrCreateBox({

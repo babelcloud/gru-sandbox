@@ -11,7 +11,7 @@ The system will first try to use a running box, then a stopped box (which will b
 Note that without boxId, multiple calls may use different boxes even if they exist. 
 If you need to ensure multiple calls use the same box, you must provide a boxId. 
 The Python image comes with uv package manager pre-installed and pip is not available. 
-Please use uv for installing Python packages.
+To install Python packages, use run-bash tool to execute 'uv pip install --system' as virtual environments are not yet supported.
 
 To persist files after sandbox reclamation, save them to /var/gbox/share directory. 
 Files in this directory will be retained for a period of time after the sandbox is reclaimed.

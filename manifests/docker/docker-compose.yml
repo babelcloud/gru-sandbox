@@ -14,4 +14,6 @@ services:
       - ${GBOX_HOME:-$HOME/.gbox}:/var/gbox
     environment:
       - TZ=Asia/Shanghai
+      - GBOX_HOST_SHARE=${GBOX_SHARE:-$HOME/.gbox/share}
+      - GBOX_SHARE=/var/gbox/share
     restart: unless-stopped 

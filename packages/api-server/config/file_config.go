@@ -10,7 +10,8 @@ import (
 
 // FileConfig handles file service configuration
 type FileConfig struct {
-	ShareDir string
+	ShareDir     string
+	HostShareDir string
 }
 
 // NewFileConfig creates a new FileConfig
@@ -45,10 +46,24 @@ func (c *FileConfig) Initialize(logger *log.Logger) error {
 		return fmt.Errorf("failed to create share directory: %v", err)
 	}
 
+	// Get host share directory from config
+	if hostShareDir := v.GetString("gbox.host_share"); hostShareDir != "" {
+		c.HostShareDir = hostShareDir
+		logger.Info("Using configured host share directory: \"%s\"", c.HostShareDir)
+	} else {
+		c.HostShareDir = c.ShareDir
+		logger.Info("Using share directory as host share directory: \"%s\"", c.HostShareDir)
+	}
+
 	return nil
 }
 
 // GetFileShareDir returns the share directory path
 func (c *FileConfig) GetFileShareDir() string {
 	return c.ShareDir
+}
+
+// GetHostShareDir returns the host share directory path
+func (c *FileConfig) GetHostShareDir() string {
+	return c.HostShareDir
 }

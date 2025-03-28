@@ -63,6 +63,7 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 	}
 
 	// Create share directory for the box
+	hostShareDir := filepath.Join(fileConfig.GetHostShareDir(), boxID)
 	shareDir := filepath.Join(fileConfig.GetFileShareDir(), boxID)
 	if err := os.MkdirAll(shareDir, 0755); err != nil {
 		logger.Error("Error creating share directory: %v", err)
@@ -74,7 +75,7 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 	mounts := []mount.Mount{
 		{
 			Type:   mount.TypeBind,
-			Source: shareDir,
+			Source: hostShareDir,
 			Target: "/var/gbox/share",
 		},
 	}

@@ -31,6 +31,7 @@ func init() {
 	v.BindEnv("cluster.k8s.cfg", "KUBECONFIG")
 	v.BindEnv("gbox.home", "GBOX_HOME")
 	v.BindEnv("gbox.share", "GBOX_SHARE")
+	v.BindEnv("gbox.host_share", "GBOX_HOST_SHARE")
 
 	// Config file
 	v.SetConfigName("config")

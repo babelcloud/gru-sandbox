@@ -84,5 +84,20 @@ clean: ## Clean distribution files
 	@echo "Cleaning distribution files..."
 	@rm -rf $(DIST_DIR)
 
+api-dev: ## Start api server
+	@echo "Starting api server..."
+	@cd packages/api-server && DEBUG=true go run main.go
+
+api: ## Start api server with docker compose
+	@cd manifests/docker && docker compose up --build
+
+mcp-dev: ## Start mcp server
+	@echo "Starting mcp server..."
+	@cd packages/mcp-server && pnpm inspect
+
+mcp: build ## Start mcp server with distribution package
+	@echo "Starting mcp server with distribution package..."
+	@cd packages/mcp-server && pnpm inspect:dist
+
 # Default target
 .DEFAULT_GOAL := help 

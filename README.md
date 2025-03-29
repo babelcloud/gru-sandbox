@@ -67,9 +67,9 @@ gbox box exec <box-id> -- python -c "print('Hello')"           # Execute command
 gbox box inspect <box-id>                                      # Inspect container
 
 # MCP configuration
-gbox mcp export                # Export MCP configuration
-gbox mcp export --merge        # Export and merge into Claude Desktop config
-gbox mcp export --dry-run      # Preview merge result without applying changes
+gbox mcp export                          # Export MCP configuration
+gbox mcp export --merge-to claude        # Export and merge into Claude Desktop config
+gbox mcp export --dry-run                # Preview merge result without applying changes
 ```
 
 ## Development Setup
@@ -114,6 +114,29 @@ We welcome contributions! Please feel free to submit a Pull Request. For major c
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+### Things to Know about Dev and Debug Locally
+#### How to run gbox in dev env instead of the system installed one
+1. Stop the installed gbox by `gbox cleanup`. It will stop the api server so that you can run the api server in dev env.
+2. Execute `make -C packages/api-server dev` in project root.
+3. Execute `./gbox box list`, this is the command run from your dev env. 
+
+#### How to connect MCP client such as Claude Desktop to the MCP server in dev env
+1. Execute `cd packages/mcp-server && pnpm dev` in project root.
+2. Execute `./gbox mcp export --merge-to claude`
+
+#### How to open MCP inspect
+1. Execute `cd packages/mcp-server && pnpm inspect` in project root.
+2. Click the link returned in terminal.
+
+#### How to build and use image in dev env
+1. Execute `cd images && make build-python` in project root.
+2. Change the `build-python` as needed.
+3. You may need to delete current sandboxes to make the new image effective `./gbox box delete --all`
+
+#### Why MCP client still get the old MCP content?
+1. After you change MCP configuration such as tool definitions, you need to run `cd packages/mcp-server && pnpm build` to update the `dist/index.js` file.
+2. You may also need to execute `./gbox mcp export --merge-to claude`
 
 ## License
 

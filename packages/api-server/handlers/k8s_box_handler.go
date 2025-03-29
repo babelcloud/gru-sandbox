@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
-	"github.com/google/uuid"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -100,7 +99,7 @@ func (h *K8sBoxHandler) CreateBox(req *restful.Request, resp *restful.Response) 
 		return
 	}
 
-	boxID := uuid.New().String()
+	boxID := common.GenerateBoxID()
 	labels := map[string]string{
 		labelName:      "gbox",           // The application name
 		labelInstance:  boxID,            // Unique instance identifier

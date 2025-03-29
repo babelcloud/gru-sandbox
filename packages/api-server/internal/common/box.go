@@ -4,6 +4,10 @@ import "encoding/json"
 
 const (
 	DefaultImage = "ubuntu:latest"
+	// DefaultWorkDirPath is the base path for all box-related directories
+	DefaultWorkDirPath = "/var/gbox"
+	// DefaultShareDirPath is the path for the shared directory within a box
+	DefaultShareDirPath = DefaultWorkDirPath + "/share"
 )
 
 // GetImage returns the image to use, falling back to default if none specified

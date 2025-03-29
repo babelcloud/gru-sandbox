@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/emicklei/go-restful/v3"
 
+	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/common"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 )
 
@@ -140,7 +141,7 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 		Detach:       false,
 		DetachKeys:   "",  // Use default detach keys
 		Env:          nil, // No additional environment variables
-		WorkingDir:   "",  // Use container's working directory
+		WorkingDir:   common.DefaultWorkDirPath,
 		Cmd:          append(runReq.Cmd, runReq.Args...),
 	}
 
@@ -214,9 +215,9 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 	// Prepare response
 	result := models.BoxRunResponse{
 		Box: models.Box{
-			ID:          boxID,
-			Status:      box.State,
-			Image:       box.Image,
+			ID:     boxID,
+			Status: box.State,
+			Image:  box.Image,
 		},
 		ExitCode: exitCode,
 		Stdout:   output.stdout,

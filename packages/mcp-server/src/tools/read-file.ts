@@ -45,7 +45,7 @@ async function handleFileContent(
 
   // For small text files (less than 1MB), return content directly
   if (mimeType.startsWith("text/") && contentLength < FILE_SIZE_LIMITS.TEXT) {
-    const text = await sdk.file.readFileAsText(`/${boxId}${path}`, signal);
+    const text = await sdk.file.readFileAsText(`${boxId}${path}`, signal);
     return {
       content: [
         {
@@ -62,7 +62,7 @@ async function handleFileContent(
     contentLength < FILE_SIZE_LIMITS.BINARY
   ) {
     logger.info(`Reading image file: ${path}, from box: ${boxId}`);
-    const buffer = await sdk.file.readFileAsBuffer(`/${boxId}${path}`, signal);
+    const buffer = await sdk.file.readFileAsBuffer(`${boxId}${path}`, signal);
     if (!buffer) {
       return {
         content: [
@@ -92,7 +92,7 @@ async function handleFileContent(
     mimeType.startsWith("audio/") &&
     contentLength < FILE_SIZE_LIMITS.BINARY
   ) {
-    const buffer = await sdk.file.readFileAsBuffer(`/${boxId}${path}`, signal);
+    const buffer = await sdk.file.readFileAsBuffer(`${boxId}${path}`, signal);
     if (!buffer) {
       return {
         content: [
@@ -139,7 +139,7 @@ export const handleReadFile = withLogging(
     logger.info(`Reading file: ${path}${boxId ? ` from box: ${boxId}` : ""}`);
 
     // First check if file exists and get metadata
-    let metadata = await gbox.file.getFileMetadata(`/${boxId}${path}`, signal);
+    let metadata = await gbox.file.getFileMetadata(`${boxId}${path}`, signal);
 
     // If file doesn't exist and we have a boxId, try to share it
     if (!metadata && boxId) {
@@ -168,7 +168,7 @@ export const handleReadFile = withLogging(
       );
 
       // Retry getting file metadata after sharing
-      metadata = await gbox.file.getFileMetadata(`/${boxId}${path}`, signal);
+      metadata = await gbox.file.getFileMetadata(`${boxId}${path}`, signal);
     }
 
     if (!metadata) {

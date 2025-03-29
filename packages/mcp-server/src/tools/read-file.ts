@@ -121,7 +121,7 @@ async function handleFileContent(
     content: [
       {
         type: "text" as const,
-        text: `${config.apiServer.url}/api/v1/files/${boxId}${path}`,
+        text: `${config.apiServer.url}/files/${boxId}${path}`,
       },
     ],
   };

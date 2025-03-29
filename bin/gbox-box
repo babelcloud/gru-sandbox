@@ -49,15 +49,15 @@ help() {
 case "$1" in
     list|ls)
         shift
-        "$(dirname "$0")/gbox-box-list" "$@"
+        "$(dirname "$0")/../packages/cli/G" box list "$@"
         ;;
     create)
         shift
-        "$(dirname "$0")/gbox-box-create" "$@"
+        "$(dirname "$0")/../packages/cli/G" box create "$@"
         ;;
     delete)
         shift
-        "$(dirname "$0")/gbox-box-delete" "$@"
+        "$(dirname "$0")/../packages/cli/G" box delete "$@"
         ;;
     exec)
         shift
@@ -65,23 +65,23 @@ case "$1" in
         ;;
     start)
         shift
-        "$(dirname "$0")/gbox-box-start" "$@"
+        "$(dirname "$0")/../packages/cli/G" box start "$@"
         ;;
     stop)
         shift
-        "$(dirname "$0")/gbox-box-stop" "$@"
+        "$(dirname "$0")/../packages/cli/G" box stop "$@"
         ;;
     inspect)
         shift
-        "$(dirname "$0")/gbox-box-inspect" "$@"
+        "$(dirname "$0")/../packages/cli/G" box inspect "$@"
         ;;
     reclaim)
         shift
-        "$(dirname "$0")/gbox-box-reclaim" "$@"
+        "$(dirname "$0")/../packages/cli/G" box reclaim "$@"
         ;;
     cp)
         shift
-        "$(dirname "$0")/gbox-box-cp" "$@"
+        "$(dirname "$0")/../packages/cli/G" box cp "$@"
         ;;
     --help|help)
         help "${2:-all}"

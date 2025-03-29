@@ -1,0 +1,38 @@
+commands:
+  box:
+    implementation: bash
+    sub_commands:
+      create:
+        implementation: go
+      delete:
+        implementation: bash
+      list:
+        implementation: bash
+      exec:
+        implementation: bash
+      inspect:
+        implementation: bash
+      start:
+        implementation: bash
+      stop:
+        implementation: bash
+      reclaim:
+        implementation: bash
+  cluster:
+    implementation: bash
+    sub_commands:
+      setup:
+        implementation: go
+      cleanup:
+        implementation: go
+  mcp:
+    implementation: bash
+    sub_commands:
+      export:
+        implementation: bash
+  # 示例：将某个子命令改为使用Go实现
+  # box:
+  #   implementation: bash
+  #   sub_commands:
+  #     list:
+  #       implementation: go 

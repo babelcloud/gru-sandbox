@@ -11,7 +11,10 @@
     "typecheck": "tsc --noEmit",
     "inspect": "SERVER_PORT=9090 npx @modelcontextprotocol/inspector tsx src/index.ts",
     "inspect:dist": "SERVER_PORT=9090 npx @modelcontextprotocol/inspector node dist/index.js",
-    "log": "tail -n 20 -F ~/Library/Logs/Claude/mcp-server-gbox.log"
+    "log": "tail -n 20 -F ~/Library/Logs/Claude/mcp-server-gbox.log",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
   "keywords": [
     "mcp",
@@ -30,8 +33,11 @@
   "devDependencies": {
     "@types/dotenv-defaults": "^2.0.4",
     "@types/node": "^22.13.0",
+    "@vitest/coverage-v8": "^1.3.1",
+    "@vitest/ui": "^1.3.1",
     "tsup": "^8.4.0",
     "tsx": "^4.7.1",
-    "typescript": "^5.4.2"
+    "typescript": "^5.4.2",
+    "vitest": "^1.3.1"
   }
 }

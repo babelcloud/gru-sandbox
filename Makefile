@@ -44,6 +44,17 @@ build: check-pnpm ## Build all components
 	@echo "Building components..."
 	@cd packages/mcp-server && pnpm install && pnpm build
 
+# Build docker images
+.PHONY: build-images
+build-images: ## Build all docker images
+	@echo "Building all docker images..."
+	@make -C images build-all
+
+.PHONY: build-image-%
+build-image-%: ## Build specific docker image (e.g., build-image-python)
+	@echo "Building docker image $*..."
+	@make -C images build-$*
+
 # Create distribution package
 .PHONY: dist
 dist: build ## Create distribution package
@@ -86,12 +97,16 @@ clean: ## Clean distribution files
 
 api-dev: ## Start api server
 	@echo "Starting api server..."
-	@cd packages/api-server && DEBUG=true go run main.go
+	@make -C packages/api-server dev
 
 api: ## Start api server with docker compose
 	@cd manifests/docker && docker compose up --build
 
 mcp-dev: ## Start mcp server
+	@echo "Starting mcp server..."
+	@cd packages/mcp-server && pnpm dev
+
+mcp-inspect: ## Start mcp server
 	@echo "Starting mcp server..."
 	@cd packages/mcp-server && pnpm inspect
 

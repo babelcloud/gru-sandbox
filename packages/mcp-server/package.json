@@ -13,9 +13,14 @@
     "inspect:dist": "SERVER_PORT=9090 npx @modelcontextprotocol/inspector node dist/index.js",
     "log": "tail -n 20 -F ~/Library/Logs/Claude/mcp-server-gbox.log"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "mcp",
+    "gbox",
+    "gru",
+    "sandbox"
+  ],
+  "author": "BabelCloud",
+  "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.7.0",
     "dotenv-defaults": "^5.0.2",

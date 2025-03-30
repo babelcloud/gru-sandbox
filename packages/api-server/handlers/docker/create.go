@@ -12,7 +12,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/emicklei/go-restful/v3"
-	"github.com/google/uuid"
 
 	"github.com/babelcloud/gru-sandbox/packages/api-server/config"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/common"
@@ -48,7 +47,7 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 		}
 	}
 
-	boxID := uuid.New().String()
+	boxID := common.GenerateBoxID()
 	containerName := fmt.Sprintf("gbox-%s", boxID)
 
 	// Prepare labels
@@ -76,7 +75,7 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 		{
 			Type:   mount.TypeBind,
 			Source: hostShareDir,
-			Target: "/var/gbox/share",
+			Target: common.DefaultShareDirPath,
 		},
 	}
 

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/babelcloud/gru-sandbox/packages/api-server/config"
+	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/common"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/types"
@@ -328,10 +329,10 @@ func (h *FileHandler) ShareFile(req *restful.Request, resp *restful.Response) {
 		cleanPath = "/" + cleanPath
 	}
 
-	// Check if path starts with /var/gbox/share
-	if strings.HasPrefix(cleanPath, "/"+shareReq.BoxID+"/var/gbox/share") {
+	// Check if path starts with default share directory path
+	if strings.HasPrefix(cleanPath, "/" + shareReq.BoxID + common.DefaultShareDirPath) {
 		// Remove the prefix to get the relative path
-		relativePath := strings.TrimPrefix(cleanPath, "/"+shareReq.BoxID+"/var/gbox/share")
+		relativePath := strings.TrimPrefix(cleanPath, "/" + shareReq.BoxID + common.DefaultShareDirPath)
 		relativePath = filepath.Clean(relativePath)
 		if !strings.HasPrefix(relativePath, "/") {
 			relativePath = "/" + relativePath

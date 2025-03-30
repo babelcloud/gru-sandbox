@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/emicklei/go-restful/v3"
 
+	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/common"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 )
 
@@ -111,7 +112,7 @@ func (h *DockerBoxHandler) handleCommandExecution(ctx context.Context, container
 		Detach:       false,
 		DetachKeys:   "",  // Use default detach keys
 		Env:          nil, // No additional environment variables
-		WorkingDir:   "",  // Use container's working directory
+		WorkingDir:   common.DefaultWorkDirPath,
 		Cmd:          append(execReq.Cmd, execReq.Args...),
 	}
 

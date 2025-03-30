@@ -13,19 +13,19 @@ Your AI client such as Claude Desktop can use gbox MCP to deliver better results
 ### 1. Generating Diagrams
 
 Generate diagrams of Tesla stock prices:
-![Image](https://github.com/user-attachments/assets/acbc81c2-f289-4f7b-8fde-7060756175de)
+![Image](https://i.imghippo.com/files/njBB6977VQQ.png)
 https://claude.ai/share/34de8ca3-4e04-441b-9e79-5875fa9fc97a
 
 ### 2. Generating PDFs
 
 Generate PDF of latest AI news:
-![Image](https://github.com/user-attachments/assets/1ec4a679-0d5e-434d-b75c-68a62a58c1e0)
+![Image](https://i.imghippo.com/files/oMF9723LA.png)
 https://claude.ai/share/84600933-dcf2-44be-a2fd-7f49540db57a
 
 ### 3. Analyzing and Calculation
 
 Analyze and compare Nvidia/Tesla market cap:
-![Image](https://github.com/user-attachments/assets/36f10fcc-0137-4b86-8f7b-a14b89ecb359)
+![Image](https://i.imghippo.com/files/FE2710WR.png)
 https://claude.ai/share/70c335b7-9fff-4ee7-8459-e6b7462d8994
 
 ### 4. Processing Local Files (coming soon)
@@ -37,7 +37,7 @@ Please compress all photos in shared folder and make sure each of them is smalle
 ### 5. Execute Arbitrary Tasks
 
 Download youtube video:
-![Image](https://github.com/user-attachments/assets/76a4e13d-f85f-4f61-b25c-e6160d82dc42)
+![Image](https://i.imghippo.com/files/TI9396Rjg.png)
 https://claude.ai/share/c2ab6bcb-7032-489f-87d5-cc38f72c2ca9
 
 ## Installation

@@ -19,7 +19,7 @@ help: ## Show this help message
 # Run the API server in development mode
 .PHONY: dev
 dev: ## Run the API server in development mode
-	go run main.go
+	DEBUG=true go run main.go
 
 # Build binary for current platform
 .PHONY: binary

@@ -13,9 +13,14 @@
     "inspect:dist": "SERVER_PORT=9090 npx @modelcontextprotocol/inspector node dist/index.js",
     "log": "tail -n 20 -F ~/Library/Logs/Claude/mcp-server-gbox.log"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "mcp",
+    "gbox",
+    "gru",
+    "sandbox"
+  ],
+  "author": "BabelCloud",
+  "license": "Apache-2.0",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.7.0",
     "dotenv-defaults": "^5.0.2",
@@ -28,6 +33,5 @@
     "tsup": "^8.4.0",
     "tsx": "^4.7.1",
     "typescript": "^5.4.2"
-  },
-  "packageManager": "pnpm@10.5.2+sha512.da9dc28cd3ff40d0592188235ab25d3202add8a207afbedc682220e4a0029ffbff4562102b9e6e46b4e3f9e8bd53e6d05de48544b0c57d4b0179e22c76d1199b"
+  }
 }

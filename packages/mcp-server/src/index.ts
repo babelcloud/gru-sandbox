@@ -15,8 +15,12 @@ import {
   handleRunBash,
   handleReadFile,
   runPythonParams,
-  runBashParams,
   readFileParams,
+  handleViewByUrl,
+  viewByUrlParams,
+  VIEW_BY_URL_TOOL,
+  VIEW_BY_URL_DESCRIPTION,
+  runBashParams,
 } from "./tools/index.js";
 import type { LoggingMessageNotification } from "@modelcontextprotocol/sdk/types.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
@@ -113,6 +117,13 @@ mcpServer.tool(
   RUN_BASH_DESCRIPTION,
   runBashParams,
   handleRunBash(log)
+);
+
+mcpServer.tool(
+  VIEW_BY_URL_TOOL,
+  VIEW_BY_URL_DESCRIPTION,
+  viewByUrlParams,
+  handleViewByUrl(log)
 );
 
 // Start server

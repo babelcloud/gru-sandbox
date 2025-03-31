@@ -41,7 +41,7 @@ func NewBoxCreateCommand() *cobra.Command {
 			var labels []string
 			var workingDir string
 
-			// 解析参数
+			// Parse arguments
 			for i := 0; i < len(args); i++ {
 				switch args[i] {
 				case "--help":
@@ -51,12 +51,12 @@ func NewBoxCreateCommand() *cobra.Command {
 					if i+1 < len(args) {
 						outputFormat = args[i+1]
 						if outputFormat != "json" && outputFormat != "text" {
-							fmt.Println("错误: 无效的输出格式。必须是 'json' 或 'text'")
+							fmt.Println("Error: Invalid output format. Must be 'json' or 'text'")
 							os.Exit(1)
 						}
 						i++
 					} else {
-						fmt.Println("错误: --output 需要参数值")
+						fmt.Println("Error: --output requires a value")
 						os.Exit(1)
 					}
 				case "--image":
@@ -64,33 +64,33 @@ func NewBoxCreateCommand() *cobra.Command {
 						image = args[i+1]
 						i++
 					} else {
-						fmt.Println("错误: --image 需要参数值")
+						fmt.Println("Error: --image requires a value")
 						os.Exit(1)
 					}
 				case "--env":
 					if i+1 < len(args) {
 						envValue := args[i+1]
 						if !regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=.+$`).MatchString(envValue) {
-							fmt.Println("错误: 无效的环境变量格式。使用 KEY=VALUE")
+							fmt.Println("Error: Invalid environment variable format. Use KEY=VALUE")
 							os.Exit(1)
 						}
 						env = append(env, envValue)
 						i++
 					} else {
-						fmt.Println("错误: --env 需要参数值")
+						fmt.Println("Error: --env requires a value")
 						os.Exit(1)
 					}
 				case "-l", "--label":
 					if i+1 < len(args) {
 						labelValue := args[i+1]
 						if !regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=.+$`).MatchString(labelValue) {
-							fmt.Println("错误: 无效的标签格式。使用 KEY=VALUE")
+							fmt.Println("Error: Invalid label format. Use KEY=VALUE")
 							os.Exit(1)
 						}
 						labels = append(labels, labelValue)
 						i++
 					} else {
-						fmt.Println("错误: --label 需要参数值")
+						fmt.Println("Error: --label requires a value")
 						os.Exit(1)
 					}
 				case "-w", "--work-dir":
@@ -98,7 +98,7 @@ func NewBoxCreateCommand() *cobra.Command {
 						workingDir = args[i+1]
 						i++
 					} else {
-						fmt.Println("错误: --work-dir 需要参数值")
+						fmt.Println("Error: --work-dir requires a value")
 						os.Exit(1)
 					}
 				case "--":
@@ -107,23 +107,23 @@ func NewBoxCreateCommand() *cobra.Command {
 						if i+2 < len(args) {
 							commandArgs = args[i+2:]
 						}
-						i = len(args) // 终止循环
+						i = len(args) // End the loop
 					} else {
-						fmt.Println("错误: -- 后需要命令")
+						fmt.Println("Error: -- requires a command")
 						os.Exit(1)
 					}
 				default:
-					fmt.Printf("错误: 未知选项 %s\n", args[i])
+					fmt.Printf("Error: Unknown option %s\n", args[i])
 					os.Exit(1)
 				}
 			}
 
-			// 如果输出格式未指定，默认为text
+			// If output format is not specified, default to text
 			if outputFormat == "" {
 				outputFormat = "text"
 			}
 
-			// 构建请求体
+			// Build request body
 			request := BoxCreateRequest{}
 
 			if image != "" {
@@ -142,7 +142,7 @@ func NewBoxCreateCommand() *cobra.Command {
 				request.WorkingDir = workingDir
 			}
 
-			// 处理环境变量
+			// Process environment variables
 			if len(env) > 0 {
 				request.Env = make(map[string]string)
 				for _, e := range env {
@@ -153,7 +153,7 @@ func NewBoxCreateCommand() *cobra.Command {
 				}
 			}
 
-			// 处理标签
+			// Process labels
 			if len(labels) > 0 {
 				request.Labels = make(map[string]string)
 				for _, l := range labels {
@@ -164,61 +164,61 @@ func NewBoxCreateCommand() *cobra.Command {
 				}
 			}
 
-			// 将请求转换为JSON
+			// Convert request to JSON
 			requestBody, err := json.Marshal(request)
 			if err != nil {
-				fmt.Printf("错误: 无法序列化请求: %v\n", err)
+				fmt.Printf("Error: Unable to serialize request: %v\n", err)
 				os.Exit(1)
 			}
 
-			// 调试输出
+			// Debug output
 			if os.Getenv("DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "请求体:\n")
+				fmt.Fprintf(os.Stderr, "Request body:\n")
 				var prettyJSON bytes.Buffer
 				json.Indent(&prettyJSON, requestBody, "", "  ")
 				fmt.Fprintln(os.Stderr, prettyJSON.String())
 			}
 
-			// 调用API服务器
+			// Call API server
 			apiURL := "http://localhost:28080/api/v1/boxes"
 			if envURL := os.Getenv("API_URL"); envURL != "" {
 				apiURL = envURL + "/api/v1/boxes"
 			}
 			resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(requestBody))
 			if err != nil {
-				fmt.Printf("错误: 无法连接到API服务器: %v\n", err)
+				fmt.Printf("Error: Unable to connect to API server: %v\n", err)
 				os.Exit(1)
 			}
 			defer resp.Body.Close()
 
-			// 读取响应
+			// Read response
 			responseBody, err := io.ReadAll(resp.Body)
 			if err != nil {
-				fmt.Printf("错误: 读取响应失败: %v\n", err)
+				fmt.Printf("Error: Failed to read response: %v\n", err)
 				os.Exit(1)
 			}
 
-			// 检查HTTP状态码
+			// Check HTTP status code
 			if resp.StatusCode != 201 {
-				fmt.Printf("错误: API服务器返回HTTP %d\n", resp.StatusCode)
+				fmt.Printf("Error: API server returned HTTP %d\n", resp.StatusCode)
 				if len(responseBody) > 0 {
-					fmt.Printf("响应: %s\n", string(responseBody))
+					fmt.Printf("Response: %s\n", string(responseBody))
 				}
 				os.Exit(1)
 			}
 
-			// 处理响应
+			// Process response
 			if outputFormat == "json" {
-				// 原样输出JSON
+				// Output JSON as is
 				fmt.Println(string(responseBody))
 			} else {
-				// 格式化输出
+				// Format output
 				var response BoxCreateResponse
 				if err := json.Unmarshal(responseBody, &response); err != nil {
-					fmt.Printf("错误: 解析响应失败: %v\n", err)
+					fmt.Printf("Error: Failed to parse response: %v\n", err)
 					os.Exit(1)
 				}
-				fmt.Printf("已创建盒子，ID为 \"%s\"\n", response.ID)
+				fmt.Printf("Box created with ID \"%s\"\n", response.ID)
 			}
 		},
 	}
@@ -227,17 +227,17 @@ func NewBoxCreateCommand() *cobra.Command {
 }
 
 func printBoxCreateHelp() {
-	fmt.Println("用法: gbox box create [选项] [--] <命令> [参数...]")
+	fmt.Println("Usage: gbox box create [options] [--] <command> [args...]")
 	fmt.Println()
-	fmt.Println("选项:")
-	fmt.Println("    --output          输出格式 (json或text, 默认: text)")
-	fmt.Println("    --image           容器镜像")
-	fmt.Println("    --env             环境变量，格式为KEY=VALUE")
-	fmt.Println("    -w, --work-dir    工作目录")
-	fmt.Println("    -l, --label       自定义标签，格式为KEY=VALUE")
-	fmt.Println("    --                命令及其参数")
+	fmt.Println("Options:")
+	fmt.Println("    --output          Output format (json or text, default: text)")
+	fmt.Println("    --image           Container image")
+	fmt.Println("    --env             Environment variable, format KEY=VALUE")
+	fmt.Println("    -w, --work-dir    Working directory")
+	fmt.Println("    -l, --label       Custom label, format KEY=VALUE")
+	fmt.Println("    --                Command and its arguments")
 	fmt.Println()
-	fmt.Println("示例:")
+	fmt.Println("Examples:")
 	fmt.Println("    gbox box create --image python:3.9 -- python3 -c 'print(\"Hello\")'")
 	fmt.Println("    gbox box create --env PATH=/usr/local/bin:/usr/bin:/bin -w /app -- node server.js")
 	fmt.Println("    gbox box create --label project=myapp --label env=prod -- python3 server.py")

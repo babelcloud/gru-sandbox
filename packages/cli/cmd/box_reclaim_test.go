@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// 测试数据
-const mockBoxReclaimSuccessResponse = `{"status":"success","message":"资源回收成功","stoppedCount":2,"deletedCount":1}`
-const mockBoxReclaimEmptyResponse = `{"status":"success","message":"没有发现可回收的资源","stoppedCount":0,"deletedCount":0}`
+// Test data
+const mockBoxReclaimSuccessResponse = `{"status":"success","message":"Resources reclaimed successfully","stoppedCount":2,"deletedCount":1}`
+const mockBoxReclaimEmptyResponse = `{"status":"success","message":"No resources found to reclaim","stoppedCount":0,"deletedCount":0}`
 
-// TestBoxReclaimSuccess 测试成功回收特定盒子资源
+// TestBoxReclaimSuccess tests successful reclamation of a specific box's resources
 func TestBoxReclaimSuccess(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -27,20 +27,20 @@ func TestBoxReclaimSuccess(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查请求方法和路径
+		// Check request method and path
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/v1/boxes/test-box-id/reclaim", r.URL.Path)
 
-		// 返回模拟响应
+		// Return mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(mockBoxReclaimSuccessResponse))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -48,38 +48,38 @@ func TestBoxReclaimSuccess(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxReclaimCommand()
 	cmd.SetArgs([]string{"test-box-id"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出
-	assert.Contains(t, output, "资源回收成功")
-	assert.Contains(t, output, "已停止 2 个盒子")
-	assert.Contains(t, output, "已删除 1 个盒子")
+	// Check output
+	assert.Contains(t, output, "Resources reclaimed successfully")
+	assert.Contains(t, output, "Stopped 2 boxes")
+	assert.Contains(t, output, "Deleted 1 boxes")
 }
 
-// TestBoxReclaimWithJsonOutput 测试以JSON格式输出回收结果
+// TestBoxReclaimWithJsonOutput tests JSON format output for resource reclamation
 func TestBoxReclaimWithJsonOutput(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -87,20 +87,20 @@ func TestBoxReclaimWithJsonOutput(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查请求方法和路径
+		// Check request method and path
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/v1/boxes/test-box-id/reclaim", r.URL.Path)
 
-		// 返回模拟响应
+		// Return mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(mockBoxReclaimSuccessResponse))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -108,36 +108,36 @@ func TestBoxReclaimWithJsonOutput(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxReclaimCommand()
 	cmd.SetArgs([]string{"test-box-id", "--output", "json"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出是否为原始JSON
+	// Check if output is original JSON
 	assert.JSONEq(t, mockBoxReclaimSuccessResponse, strings.TrimSpace(output))
 }
 
-// TestBoxReclaimWithForce 测试使用强制参数回收盒子资源
+// TestBoxReclaimWithForce tests using force parameter to reclaim box resources
 func TestBoxReclaimWithForce(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -145,23 +145,23 @@ func TestBoxReclaimWithForce(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查请求方法和路径
+		// Check request method and path
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/v1/boxes/test-box-id/reclaim", r.URL.Path)
 
-		// 检查强制参数
+		// Check force parameter
 		assert.Equal(t, "force=true", r.URL.RawQuery)
 
-		// 返回模拟响应
+		// Return mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(mockBoxReclaimSuccessResponse))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -169,36 +169,36 @@ func TestBoxReclaimWithForce(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxReclaimCommand()
 	cmd.SetArgs([]string{"test-box-id", "--force"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出
-	assert.Contains(t, output, "资源回收成功")
+	// Check output
+	assert.Contains(t, output, "Resources reclaimed successfully")
 }
 
-// TestBoxReclaimAll 测试回收所有盒子资源
+// TestBoxReclaimAll tests reclaiming all box resources
 func TestBoxReclaimAll(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -206,20 +206,20 @@ func TestBoxReclaimAll(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查请求方法和路径 - 全局回收
+		// Check request method and path - global reclaim
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/v1/boxes/reclaim", r.URL.Path)
 
-		// 返回模拟响应
+		// Return mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(mockBoxReclaimSuccessResponse))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -227,36 +227,36 @@ func TestBoxReclaimAll(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令 - 不指定盒子ID
+	// Execute command - no box ID specified
 	cmd := NewBoxReclaimCommand()
 	cmd.SetArgs([]string{})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出
-	assert.Contains(t, output, "资源回收成功")
+	// Check output
+	assert.Contains(t, output, "Resources reclaimed successfully")
 }
 
-// TestBoxReclaimNoResourcesFound 测试没有找到可回收资源的情况
+// TestBoxReclaimNoResourcesFound tests the case when no resources are found to reclaim
 func TestBoxReclaimNoResourcesFound(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -264,20 +264,20 @@ func TestBoxReclaimNoResourcesFound(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查请求方法和路径
+		// Check request method and path
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/v1/boxes/reclaim", r.URL.Path)
 
-		// 返回模拟响应 - 没有资源被回收
+		// Return mock response - no resources reclaimed
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(mockBoxReclaimEmptyResponse))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -285,38 +285,38 @@ func TestBoxReclaimNoResourcesFound(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxReclaimCommand()
 	cmd.SetArgs([]string{})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出
-	assert.Contains(t, output, "没有发现可回收的资源")
-	assert.NotContains(t, output, "已停止")
-	assert.NotContains(t, output, "已删除")
+	// Check output
+	assert.Contains(t, output, "No resources found to reclaim")
+	assert.NotContains(t, output, "Stopped")
+	assert.NotContains(t, output, "Deleted")
 }
 
-// TestBoxReclaimHelp 测试帮助信息
+// TestBoxReclaimHelp tests help information
 func TestBoxReclaimHelp(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -324,37 +324,37 @@ func TestBoxReclaimHelp(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxReclaimCommand()
 	cmd.SetArgs([]string{"--help"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查帮助信息中是否包含关键部分
-	assert.Contains(t, output, "用法: gbox box reclaim <id> [选项]")
+	// Check if help message contains key sections
+	assert.Contains(t, output, "Usage: gbox box reclaim <id> [options]")
 	assert.Contains(t, output, "--output")
 	assert.Contains(t, output, "-f, --force")
-	assert.Contains(t, output, "回收盒子资源")
-	assert.Contains(t, output, "强制回收盒子资源")
-	assert.Contains(t, output, "回收所有符合条件的盒子资源")
+	assert.Contains(t, output, "Reclaim box resources")
+	assert.Contains(t, output, "Force reclaim box resources")
+	assert.Contains(t, output, "Reclaim resources for all eligible boxes")
 }
 
-// TestBoxReclaimNotFound 测试盒子不存在的情况
+// TestBoxReclaimNotFound tests the case when box is not found
 func TestBoxReclaimNotFound(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -362,16 +362,16 @@ func TestBoxReclaimNotFound(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 返回404错误
+		// Return 404 error
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"error": "Box not found"}`))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -379,29 +379,29 @@ func TestBoxReclaimNotFound(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxReclaimCommand()
 	cmd.SetArgs([]string{"non-existent-box-id"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出
-	assert.Contains(t, output, "盒子未找到")
+	// Check output
+	assert.Contains(t, output, "Box not found")
 }

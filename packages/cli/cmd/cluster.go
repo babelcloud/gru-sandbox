@@ -15,12 +15,10 @@ func NewClusterCommand() *cobra.Command {
 		},
 	}
 
-	// 设置自定义帮助函数
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		showHelp("all")
 	})
 
-	// 添加所有cluster相关的子命令
 	cmd.AddCommand(
 		NewClusterSetupCommand(),
 		NewClusterCleanupCommand(),

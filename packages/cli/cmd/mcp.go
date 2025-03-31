@@ -15,12 +15,10 @@ func NewMcpCommand() *cobra.Command {
 		},
 	}
 
-	// 设置自定义帮助函数
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		showHelp("all")
 	})
 
-	// 添加所有mcp相关的子命令
 	cmd.AddCommand(
 		NewMcpExportCommand(),
 	)

@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// execCommand 用于测试中的命令执行模拟
+// execCommand used for mocking command execution in tests
 var execCommand = exec.Command
 
-// 创建模拟执行器
+// Create mock executor
 type mockExecutor struct {
 	commands []string
 	outputs  map[string]string
@@ -30,7 +30,7 @@ func newMockExecutor() *mockExecutor {
 	}
 }
 
-// 模拟执行命令
+// Mock execute command
 func (m *mockExecutor) execCommand(command string, args ...string) *exec.Cmd {
 	cs := []string{"-test.run=TestHelperProcess", "--", command}
 	cs = append(cs, args...)
@@ -43,7 +43,7 @@ func (m *mockExecutor) execCommand(command string, args ...string) *exec.Cmd {
 	}
 	m.commands = append(m.commands, fullCmd)
 
-	// 设置输出和错误
+	// Set output and error
 	if output, ok := m.outputs[fullCmd]; ok {
 		cmd.Stdout = bytes.NewBufferString(output)
 	}
@@ -51,27 +51,27 @@ func (m *mockExecutor) execCommand(command string, args ...string) *exec.Cmd {
 	return cmd
 }
 
-// 测试命令设置集群
+// Test command setup cluster
 func TestClusterSetup(t *testing.T) {
-	// 跳过管道测试
+	// Skip pipe test
 	if os.Getenv("GO_WANT_HELPER_PROCESS") == "1" {
 		return
 	}
 
-	// 保存原始的执行函数
+	// Save original execution function
 	origExecCommand := execCommand
 	defer func() { execCommand = origExecCommand }()
 
-	// 创建临时目录
+	// Create temporary directory
 	tempDir, err := os.MkdirTemp("", "gbox-test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	// 创建模拟执行器
+	// Create mock executor
 	mockExec := newMockExecutor()
 	execCommand = mockExec.execCommand
 
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -79,63 +79,63 @@ func TestClusterSetup(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	clusterCmd := NewClusterSetupCommand()
 	clusterCmd.SetArgs([]string{"--mode", "docker"})
 
-	// 设置环境变量模拟HOME目录
+	// Set environment variables to simulate HOME directory
 	origHome := os.Getenv("HOME")
 	os.Setenv("HOME", tempDir)
 	defer os.Setenv("HOME", origHome)
 
-	// 执行命令
+	// Execute command
 	execErr := clusterCmd.Execute()
-	t.Logf("命令执行结果: %v", execErr) // 记录错误但不断言，因为在测试环境中可能失败
+	t.Logf("Command execution result: %v", execErr) // Log error but don't assert, as it might fail in test environment
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	_, copyErr := io.Copy(&buf, r)
-	assert.NoError(t, copyErr, "读取输出应该成功")
+	assert.NoError(t, copyErr, "Reading output should succeed")
 
-	// 这个测试主要是验证参数解析和函数调用流程，由于实际执行需要模拟太多外部依赖，
-	// 我们主要关注命令是否调用而不是实际执行结果
-	t.Logf("输出: %s", buf.String())
-	t.Logf("执行的命令: %v", mockExec.commands)
+	// This test mainly verifies parameter parsing and function call flow. Since actual execution would require simulating too many external dependencies,
+	// we mainly focus on whether commands are called rather than actual execution results
+	t.Logf("Output: %s", buf.String())
+	t.Logf("Executed commands: %v", mockExec.commands)
 
-	// 验证配置文件创建
+	// Verify config file creation
 	configFile := filepath.Join(tempDir, ".gbox", "config.yml")
 	_, statErr := os.Stat(configFile)
-	// 允许文件不存在，因为我们模拟了执行但没有真正执行文件创建
-	t.Logf("配置文件状态: %v", statErr)
+	// Allow file not to exist, as we simulated execution but didn't actually execute file creation
+	t.Logf("Config file status: %v", statErr)
 }
 
-// 测试无法更改模式
+// Test unable to change mode
 func TestClusterSetupCannotChangeModeWithoutCleanup(t *testing.T) {
-	// 跳过管道测试
+	// Skip pipe test
 	if os.Getenv("GO_WANT_HELPER_PROCESS") == "1" {
 		return
 	}
 
-	// 保存原始的执行函数
+	// Save original execution function
 	origExecCommand := execCommand
 	defer func() { execCommand = origExecCommand }()
 
-	// 创建临时目录
+	// Create temporary directory
 	tempDir, err := os.MkdirTemp("", "gbox-test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	// 创建模拟执行器
+	// Create mock executor
 	mockExec := newMockExecutor()
 	execCommand = mockExec.execCommand
 
-	// 创建.gbox目录和配置文件
+	// Create .gbox directory and config file
 	gboxDir := filepath.Join(tempDir, ".gbox")
 	err = os.MkdirAll(gboxDir, 0755)
 	assert.NoError(t, err)
@@ -144,7 +144,7 @@ func TestClusterSetupCannotChangeModeWithoutCleanup(t *testing.T) {
 	err = os.WriteFile(configFile, []byte("cluster:\n  mode: docker"), 0644)
 	assert.NoError(t, err)
 
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -152,42 +152,42 @@ func TestClusterSetupCannotChangeModeWithoutCleanup(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	clusterCmd := NewClusterSetupCommand()
 	clusterCmd.SetArgs([]string{"--mode", "k8s"})
 
-	// 设置环境变量模拟HOME目录
+	// Set environment variables to simulate HOME directory
 	origHome := os.Getenv("HOME")
 	os.Setenv("HOME", tempDir)
 	defer os.Setenv("HOME", origHome)
 
-	// 执行命令，应该失败
+	// Execute command, should fail
 	execErr := clusterCmd.Execute()
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	_, copyErr := io.Copy(&buf, r)
-	assert.NoError(t, copyErr, "读取输出应该成功")
+	assert.NoError(t, copyErr, "Reading output should succeed")
 
-	// 检查是否有错误输出
-	t.Logf("输出: %s", buf.String())
-	t.Logf("错误: %v", execErr) // 记录错误
+	// Check for error output
+	t.Logf("Output: %s", buf.String())
+	t.Logf("Error: %v", execErr) // Log error
 }
 
-// 测试帮助信息
+// Test help information
 func TestClusterSetupHelp(t *testing.T) {
-	// 跳过管道测试
+	// Skip pipe test
 	if os.Getenv("GO_WANT_HELPER_PROCESS") == "1" {
 		return
 	}
 
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -195,37 +195,37 @@ func TestClusterSetupHelp(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	clusterCmd := NewClusterSetupCommand()
 	clusterCmd.SetArgs([]string{"--help"})
 	err := clusterCmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	_, copyErr := io.Copy(&buf, r)
-	assert.NoError(t, copyErr, "读取输出应该成功")
+	assert.NoError(t, copyErr, "Reading output should succeed")
 	output := buf.String()
 
-	// 验证输出包含帮助信息
+	// Verify output contains help information
 	assert.Contains(t, output, "Setup the box environment")
 	assert.Contains(t, output, "--mode")
 }
 
-// 帮助函数用于模拟命令执行
+// Helper function for mocking command execution
 func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
 	defer os.Exit(0)
 
-	// 解析命令行参数
+	// Parse command line arguments
 	args := os.Args
 	for i, arg := range args {
 		if arg == "--" {
@@ -234,31 +234,31 @@ func TestHelperProcess(t *testing.T) {
 		}
 	}
 
-	// 处理不同命令
+	// Handle different commands
 	switch args[0] {
 	case "docker":
-		// 模拟docker命令
+		// Mock docker command
 		if len(args) > 1 && args[1] == "compose" {
-			// docker compose命令
+			// docker compose command
 			fmt.Fprintf(os.Stdout, "Docker compose executed successfully\n")
 		}
 	case "kind":
-		// 模拟kind命令
+		// Mock kind command
 		if len(args) > 1 && args[1] == "get" && args[2] == "clusters" {
-			// 返回空list，表示没有集群
+			// Return empty list, indicating no clusters
 			fmt.Fprintf(os.Stdout, "No clusters found\n")
 		} else if len(args) > 1 && args[1] == "create" && args[2] == "cluster" {
-			// 创建集群
+			// Create cluster
 			fmt.Fprintf(os.Stdout, "Created cluster\n")
 		}
 	case "sudo":
-		// 模拟sudo命令
+		// Mock sudo command
 		fmt.Fprintf(os.Stdout, "Sudo command executed successfully\n")
 	case "ytt":
-		// 模拟ytt命令
+		// Mock ytt command
 		fmt.Fprintf(os.Stdout, "YTT output\n")
 	case "kapp":
-		// 模拟kapp命令
+		// Mock kapp command
 		fmt.Fprintf(os.Stdout, "KAPP output\n")
 	}
 }

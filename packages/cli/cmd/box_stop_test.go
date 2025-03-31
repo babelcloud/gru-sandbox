@@ -13,12 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// 测试数据
+// Test data
 const mockBoxStopSuccessResponse = `{"message":"Box stopped successfully"}`
 
-// TestBoxStopSuccess 测试成功停止盒子
+// TestBoxStopSuccess tests successfully stopping a box
 func TestBoxStopSuccess(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -26,20 +26,20 @@ func TestBoxStopSuccess(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查请求方法和路径
+		// Check request method and path
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/v1/boxes/test-box-id/stop", r.URL.Path)
 
-		// 返回模拟响应
+		// Return mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(mockBoxStopSuccessResponse))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -47,36 +47,36 @@ func TestBoxStopSuccess(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxStopCommand()
 	cmd.SetArgs([]string{"test-box-id"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出
-	assert.Contains(t, output, "盒子已成功停止")
+	// Check output
+	assert.Contains(t, output, "Box stopped successfully")
 }
 
-// TestBoxStopWithJsonOutput 测试以JSON格式停止盒子
+// TestBoxStopWithJsonOutput tests stopping a box with JSON output format
 func TestBoxStopWithJsonOutput(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -84,20 +84,20 @@ func TestBoxStopWithJsonOutput(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查请求方法和路径
+		// Check request method and path
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/v1/boxes/test-box-id/stop", r.URL.Path)
 
-		// 返回模拟响应
+		// Return mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(mockBoxStopSuccessResponse))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -105,37 +105,37 @@ func TestBoxStopWithJsonOutput(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxStopCommand()
 	cmd.SetArgs([]string{"test-box-id", "--output", "json"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出是否为原始JSON
-	expectedJSON := `{"status":"success","message":"盒子已成功停止"}`
+	// Check if output is original JSON
+	expectedJSON := `{"status":"success","message":"Box stopped successfully"}`
 	assert.JSONEq(t, expectedJSON, strings.TrimSpace(output))
 }
 
-// TestBoxStopNotFound 测试盒子不存在的情况
+// TestBoxStopNotFound tests the case when box is not found
 func TestBoxStopNotFound(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -143,16 +143,16 @@ func TestBoxStopNotFound(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 返回404错误
+		// Return 404 error
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"error": "Box not found"}`))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -160,36 +160,36 @@ func TestBoxStopNotFound(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxStopCommand()
 	cmd.SetArgs([]string{"non-existent-box-id"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出
-	assert.Contains(t, output, "盒子未找到")
+	// Check output
+	assert.Contains(t, output, "Box not found")
 }
 
-// TestBoxStopServerError 测试服务器错误的情况
+// TestBoxStopServerError tests the case of a server error
 func TestBoxStopServerError(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -197,16 +197,16 @@ func TestBoxStopServerError(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 返回服务器错误
+		// Return server error
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(`{"error": "Internal server error"}`))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -214,36 +214,36 @@ func TestBoxStopServerError(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxStopCommand()
 	cmd.SetArgs([]string{"server-error-box-id"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出
-	assert.Contains(t, output, "错误: 停止盒子失败")
+	// Check output
+	assert.Contains(t, output, "Error: Failed to stop box")
 }
 
-// TestBoxStopHelp 测试帮助信息
+// TestBoxStopHelp tests help information
 func TestBoxStopHelp(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -251,29 +251,29 @@ func TestBoxStopHelp(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxStopCommand()
 	cmd.SetArgs([]string{"--help"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查帮助信息中是否包含关键部分
-	assert.Contains(t, output, "用法: gbox box stop <id> [选项]")
+	// Check if help message contains key sections
+	assert.Contains(t, output, "Usage: gbox box stop <id> [options]")
 	assert.Contains(t, output, "--output")
-	assert.Contains(t, output, "json或text")
-	assert.Contains(t, output, "停止一个盒子")
-	assert.Contains(t, output, "停止盒子并输出JSON")
+	assert.Contains(t, output, "json or text")
+	assert.Contains(t, output, "Stop a box")
+	assert.Contains(t, output, "Stop a box and output JSON")
 }

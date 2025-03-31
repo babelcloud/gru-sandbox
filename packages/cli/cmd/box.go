@@ -15,7 +15,6 @@ func NewBoxCommand() *cobra.Command {
 		},
 	}
 
-	// 添加所有box相关的子命令
 	cmd.AddCommand(
 		NewBoxCreateCommand(),
 		NewBoxDeleteCommand(),

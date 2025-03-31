@@ -30,49 +30,49 @@ func NewBoxListCommand() *cobra.Command {
 			var outputFormat string
 			var filters []string
 
-			// 解析参数，支持与bash脚本相同的参数格式
+			// Parse arguments, supporting the same format as in bash script
 			for i := 0; i < len(args); i++ {
 				switch args[i] {
 				case "--output":
 					if i+1 < len(args) {
 						outputFormat = args[i+1]
 						if outputFormat != "json" && outputFormat != "text" {
-							fmt.Println("错误: 无效的输出格式。必须是 'json' 或 'text'")
+							fmt.Println("Error: Invalid output format. Must be 'json' or 'text'")
 							os.Exit(1)
 						}
 						i++
 					} else {
-						fmt.Println("错误: --output 需要参数值")
+						fmt.Println("Error: --output requires a value")
 						os.Exit(1)
 					}
 				case "-f", "--filter":
 					if i+1 < len(args) {
 						filter := args[i+1]
 						if !strings.Contains(filter, "=") {
-							fmt.Println("错误: 无效的过滤器格式。使用 field=value")
+							fmt.Println("Error: Invalid filter format. Use field=value")
 							os.Exit(1)
 						}
 						filters = append(filters, filter)
 						i++
 					} else {
-						fmt.Println("错误: --filter 需要参数值")
+						fmt.Println("Error: --filter requires a value")
 						os.Exit(1)
 					}
 				case "--help":
 					printBoxListHelp()
 					return
 				default:
-					fmt.Printf("错误: 未知选项 %s\n", args[i])
+					fmt.Printf("Error: Unknown option %s\n", args[i])
 					os.Exit(1)
 				}
 			}
 
-			// 如果输出格式未指定，默认为text
+			// If output format not specified, default to text
 			if outputFormat == "" {
 				outputFormat = "text"
 			}
 
-			// 构建查询参数
+			// Build query parameters
 			queryParams := ""
 			if len(filters) > 0 {
 				for i, f := range filters {
@@ -90,58 +90,58 @@ func NewBoxListCommand() *cobra.Command {
 				}
 			}
 
-			// 调用API服务器
+			// Call API server
 			apiURL := "http://localhost:28080/api/v1/boxes" + queryParams
 			if envURL := os.Getenv("API_URL"); envURL != "" {
 				apiURL = envURL + "/api/v1/boxes" + queryParams
 			}
 
 			if os.Getenv("DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "请求地址: %s\n", apiURL)
+				fmt.Fprintf(os.Stderr, "Request URL: %s\n", apiURL)
 			}
 
 			resp, err := http.Get(apiURL)
 			if err != nil {
-				fmt.Printf("错误: 调用API失败: %v\n", err)
+				fmt.Printf("Error: API call failed: %v\n", err)
 				os.Exit(1)
 			}
 			defer resp.Body.Close()
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				fmt.Printf("错误: 读取响应失败: %v\n", err)
+				fmt.Printf("Error: Failed to read response: %v\n", err)
 				os.Exit(1)
 			}
 
 			if os.Getenv("DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "响应状态码: %d\n", resp.StatusCode)
-				fmt.Fprintf(os.Stderr, "响应内容: %s\n", string(body))
+				fmt.Fprintf(os.Stderr, "Response status code: %d\n", resp.StatusCode)
+				fmt.Fprintf(os.Stderr, "Response content: %s\n", string(body))
 			}
 
-			// 处理HTTP状态码
+			// Handle HTTP status code
 			switch resp.StatusCode {
 			case 200:
 				var response BoxResponse
 				if err := json.Unmarshal(body, &response); err != nil {
-					fmt.Printf("错误: 解析JSON响应失败: %v\n", err)
+					fmt.Printf("Error: Failed to parse JSON response: %v\n", err)
 					os.Exit(1)
 				}
 
 				if outputFormat == "json" {
-					// JSON格式输出
+					// JSON format output
 					fmt.Println(string(body))
 				} else {
-					// 文本格式输出
+					// Text format output
 					if len(response.Boxes) == 0 {
-						fmt.Println("未找到盒子")
+						fmt.Println("No boxes found")
 						return
 					}
 
-					// 打印表头
+					// Print header
 					fmt.Println("ID                                      IMAGE               STATUS")
 					fmt.Println("---------------------------------------- ------------------- ---------------")
 
-					// 打印每个盒子的信息
+					// Print each box's information
 					for _, box := range response.Boxes {
 						image := box.Image
 						if strings.HasPrefix(image, "sha256:") {
@@ -154,11 +154,11 @@ func NewBoxListCommand() *cobra.Command {
 					}
 				}
 			case 404:
-				fmt.Println("未找到盒子")
+				fmt.Println("No boxes found")
 			default:
-				fmt.Printf("错误: 获取盒子列表失败 (HTTP %d)\n", resp.StatusCode)
+				fmt.Printf("Error: Failed to get box list (HTTP %d)\n", resp.StatusCode)
 				if os.Getenv("DEBUG") == "true" {
-					fmt.Fprintf(os.Stderr, "响应: %s\n", string(body))
+					fmt.Fprintf(os.Stderr, "Response: %s\n", string(body))
 				}
 				os.Exit(1)
 			}
@@ -169,23 +169,23 @@ func NewBoxListCommand() *cobra.Command {
 }
 
 func printBoxListHelp() {
-	fmt.Println("用法: gbox box list [选项]")
+	fmt.Println("Usage: gbox box list [options]")
 	fmt.Println()
-	fmt.Println("参数:")
-	fmt.Println("    gbox box list                              # 列出所有盒子")
-	fmt.Println("    gbox box list --output json                # 以JSON格式列出盒子")
-	fmt.Println("    gbox box list -f 'label=project=myapp'     # 列出带有project=myapp标签的盒子")
-	fmt.Println("    gbox box list -f 'ancestor=ubuntu:latest'  # 列出使用ubuntu:latest镜像的盒子")
+	fmt.Println("Parameters:")
+	fmt.Println("    gbox box list                              # List all boxes")
+	fmt.Println("    gbox box list --output json                # List boxes in JSON format")
+	fmt.Println("    gbox box list -f 'label=project=myapp'     # List boxes with label project=myapp")
+	fmt.Println("    gbox box list -f 'ancestor=ubuntu:latest'  # List boxes using ubuntu:latest image")
 	fmt.Println()
-	fmt.Println("命令:")
-	fmt.Println("    --output          输出格式 (json或text, 默认: text)")
-	fmt.Println("    -f, --filter      过滤盒子 (格式: field=value)")
-	fmt.Println("                      支持的字段: id, label, ancestor")
-	fmt.Println("                      示例:")
+	fmt.Println("Commands:")
+	fmt.Println("    --output          Output format (json or text, default: text)")
+	fmt.Println("    -f, --filter      Filter boxes (format: field=value)")
+	fmt.Println("                      Supported fields: id, label, ancestor")
+	fmt.Println("                      Examples:")
 	fmt.Println("                      -f 'id=abc123'")
 	fmt.Println("                      -f 'label=project=myapp'")
 	fmt.Println("                      -f 'ancestor=ubuntu:latest'")
 	fmt.Println()
-	fmt.Println("选项:")
-	fmt.Println("    --help            显示帮助信息")
+	fmt.Println("Options:")
+	fmt.Println("    --help            Show help information")
 }

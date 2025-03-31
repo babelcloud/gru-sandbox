@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# Debug mode - set to true for verbose output
+DEBUG=${DEBUG:-false}
+
+# Debug logging function
+debug_log() {
+    if [[ "$DEBUG" == "true" ]]; then
+        echo "$@"
+    fi
+}
+
+# Get the name of the symlink when called through a symlink
+LINK_NAME=$(basename "$0")
+
+# Extract command type and subcommand from script name
+# Example: gbox-box-delete -> box delete
+if [[ $LINK_NAME =~ ^gbox-([^-]+)-(.+)$ ]]; then
+    CMD_TYPE="${BASH_REMATCH[1]}"
+    SUB_CMD="${BASH_REMATCH[2]}"
+    
+    # Function to find the repository root directory
+    find_repo_root() {
+        # Method 1: Determine from symlink location
+        if [[ -e "$0" ]]; then
+            # Get the symlink directory
+            local SYMLINK_DIR="$(cd "$(dirname "$0")" && pwd)"
+            
+            # Calculate repo root from bin directory
+            if [[ "$SYMLINK_DIR" == */bin ]]; then
+                echo "$(dirname "$SYMLINK_DIR")"
+                return 0
+            fi
+        fi
+        
+        # Method 2: Determine from actual script location
+        local SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        if [[ "$SCRIPT_DIR" == */packages/cli/bin ]]; then
+            echo "$(dirname "$(dirname "$(dirname "$SCRIPT_DIR")")")"
+            return 0
+        fi
+        
+        # Method 3: Search upwards for .git directory
+        local DIR="$(pwd)"
+        while [[ "$DIR" != "/" ]]; do
+            if [[ -d "$DIR/.git" ]]; then
+                echo "$DIR"
+                return 0
+            fi
+            DIR="$(dirname "$DIR")"
+        done
+        
+        # Return error if all methods fail
+        return 1
+    }
+    
+    # Try to find the repository root directory
+    REPO_ROOT=$(find_repo_root)
+    
+    # Check if repository root was found
+    if [[ -z "$REPO_ROOT" ]]; then
+        echo "Error: Unable to determine repository root directory"
+        exit 1
+    fi
+    
+    # CLI directory is packages/cli in the repository root
+    CLI_DIR="$REPO_ROOT/packages/cli"
+    
+    # Ensure CLI directory exists
+    if [[ ! -d "$CLI_DIR" ]]; then
+        echo "Error: CLI directory not found at $CLI_DIR"
+        exit 1
+    fi
+    
+    # Change to CLI directory
+    cd "$CLI_DIR"
+    
+    # Ensure main.go exists
+    if [[ ! -f "$CLI_DIR/main.go" ]]; then
+        echo "Error: main.go not found at $CLI_DIR/main.go"
+        exit 1
+    fi
+    
+    debug_log "Running go implementation for $CMD_TYPE $SUB_CMD from $CLI_DIR"
+    
+    # Build go run command
+    GO_CMD="go run main.go $CMD_TYPE $SUB_CMD"
+    
+    # Execute command and pass all arguments
+    exec $GO_CMD "$@"
+else
+    echo "Error: Invalid command format: $LINK_NAME"
+    echo "This script should be called through a symlink named gbox-<command>-<subcommand>"
+    exit 1
+fi 

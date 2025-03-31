@@ -31,7 +31,7 @@ func NewBoxDeleteCommand() *cobra.Command {
 			var deleteAll bool
 			var force bool
 
-			// 解析参数
+			// Parse arguments
 			for i := 0; i < len(args); i++ {
 				switch args[i] {
 				case "--help":
@@ -41,12 +41,12 @@ func NewBoxDeleteCommand() *cobra.Command {
 					if i+1 < len(args) {
 						outputFormat = args[i+1]
 						if outputFormat != "json" && outputFormat != "text" {
-							fmt.Println("错误: 无效的输出格式。必须是 'json' 或 'text'")
+							fmt.Println("Error: Invalid output format. Must be 'json' or 'text'")
 							os.Exit(1)
 						}
 						i++
 					} else {
-						fmt.Println("错误: --output 需要参数值")
+						fmt.Println("Error: --output requires a value")
 						os.Exit(1)
 					}
 				case "--all":
@@ -57,49 +57,49 @@ func NewBoxDeleteCommand() *cobra.Command {
 					if !strings.HasPrefix(args[i], "-") && boxID == "" {
 						boxID = args[i]
 					} else if strings.HasPrefix(args[i], "-") {
-						fmt.Printf("错误: 未知选项 %s\n", args[i])
+						fmt.Printf("Error: Unknown option %s\n", args[i])
 						os.Exit(1)
 					} else {
-						fmt.Printf("错误: 意外的参数 %s\n", args[i])
+						fmt.Printf("Error: Unexpected argument %s\n", args[i])
 						os.Exit(1)
 					}
 				}
 			}
 
-			// 验证参数
+			// Validate arguments
 			if deleteAll && boxID != "" {
-				fmt.Println("错误: 不能同时指定 --all 和一个盒子ID")
+				fmt.Println("Error: Cannot specify both --all and a box ID")
 				os.Exit(1)
 			}
 
 			if !deleteAll && boxID == "" {
-				fmt.Println("错误: 必须指定 --all 或者一个盒子ID")
+				fmt.Println("Error: Must specify either --all or a box ID")
 				os.Exit(1)
 			}
 
-			// 处理删除所有盒子
+			// Handle deleting all boxes
 			if deleteAll {
-				// 获取所有盒子的列表
+				// Get the list of all boxes
 				apiURL := "http://localhost:28080/api/v1/boxes"
 				if envURL := os.Getenv("API_URL"); envURL != "" {
 					apiURL = envURL + "/api/v1/boxes"
 				}
 				resp, err := http.Get(apiURL)
 				if err != nil {
-					fmt.Printf("错误: 获取盒子列表失败: %v\n", err)
+					fmt.Printf("Error: Failed to get box list: %v\n", err)
 					os.Exit(1)
 				}
 				defer resp.Body.Close()
 
 				body, err := io.ReadAll(resp.Body)
 				if err != nil {
-					fmt.Printf("错误: 读取响应失败: %v\n", err)
+					fmt.Printf("Error: Failed to read response: %v\n", err)
 					os.Exit(1)
 				}
 
-				// 调试输出
+				// Debug output
 				if os.Getenv("DEBUG") == "true" {
-					fmt.Fprintf(os.Stderr, "API响应:\n")
+					fmt.Fprintf(os.Stderr, "API response:\n")
 					var prettyJSON bytes.Buffer
 					if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
 						fmt.Fprintln(os.Stderr, prettyJSON.String())
@@ -110,48 +110,48 @@ func NewBoxDeleteCommand() *cobra.Command {
 
 				var response BoxListResponse
 				if err := json.Unmarshal(body, &response); err != nil {
-					fmt.Printf("错误: 解析JSON响应失败: %v\n", err)
+					fmt.Printf("Error: Failed to parse JSON response: %v\n", err)
 					os.Exit(1)
 				}
 
 				if len(response.Boxes) == 0 {
 					if outputFormat == "json" {
-						fmt.Println(`{"status":"success","message":"没有盒子需要删除"}`)
+						fmt.Println(`{"status":"success","message":"No boxes to delete"}`)
 					} else {
-						fmt.Println("没有盒子需要删除")
+						fmt.Println("No boxes to delete")
 					}
 					return
 				}
 
-				// 显示将要删除的盒子
-				fmt.Println("以下盒子将被删除:")
+				// Show boxes that will be deleted
+				fmt.Println("The following boxes will be deleted:")
 				for _, box := range response.Boxes {
 					fmt.Printf("  - %s\n", box.ID)
 				}
 				fmt.Println()
 
-				// 如果非强制，确认删除
+				// If not forced, confirm deletion
 				if !force {
-					fmt.Print("您确定要删除所有盒子吗? [y/N] ")
+					fmt.Print("Are you sure you want to delete all boxes? [y/N] ")
 					reader := bufio.NewReader(os.Stdin)
 					reply, err := reader.ReadString('\n')
 					if err != nil {
-						fmt.Printf("错误: 读取输入失败: %v\n", err)
+						fmt.Printf("Error: Failed to read input: %v\n", err)
 						os.Exit(1)
 					}
 
 					reply = strings.TrimSpace(strings.ToLower(reply))
 					if reply != "y" && reply != "yes" {
 						if outputFormat == "json" {
-							fmt.Println(`{"status":"cancelled","message":"操作被用户取消"}`)
+							fmt.Println(`{"status":"cancelled","message":"Operation cancelled by user"}`)
 						} else {
-							fmt.Println("操作已取消")
+							fmt.Println("Operation cancelled")
 						}
 						return
 					}
 				}
 
-				// 删除所有盒子
+				// Delete all boxes
 				success := true
 				for _, box := range response.Boxes {
 					apiURL := fmt.Sprintf("http://localhost:28080/api/v1/boxes/%s", box.ID)
@@ -160,7 +160,7 @@ func NewBoxDeleteCommand() *cobra.Command {
 					}
 					req, err := http.NewRequest("DELETE", apiURL, strings.NewReader(`{"force":true}`))
 					if err != nil {
-						fmt.Printf("错误: 创建请求失败: %v\n", err)
+						fmt.Printf("Error: Failed to create request: %v\n", err)
 						success = false
 						continue
 					}
@@ -169,43 +169,43 @@ func NewBoxDeleteCommand() *cobra.Command {
 					client := &http.Client{}
 					resp, err := client.Do(req)
 					if err != nil {
-						fmt.Printf("错误: 删除盒子 %s 失败: %v\n", box.ID, err)
+						fmt.Printf("Error: Failed to delete box %s: %v\n", box.ID, err)
 						success = false
 						continue
 					}
 					resp.Body.Close()
 
 					if resp.StatusCode != 200 && resp.StatusCode != 204 {
-						fmt.Printf("错误: 删除盒子 %s 失败，HTTP状态码: %d\n", box.ID, resp.StatusCode)
+						fmt.Printf("Error: Failed to delete box %s, HTTP status code: %d\n", box.ID, resp.StatusCode)
 						success = false
 					}
 				}
 
 				if success {
 					if outputFormat == "json" {
-						fmt.Println(`{"status":"success","message":"所有盒子删除成功"}`)
+						fmt.Println(`{"status":"success","message":"All boxes deleted successfully"}`)
 					} else {
-						fmt.Println("所有盒子删除成功")
+						fmt.Println("All boxes deleted successfully")
 					}
 				} else {
 					if outputFormat == "json" {
-						fmt.Println(`{"status":"error","message":"一些盒子删除失败"}`)
+						fmt.Println(`{"status":"error","message":"Some boxes failed to delete"}`)
 					} else {
-						fmt.Println("一些盒子删除失败")
+						fmt.Println("Some boxes failed to delete")
 					}
 					os.Exit(1)
 				}
 				return
 			}
 
-			// 删除单个盒子
+			// Delete single box
 			apiURL := fmt.Sprintf("http://localhost:28080/api/v1/boxes/%s", boxID)
 			if envURL := os.Getenv("API_URL"); envURL != "" {
 				apiURL = fmt.Sprintf("%s/api/v1/boxes/%s", envURL, boxID)
 			}
 			req, err := http.NewRequest("DELETE", apiURL, strings.NewReader(`{"force":true}`))
 			if err != nil {
-				fmt.Printf("错误: 创建请求失败: %v\n", err)
+				fmt.Printf("Error: Failed to create request: %v\n", err)
 				os.Exit(1)
 			}
 			req.Header.Set("Content-Type", "application/json")
@@ -213,27 +213,27 @@ func NewBoxDeleteCommand() *cobra.Command {
 			client := &http.Client{}
 			resp, err := client.Do(req)
 			if err != nil {
-				fmt.Printf("错误: 删除盒子失败。确保API服务器正在运行且ID '%s' 正确\n", boxID)
+				fmt.Printf("Error: Failed to delete box. Make sure the API server is running and the ID '%s' is correct\n", boxID)
 				if os.Getenv("DEBUG") == "true" {
-					fmt.Fprintf(os.Stderr, "错误: %v\n", err)
+					fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				}
 				os.Exit(1)
 			}
 			defer resp.Body.Close()
 
 			if resp.StatusCode != 200 && resp.StatusCode != 204 {
-				fmt.Printf("错误: 删除盒子失败，HTTP状态码: %d\n", resp.StatusCode)
+				fmt.Printf("Error: Failed to delete box, HTTP status code: %d\n", resp.StatusCode)
 				body, _ := io.ReadAll(resp.Body)
 				if os.Getenv("DEBUG") == "true" && len(body) > 0 {
-					fmt.Fprintf(os.Stderr, "响应: %s\n", string(body))
+					fmt.Fprintf(os.Stderr, "Response: %s\n", string(body))
 				}
 				os.Exit(1)
 			}
 
 			if outputFormat == "json" {
-				fmt.Println(`{"status":"success","message":"盒子删除成功"}`)
+				fmt.Println(`{"status":"success","message":"Box deleted successfully"}`)
 			} else {
-				fmt.Println("盒子删除成功")
+				fmt.Println("Box deleted successfully")
 			}
 		},
 	}
@@ -242,17 +242,17 @@ func NewBoxDeleteCommand() *cobra.Command {
 }
 
 func printBoxDeleteHelp() {
-	fmt.Println("用法: gbox box delete [选项] <id>")
+	fmt.Println("Usage: gbox box delete [options] <id>")
 	fmt.Println()
-	fmt.Println("选项:")
-	fmt.Println("    --output          输出格式 (json或text, 默认: text)")
-	fmt.Println("    --all             删除所有盒子")
-	fmt.Println("    --force           强制删除，无需确认")
+	fmt.Println("Options:")
+	fmt.Println("    --output          Output format (json or text, default: text)")
+	fmt.Println("    --all             Delete all boxes")
+	fmt.Println("    --force           Force deletion without confirmation")
 	fmt.Println()
-	fmt.Println("示例:")
-	fmt.Println("    gbox box delete 550e8400-e29b-41d4-a716-446655440000              # 删除一个盒子")
-	fmt.Println("    gbox box delete --all --force                                     # 无需确认删除所有盒子")
-	fmt.Println("    gbox box delete --all                                             # 删除所有盒子(需确认)")
-	fmt.Println("    gbox box delete 550e8400-e29b-41d4-a716-446655440000 --output json  # 删除盒子并输出JSON")
+	fmt.Println("Examples:")
+	fmt.Println("    gbox box delete 550e8400-e29b-41d4-a716-446655440000              # Delete a box")
+	fmt.Println("    gbox box delete --all --force                                     # Delete all boxes without confirmation")
+	fmt.Println("    gbox box delete --all                                             # Delete all boxes (requires confirmation)")
+	fmt.Println("    gbox box delete 550e8400-e29b-41d4-a716-446655440000 --output json  # Delete a box and output JSON")
 	fmt.Println()
 }

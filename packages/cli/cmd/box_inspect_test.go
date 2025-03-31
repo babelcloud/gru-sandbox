@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// 测试数据
+// Test data
 const mockBoxInspectResponse = `{
 	"id": "test-box-id",
 	"image": "ubuntu:latest",
@@ -23,9 +23,9 @@ const mockBoxInspectResponse = `{
 	"env": {"DEBUG": "true", "ENV": "test"}
 }`
 
-// TestBoxInspect 测试获取盒子详情
+// TestBoxInspect tests getting box details
 func TestBoxInspect(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -33,20 +33,20 @@ func TestBoxInspect(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查请求方法和路径
+		// Check request method and path
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "/api/v1/boxes/test-box-id", r.URL.Path)
 
-		// 返回模拟响应
+		// Return mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(mockBoxInspectResponse))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -54,31 +54,31 @@ func TestBoxInspect(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxInspectCommand()
 	cmd.SetArgs([]string{"test-box-id"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出
-	assert.Contains(t, output, "盒子详情:")
+	// Check output
+	assert.Contains(t, output, "Box details:")
 	assert.Contains(t, output, "id")
 	assert.Contains(t, output, "test-box-id")
 	assert.Contains(t, output, "image")
@@ -87,9 +87,9 @@ func TestBoxInspect(t *testing.T) {
 	assert.Contains(t, output, "running")
 }
 
-// TestBoxInspectWithJsonOutput 测试以JSON格式获取盒子详情
+// TestBoxInspectWithJsonOutput tests getting box details in JSON format
 func TestBoxInspectWithJsonOutput(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -97,20 +97,20 @@ func TestBoxInspectWithJsonOutput(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查请求方法和路径
+		// Check request method and path
 		assert.Equal(t, "GET", r.Method)
 		assert.Equal(t, "/api/v1/boxes/test-box-id", r.URL.Path)
 
-		// 返回模拟响应
+		// Return mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(mockBoxInspectResponse))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -118,36 +118,36 @@ func TestBoxInspectWithJsonOutput(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxInspectCommand()
 	cmd.SetArgs([]string{"test-box-id", "--output", "json"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查输出是否为原始JSON
+	// Check if output is original JSON
 	assert.JSONEq(t, mockBoxInspectResponse, strings.TrimSpace(output))
 }
 
-// TestBoxInspectNotFound 测试盒子不存在的情况
+// TestBoxInspectNotFound tests the case when box does not exist
 func TestBoxInspectNotFound(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -155,16 +155,16 @@ func TestBoxInspectNotFound(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟服务器
+	// Create mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 返回404错误
+		// Return 404 error
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(`{"error": "Box not found"}`))
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
@@ -172,35 +172,35 @@ func TestBoxInspectNotFound(t *testing.T) {
 		os.Setenv("TESTING", origTESTING)
 	}()
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 	os.Setenv("TESTING", "true")
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxInspectCommand()
 	cmd.SetArgs([]string{"non-existent-box-id"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	// 检查输出
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
-	assert.Contains(t, output, "盒子未找到")
+	// Check output
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
+	assert.Contains(t, output, "Box not found")
 }
 
-// TestBoxInspectHelp 测试帮助信息
+// TestBoxInspectHelp tests help information
 func TestBoxInspectHelp(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -208,29 +208,29 @@ func TestBoxInspectHelp(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxInspectCommand()
 	cmd.SetArgs([]string{"--help"})
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查帮助信息中是否包含关键部分
-	assert.Contains(t, output, "用法: gbox box inspect <id> [选项]")
+	// Check if help message contains key sections
+	assert.Contains(t, output, "Usage: gbox box inspect <id> [options]")
 	assert.Contains(t, output, "--output")
-	assert.Contains(t, output, "json或text")
-	assert.Contains(t, output, "获取盒子详情")
-	assert.Contains(t, output, "获取JSON格式的盒子详情")
+	assert.Contains(t, output, "json or text")
+	assert.Contains(t, output, "Get box details")
+	assert.Contains(t, output, "Get box details in JSON format")
 }

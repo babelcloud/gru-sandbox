@@ -20,56 +20,56 @@ func NewClusterCleanupCommand() *cobra.Command {
 		},
 	}
 
-	// 添加标志
+	// Add flags
 	cmd.Flags().Bool("force", false, "Skip confirmation prompt")
 
 	return cmd
 }
 
-// cleanupCluster 清理集群环境
+// cleanupCluster cleans up the cluster environment
 func cleanupCluster(force bool) error {
-	// 获取用户主目录
+	// Get user home directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("无法获取用户主目录: %v", err)
+		return fmt.Errorf("unable to get user home directory: %v", err)
 	}
 
-	// 定义配置文件路径
+	// Define config file path
 	gboxHome := filepath.Join(homeDir, ".gbox")
 	configFile := filepath.Join(gboxHome, "config.yml")
 
-	// 如果配置文件不存在，则直接返回
+	// If config file doesn't exist, return directly
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		fmt.Println("集群已清理完毕。")
+		fmt.Println("Cluster has been cleaned up.")
 		return nil
 	}
 
-	// 获取当前模式
+	// Get current mode
 	mode, err := getCurrentMode(configFile)
 	if err != nil {
-		fmt.Printf("读取配置文件时出错: %v\n", err)
-		// 错误不是致命的，继续执行
+		fmt.Printf("Error reading config file: %v\n", err)
+		// Error is not fatal, continue execution
 	}
 
-	// 如果不是强制模式，则请求确认
+	// If not in force mode, request confirmation
 	if !force {
 		var confirmMsg string
 		if mode != "" {
-			confirmMsg = fmt.Sprintf("这将删除%s模式下的所有容器。继续？(y/N) ", mode)
+			confirmMsg = fmt.Sprintf("This will delete all containers in %s mode. Continue? (y/N) ", mode)
 		} else {
-			confirmMsg = "这将删除所有容器。继续？(y/N) "
+			confirmMsg = "This will delete all containers. Continue? (y/N) "
 		}
 
 		fmt.Print(confirmMsg)
 		var confirm string
 		fmt.Scanln(&confirm)
 		if confirm != "y" && confirm != "Y" && confirm != "yes" && confirm != "Yes" {
-			fmt.Println("清理已取消")
+			fmt.Println("Cleanup cancelled")
 			return nil
 		}
 	}
 
-	// 根据模式执行清理
+	// Perform cleanup based on mode
 	if mode != "" {
 		if mode == "docker" {
 			if err := cleanupDocker(); err != nil {
@@ -81,60 +81,60 @@ func cleanupCluster(force bool) error {
 			}
 		}
 	} else {
-		// 尝试清理所有模式
+		// Try to clean up all modes
 		cleanupDocker()
 		cleanupK8s()
 	}
 
-	// 清理完成后删除配置文件
+	// Delete config file after cleanup
 	if err := os.Remove(configFile); err != nil {
-		return fmt.Errorf("删除配置文件失败: %v", err)
+		return fmt.Errorf("failed to delete config file: %v", err)
 	}
 
 	return nil
 }
 
-// cleanupDocker 清理Docker环境
+// cleanupDocker cleans up Docker environment
 func cleanupDocker() error {
-	fmt.Println("正在清理docker环境...")
+	fmt.Println("Cleaning up docker environment...")
 
-	// 停止docker-compose服务
-	fmt.Println("停止docker-compose服务...")
+	// Stop docker-compose services
+	fmt.Println("Stopping docker-compose services...")
 	scriptDir, err := getScriptDir()
 	if err != nil {
 		return err
 	}
 
-	// 执行docker-compose down命令
+	// Execute docker-compose down command
 	composePath := filepath.Join(scriptDir, "..", "manifests", "docker", "docker-compose.yml")
 	cmd := exec.Command("docker", "compose", "-f", composePath, "down")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("停止docker-compose服务失败: %v", err)
+		return fmt.Errorf("failed to stop docker-compose services: %v", err)
 	}
 
-	fmt.Println("Docker环境清理完成")
+	fmt.Println("Docker environment cleanup complete")
 	return nil
 }
 
-// cleanupK8s 清理Kubernetes环境
+// cleanupK8s cleans up Kubernetes environment
 func cleanupK8s() error {
-	fmt.Println("正在清理k8s环境...")
+	fmt.Println("Cleaning up k8s environment...")
 
-	// 定义集群名称
+	// Define cluster name
 	gboxCluster := "gbox"
 
-	// 删除集群
+	// Delete cluster
 	cmd := exec.Command("kind", "delete", "cluster", "--name", gboxCluster)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("删除集群失败: %v", err)
+		return fmt.Errorf("failed to delete cluster: %v", err)
 	}
 
-	fmt.Println("K8s环境清理完成")
+	fmt.Println("K8s environment cleanup complete")
 	return nil
 }

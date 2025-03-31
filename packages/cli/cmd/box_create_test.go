@@ -14,12 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// 修正测试服务器的响应格式
+// Fixed test server response format
 const mockResponse = `{"id": "mock-box-id", "status": "stopped", "image": "alpine:latest"}`
 
-// TestNewBoxCreateCommand 用于测试 NewBoxCreateCommand 解析 CLI 参数并正确调用 API
+// TestNewBoxCreateCommand tests that NewBoxCreateCommand parses CLI arguments and correctly calls the API
 func TestNewBoxCreateCommand(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -27,48 +27,48 @@ func TestNewBoxCreateCommand(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建 mock 服务器
+	// Create mock server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查请求方法
+		// Check request method
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/v1/boxes", r.URL.Path)
 
-		// 读取请求体
+		// Read request body
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
 		defer r.Body.Close()
 
-		// 解析请求 JSON
+		// Parse request JSON
 		var req BoxCreateRequest
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
-		// 确保 image 字段被正确解析
+		// Ensure image field is correctly parsed
 		assert.Equal(t, "alpine:latest", req.Image)
 		assert.Equal(t, "/bin/sh", req.Cmd)
 		assert.Equal(t, []string{"-c", "echo Hello"}, req.Args)
 		assert.Equal(t, map[string]string{"ENV_VAR": "value"}, req.Env)
 
-		// 返回 mock 响应
+		// Return mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(mockResponse))
 	}))
 	defer mockServer.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	defer os.Setenv("API_URL", origAPIURL)
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", mockServer.URL)
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxCreateCommand()
 	cmd.SetArgs([]string{
 		"--image", "alpine:latest",
@@ -78,21 +78,21 @@ func TestNewBoxCreateCommand(t *testing.T) {
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查 CLI 输出
-	assert.Contains(t, output, "mock-box-id", "CLI 应该正确输出返回的 ID")
+	// Check CLI output
+	assert.Contains(t, output, "mock-box-id", "CLI should correctly output the returned ID")
 }
 
-// TestNewBoxCreateCommandWithLabelsAndWorkDir 测试带有标签和工作目录的情况
+// TestNewBoxCreateCommandWithLabelsAndWorkDir tests the case with labels and working directory
 func TestNewBoxCreateCommandWithLabelsAndWorkDir(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -111,7 +111,7 @@ func TestNewBoxCreateCommandWithLabelsAndWorkDir(t *testing.T) {
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
-		// 验证标签和工作目录
+		// Validate labels and working directory
 		assert.Equal(t, "nginx:latest", req.Image)
 		assert.Equal(t, "/app", req.WorkingDir)
 		assert.Equal(t, map[string]string{"app": "web", "env": "test"}, req.Labels)
@@ -122,19 +122,19 @@ func TestNewBoxCreateCommandWithLabelsAndWorkDir(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	defer os.Setenv("API_URL", origAPIURL)
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", mockServer.URL)
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxCreateCommand()
 	cmd.SetArgs([]string{
 		"--image", "nginx:latest",
@@ -146,21 +146,21 @@ func TestNewBoxCreateCommandWithLabelsAndWorkDir(t *testing.T) {
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查 CLI 输出
-	assert.Contains(t, output, "mock-box-id", "CLI 应该正确输出返回的 ID")
+	// Check CLI output
+	assert.Contains(t, output, "mock-box-id", "CLI should correctly output the returned ID")
 }
 
-// TestNewBoxCreateCommandWithJSONOutput 测试 JSON 输出格式
+// TestNewBoxCreateCommandWithJSONOutput tests JSON output format
 func TestNewBoxCreateCommandWithJSONOutput(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -177,19 +177,19 @@ func TestNewBoxCreateCommandWithJSONOutput(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	defer os.Setenv("API_URL", origAPIURL)
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", mockServer.URL)
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxCreateCommand()
 	cmd.SetArgs([]string{
 		"--output", "json",
@@ -199,49 +199,49 @@ func TestNewBoxCreateCommandWithJSONOutput(t *testing.T) {
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查 CLI 输出
-	assert.True(t, strings.Contains(output, `"id": "mock-box-id"`), "JSON输出应包含mock-box-id")
+	// Check CLI output
+	assert.True(t, strings.Contains(output, `"id": "mock-box-id"`), "JSON output should include mock-box-id")
 }
 
-// TestNewBoxCreateCommandWithError 测试API返回错误的情况
+// TestNewBoxCreateCommandWithError tests the case where the API returns an error
 func TestNewBoxCreateCommandWithError(t *testing.T) {
-	// 跳过本测试，因为它需要测试os.Exit行为
-	// 在Go测试环境中，os.Exit会直接结束测试进程
-	// 要正确测试这种情况，需要在子进程中运行
-	t.Skip("需要在子进程中测试os.Exit行为")
+	// Skip this test, as it requires testing os.Exit behavior
+	// In Go test environment, os.Exit will directly end the test process
+	// To correctly test this case, a subprocess would be needed
+	t.Skip("Need to test os.Exit behavior in a subprocess")
 }
 
-// 注意: 如果需要测试os.Exit行为，可以使用以下方法:
-// 1. 创建一个带有特殊参数的测试程序
-// 2. 在子进程中运行该程序
-// 3. 检查子进程的退出码
-// 例如:
+// Note: If you need to test os.Exit behavior, you can use the following method:
+// 1. Create a test program with special parameters
+// 2. Run the program in a subprocess
+// 3. Check the exit code of the subprocess
+// For example:
 // func TestOsExitBehavior(t *testing.T) {
 //     if os.Getenv("TEST_EXIT") == "1" {
-//         // 这里放置会调用os.Exit的代码
+//         // Place code that will call os.Exit here
 //         return
 //     }
 //     cmd := exec.Command(os.Args[0], "-test.run=TestOsExitBehavior")
 //     cmd.Env = append(os.Environ(), "TEST_EXIT=1")
 //     err := cmd.Run()
 //     if e, ok := err.(*exec.ExitError); ok && !e.Success() {
-//         // 测试通过，程序如预期返回非零退出码
+//         // Test passes, program exits with non-zero code as expected
 //         return
 //     }
-//     t.Fatalf("期望进程退出，实际没有")
+//     t.Fatalf("Expected process to exit, but it didn't")
 // }
 
-// TestNewBoxCreateHelp 测试帮助信息
+// TestNewBoxCreateHelp tests the help information
 func TestNewBoxCreateHelp(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -249,12 +249,12 @@ func TestNewBoxCreateHelp(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxCreateCommand()
 	cmd.SetArgs([]string{
 		"--help",
@@ -262,16 +262,16 @@ func TestNewBoxCreateHelp(t *testing.T) {
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查帮助信息中是否包含关键选项和用法说明
-	assert.Contains(t, output, "用法:")
+	// Check if help information contains key options and usage instructions
+	assert.Contains(t, output, "Usage:")
 	assert.Contains(t, output, "--output")
 	assert.Contains(t, output, "--image")
 	assert.Contains(t, output, "--env")
@@ -279,9 +279,9 @@ func TestNewBoxCreateHelp(t *testing.T) {
 	assert.Contains(t, output, "--label")
 }
 
-// TestNewBoxCreateCommandWithMultipleOptions 测试多个环境变量和标签
+// TestNewBoxCreateCommandWithMultipleOptions tests multiple environment variables and labels
 func TestNewBoxCreateCommandWithMultipleOptions(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -289,27 +289,27 @@ func TestNewBoxCreateCommandWithMultipleOptions(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建 mock 服务器
+	// Create mock server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// 检查请求方法
+		// Check request method
 		assert.Equal(t, "POST", r.Method)
 		assert.Equal(t, "/api/v1/boxes", r.URL.Path)
 
-		// 读取请求体
+		// Read request body
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
 		defer r.Body.Close()
 
-		// 解析请求 JSON
+		// Parse request JSON
 		var req BoxCreateRequest
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
-		// 验证多个选项
+		// Validate multiple options
 		assert.Equal(t, "python:3.9", req.Image)
 		assert.Equal(t, "/app", req.WorkingDir)
 
-		// 验证多个环境变量
+		// Validate multiple environment variables
 		expectedEnv := map[string]string{
 			"PATH":     "/usr/local/bin:/usr/bin:/bin",
 			"DEBUG":    "true",
@@ -317,7 +317,7 @@ func TestNewBoxCreateCommandWithMultipleOptions(t *testing.T) {
 		}
 		assert.Equal(t, expectedEnv, req.Env)
 
-		// 验证多个标签
+		// Validate multiple labels
 		expectedLabels := map[string]string{
 			"project": "myapp",
 			"env":     "prod",
@@ -325,26 +325,26 @@ func TestNewBoxCreateCommandWithMultipleOptions(t *testing.T) {
 		}
 		assert.Equal(t, expectedLabels, req.Labels)
 
-		// 返回 mock 响应
+		// Return mock response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(mockResponse))
 	}))
 	defer mockServer.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	defer os.Setenv("API_URL", origAPIURL)
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", mockServer.URL)
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxCreateCommand()
 	cmd.SetArgs([]string{
 		"--image", "python:3.9",
@@ -360,14 +360,14 @@ func TestNewBoxCreateCommandWithMultipleOptions(t *testing.T) {
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查 CLI 输出
-	assert.Contains(t, output, "mock-box-id", "CLI 应该正确输出返回的 ID")
+	// Check CLI output
+	assert.Contains(t, output, "mock-box-id", "CLI should correctly output the returned ID")
 }

@@ -15,33 +15,33 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// 测试解析盒子路径的功能
+// Test parsing box path functionality
 func TestParseBoxPath(t *testing.T) {
-	// 测试有效路径
+	// Test valid path
 	validPath := "box-id:/some/path"
 	result, err := parseBoxPath(validPath)
 	assert.NoError(t, err)
 	assert.Equal(t, "box-id", result.BoxID)
 	assert.Equal(t, "/some/path", result.Path)
 
-	// 测试无效路径
+	// Test invalid path
 	invalidPath := "invalid-path-without-colon"
 	_, err = parseBoxPath(invalidPath)
 	assert.Error(t, err)
 }
 
-// 测试判断是否为盒子路径的功能
+// Test box path validation
 func TestIsBoxPath(t *testing.T) {
 	assert.True(t, isBoxPath("box-id:/path"))
 	assert.False(t, isBoxPath("/local/path"))
 }
 
-// 测试从盒子复制到本地
+// Test copying from box to local
 func TestCopyFromBoxToLocal(t *testing.T) {
-	// 跳过此测试，因为它涉及执行tar命令和文件系统操作
+	// Skip this test as it involves tar command and filesystem operations
 	t.Skip("skip test that requires filesystem operations and tar commands")
 
-	// 保存原始标准输出和错误以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -49,15 +49,15 @@ func TestCopyFromBoxToLocal(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建临时目录作为目标路径
+	// Create temporary directory as destination path
 	tempDir, err := os.MkdirTemp("", "box-cp-test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	// 定义目标文件路径
+	// Define destination file path
 	destFile := filepath.Join(tempDir, "test-file")
 
-	// 创建模拟HTTP服务器
+	// Create mock HTTP server
 	mockContent := []byte("mock file content")
 	mockArchive := createMockTarArchive(t, "test-file", mockContent)
 
@@ -72,27 +72,27 @@ func TestCopyFromBoxToLocal(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	defer os.Setenv("API_URL", origAPIURL)
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 
-	// 捕获标准输出和错误
+	// Capture stdout and stderr
 	stdoutR, stdoutW, _ := os.Pipe()
 	os.Stdout = stdoutW
 	stderrR, stderrW, _ := os.Pipe()
 	os.Stderr = stderrW
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxCpCommand()
 	cmd.SetArgs([]string{
 		"box-id:/test/file",
 		destFile,
 	})
 
-	// 启动一个goroutine来执行命令，避免被os.Exit中断测试
+	// Start a goroutine to execute command to avoid os.Exit interruption
 	done := make(chan bool)
 	go func() {
 		defer close(done)
@@ -101,33 +101,33 @@ func TestCopyFromBoxToLocal(t *testing.T) {
 		stderrW.Close()
 	}()
 
-	// 等待命令完成
+	// Wait for command completion
 	<-done
 
-	// 读取标准输出和错误
+	// Read stdout and stderr
 	var stdoutBuf, stderrBuf bytes.Buffer
 	io.Copy(&stdoutBuf, stdoutR)
 	io.Copy(&stderrBuf, stderrR)
 
-	// 验证目标文件存在
+	// Verify destination file exists
 	_, err = os.Stat(destFile)
-	assert.NoError(t, err, "目标文件应该存在")
+	assert.NoError(t, err, "Destination file should exist")
 
-	// 验证文件内容
+	// Verify file content
 	content, err := os.ReadFile(destFile)
 	assert.NoError(t, err)
-	assert.Equal(t, mockContent, content, "文件内容应该正确")
+	assert.Equal(t, mockContent, content, "File content should be correct")
 
-	// 验证标准错误输出
-	assert.Contains(t, stderrBuf.String(), "已复制从盒子")
+	// Verify stderr output
+	assert.Contains(t, stderrBuf.String(), "Copied from box")
 }
 
-// 测试从本地复制到盒子
+// Test copying from local to box
 func TestCopyFromLocalToBox(t *testing.T) {
-	// 跳过此测试，因为它涉及执行tar命令和文件系统操作
+	// Skip this test as it involves tar command and filesystem operations
 	t.Skip("skip test that requires filesystem operations and tar commands")
 
-	// 保存原始标准输出和错误以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -135,28 +135,28 @@ func TestCopyFromLocalToBox(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建临时源文件
+	// Create temporary source file
 	tempFile, err := os.CreateTemp("", "box-cp-source")
 	assert.NoError(t, err)
 	defer os.Remove(tempFile.Name())
 
-	// 写入测试内容到源文件
+	// Write test content to source file
 	testContent := []byte("test content for upload")
 	_, err = tempFile.Write(testContent)
 	assert.NoError(t, err)
 	tempFile.Close()
 
-	// 验证上传到服务器的内容
+	// Verify content uploaded to server
 	var uploadedContent []byte
 
-	// 创建模拟HTTP服务器
+	// Create mock HTTP server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/api/v1/boxes/box-id/archive", r.URL.Path)
 		assert.Equal(t, "path=/dest/path", r.URL.RawQuery)
 		assert.Equal(t, "PUT", r.Method)
 		assert.Equal(t, "application/x-tar", r.Header.Get("Content-Type"))
 
-		// 读取上传内容
+		// Read uploaded content
 		uploadedContent, err = io.ReadAll(r.Body)
 		assert.NoError(t, err)
 
@@ -165,27 +165,27 @@ func TestCopyFromLocalToBox(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	defer os.Setenv("API_URL", origAPIURL)
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 
-	// 捕获标准输出和错误
+	// Capture stdout and stderr
 	stdoutR, stdoutW, _ := os.Pipe()
 	os.Stdout = stdoutW
 	stderrR, stderrW, _ := os.Pipe()
 	os.Stderr = stderrW
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxCpCommand()
 	cmd.SetArgs([]string{
 		tempFile.Name(),
 		"box-id:/dest/path",
 	})
 
-	// 启动一个goroutine来执行命令，避免被os.Exit中断测试
+	// Start a goroutine to execute command to avoid os.Exit interruption
 	done := make(chan bool)
 	go func() {
 		defer close(done)
@@ -194,28 +194,28 @@ func TestCopyFromLocalToBox(t *testing.T) {
 		stderrW.Close()
 	}()
 
-	// 等待命令完成
+	// Wait for command completion
 	<-done
 
-	// 读取标准输出和错误
+	// Read stdout and stderr
 	var stdoutBuf, stderrBuf bytes.Buffer
 	io.Copy(&stdoutBuf, stdoutR)
 	io.Copy(&stderrBuf, stderrR)
 
-	// 验证上传的内容是有效的tar文件
-	assert.True(t, len(uploadedContent) > 0, "应该上传非空内容")
+	// Verify uploaded content is valid tar file
+	assert.True(t, len(uploadedContent) > 0, "Should upload non-empty content")
 
-	// 验证标准错误输出
-	assert.Contains(t, stderrBuf.String(), "已复制从")
-	assert.Contains(t, stderrBuf.String(), "到盒子")
+	// Verify stderr output
+	assert.Contains(t, stderrBuf.String(), "Copied from")
+	assert.Contains(t, stderrBuf.String(), "to box")
 }
 
-// 测试从盒子复制到标准输出
+// Test copying from box to stdout
 func TestCopyFromBoxToStdout(t *testing.T) {
-	// 跳过此测试，因为它涉及os.Exit调用
+	// Skip this test as it involves os.Exit call
 	t.Skip("skip test that calls os.Exit")
 
-	// 保存原始标准输出和错误以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -223,7 +223,7 @@ func TestCopyFromBoxToStdout(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建模拟HTTP服务器
+	// Create mock HTTP server
 	mockContent := []byte("mock file content for stdout")
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -237,27 +237,27 @@ func TestCopyFromBoxToStdout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// 保存原始环境变量
+	// Save original environment variables
 	origAPIURL := os.Getenv("API_URL")
 	defer os.Setenv("API_URL", origAPIURL)
 
-	// 设置 API 地址为 mock 服务器
+	// Set API URL to mock server
 	os.Setenv("API_URL", server.URL)
 
-	// 捕获标准输出和错误
+	// Capture stdout and stderr
 	stdoutR, stdoutW, _ := os.Pipe()
 	os.Stdout = stdoutW
 	stderrR, stderrW, _ := os.Pipe()
 	os.Stderr = stderrW
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxCpCommand()
 	cmd.SetArgs([]string{
 		"box-id:/test/file-stdout",
 		"-",
 	})
 
-	// 启动一个goroutine来执行命令，避免被os.Exit中断测试
+	// Start a goroutine to execute command to avoid os.Exit interruption
 	done := make(chan bool)
 	go func() {
 		defer close(done)
@@ -267,27 +267,27 @@ func TestCopyFromBoxToStdout(t *testing.T) {
 		stderrW.Close()
 	}()
 
-	// 等待命令完成
+	// Wait for command completion
 	<-done
 
-	// 读取标准输出和错误
+	// Read stdout and stderr
 	var stdoutBuf, stderrBuf bytes.Buffer
 	io.Copy(&stdoutBuf, stdoutR)
 	io.Copy(&stderrBuf, stderrR)
 
-	// 验证标准输出
-	assert.Equal(t, mockContent, stdoutBuf.Bytes(), "应该将内容写入标准输出")
+	// Verify stdout
+	assert.Equal(t, mockContent, stdoutBuf.Bytes(), "Should write content to stdout")
 }
 
-// 测试从标准输入复制到盒子
+// Test copying from stdin to box
 func TestCopyFromStdinToBox(t *testing.T) {
-	// 跳过：这个测试需要模拟标准输入，比较复杂
-	t.Skip("标准输入测试暂时跳过，需要复杂的标准输入模拟")
+	// Skip: This test requires stdin simulation, which is complex
+	t.Skip("stdin test temporarily skipped, requires complex stdin simulation")
 }
 
-// 测试帮助信息
+// Test help message
 func TestBoxCpHelp(t *testing.T) {
-	// 保存原始标准输出以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -295,12 +295,12 @@ func TestBoxCpHelp(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 创建管道以捕获标准输出
+	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 	os.Stderr = w
 
-	// 执行命令
+	// Execute command
 	cmd := NewBoxCpCommand()
 	cmd.SetArgs([]string{
 		"--help",
@@ -308,64 +308,64 @@ func TestBoxCpHelp(t *testing.T) {
 	err := cmd.Execute()
 	assert.NoError(t, err)
 
-	// 读取捕获的输出
+	// Read captured output
 	w.Close()
 	var buf bytes.Buffer
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	fmt.Fprintf(oldStdout, "捕获的输出: %s\n", output)
+	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
-	// 检查帮助信息中是否包含关键部分
-	assert.Contains(t, output, "用法: gbox box cp <src> <dst>")
-	assert.Contains(t, output, "本地文件/目录路径")
-	assert.Contains(t, output, "盒子路径，格式为 BOX_ID:SRC_PATH")
-	assert.Contains(t, output, "\"-\" 表示从标准输入读取")
-	assert.Contains(t, output, "\"-\" 表示写入标准输出")
-	assert.Contains(t, output, "复制本地文件到盒子")
-	assert.Contains(t, output, "从盒子复制到本地")
-	assert.Contains(t, output, "从标准输入复制tar流到盒子")
-	assert.Contains(t, output, "从盒子复制到标准输出")
-	assert.Contains(t, output, "复制目录从本地到盒子")
-	assert.Contains(t, output, "复制目录从盒子到本地")
+	// Check if help message contains key parts
+	assert.Contains(t, output, "Usage: gbox box cp <src> <dst>")
+	assert.Contains(t, output, "Local file/directory path")
+	assert.Contains(t, output, "Box path in format BOX_ID:SRC_PATH")
+	assert.Contains(t, output, "\"-\" to read from stdin")
+	assert.Contains(t, output, "\"-\" to write to stdout")
+	assert.Contains(t, output, "Copy local file to box")
+	assert.Contains(t, output, "Copy from box to local")
+	assert.Contains(t, output, "Copy tar stream from stdin to box")
+	assert.Contains(t, output, "Copy from box to stdout")
+	assert.Contains(t, output, "Copy directory from local to box")
+	assert.Contains(t, output, "Copy directory from box to local")
 }
 
-// 创建测试用的tar归档文件
+// Create mock tar archive for testing
 func createMockTarArchive(t *testing.T, filename string, content []byte) []byte {
-	// 创建临时目录
+	// Create temporary directory
 	tempDir, err := os.MkdirTemp("", "tar-test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	// 创建测试文件
+	// Create test file
 	testFilePath := filepath.Join(tempDir, filename)
 	err = os.WriteFile(testFilePath, content, 0644)
 	assert.NoError(t, err)
 
-	// 创建临时tar文件
+	// Create temporary tar file
 	tarFile, err := os.CreateTemp("", "test-*.tar")
 	assert.NoError(t, err)
 	defer os.Remove(tarFile.Name())
 	tarFile.Close()
 
-	// 创建tar归档
+	// Create tar archive
 	cmd := exec.Command("tar", "-cf", tarFile.Name(), "-C", tempDir, filename)
 	err = cmd.Run()
 	assert.NoError(t, err)
 
-	// 读取tar内容
+	// Read tar content
 	tarContent, err := os.ReadFile(tarFile.Name())
 	assert.NoError(t, err)
 
 	return tarContent
 }
 
-// 测试无效参数
+// Test invalid arguments
 func TestBoxCpInvalidArgs(t *testing.T) {
-	// 跳过此测试，因为os.Exit会中止测试进程
+	// Skip this test as os.Exit will abort the test process
 	t.Skip("skip test that calls os.Exit")
 
-	// 保存原始标准输出和错误以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -373,23 +373,23 @@ func TestBoxCpInvalidArgs(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 捕获标准输出和错误
+	// Capture stdout and stderr
 	stdoutR, stdoutW, _ := os.Pipe()
 	os.Stdout = stdoutW
 	stderrR, stderrW, _ := os.Pipe()
 	os.Stderr = stderrW
 
-	// 执行命令，参数不足
+	// Execute command with insufficient arguments
 	cmd := NewBoxCpCommand()
 	cmd.SetArgs([]string{
 		"only-one-arg",
 	})
 
-	// 由于命令会调用os.Exit，我们不能直接执行它
-	// 这里我们只验证它会输出帮助信息
+	// Since command calls os.Exit, we can't execute it directly
+	// Here we only verify it outputs help message
 	_ = cmd.Execute()
 
-	// 验证结果
+	// Verify results
 	stdoutW.Close()
 	stderrW.Close()
 
@@ -398,15 +398,15 @@ func TestBoxCpInvalidArgs(t *testing.T) {
 	io.Copy(&stderrBuf, stderrR)
 
 	output := stdoutBuf.String()
-	assert.Contains(t, output, "用法: gbox box cp <src> <dst>", "应该显示帮助信息")
+	assert.Contains(t, output, "Usage: gbox box cp <src> <dst>", "Should display help message")
 }
 
-// 测试无效的路径组合
+// Test invalid path combinations
 func TestBoxCpInvalidPathCombination(t *testing.T) {
-	// 跳过此测试，因为os.Exit会中止测试进程
+	// Skip this test as os.Exit will abort the test process
 	t.Skip("skip test that calls os.Exit")
 
-	// 保存原始标准输出和错误以便后续恢复
+	// Save original stdout and stderr for later restoration
 	oldStdout := os.Stdout
 	oldStderr := os.Stderr
 	defer func() {
@@ -414,20 +414,20 @@ func TestBoxCpInvalidPathCombination(t *testing.T) {
 		os.Stderr = oldStderr
 	}()
 
-	// 捕获标准输出和错误
+	// Capture stdout and stderr
 	stdoutR, stdoutW, _ := os.Pipe()
 	os.Stdout = stdoutW
 	stderrR, stderrW, _ := os.Pipe()
 	os.Stderr = stderrW
 
-	// 执行命令，两个都是盒子路径
+	// Execute command with two box paths
 	cmd := NewBoxCpCommand()
 	cmd.SetArgs([]string{
 		"box1:/path1",
 		"box2:/path2",
 	})
 
-	// 启动一个goroutine来执行命令，避免被os.Exit中断测试
+	// Start a goroutine to execute command to avoid os.Exit interruption
 	done := make(chan bool)
 	go func() {
 		defer close(done)
@@ -436,15 +436,15 @@ func TestBoxCpInvalidPathCombination(t *testing.T) {
 		stderrW.Close()
 	}()
 
-	// 等待命令完成
+	// Wait for command completion
 	<-done
 
-	// 读取标准输出和错误
+	// Read stdout and stderr
 	var stdoutBuf, stderrBuf bytes.Buffer
 	io.Copy(&stdoutBuf, stdoutR)
 	io.Copy(&stderrBuf, stderrR)
 
 	combined := stdoutBuf.String() + stderrBuf.String()
-	assert.True(t, strings.Contains(combined, "错误") || strings.Contains(combined, "无效的路径格式"),
-		"应该显示错误信息")
+	assert.True(t, strings.Contains(combined, "Error") || strings.Contains(combined, "Invalid path format"),
+		"Should display error message")
 }

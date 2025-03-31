@@ -20,7 +20,7 @@ func NewBoxStopCommand() *cobra.Command {
 			var outputFormat string = "text"
 			var boxID string
 
-			// 解析参数
+			// Parse arguments
 			for i := 0; i < len(args); i++ {
 				switch args[i] {
 				case "--help":
@@ -30,7 +30,7 @@ func NewBoxStopCommand() *cobra.Command {
 					if i+1 < len(args) {
 						outputFormat = args[i+1]
 						if outputFormat != "json" && outputFormat != "text" {
-							fmt.Println("错误: 无效的输出格式。必须是 'json' 或 'text'")
+							fmt.Println("Error: Invalid output format. Must be 'json' or 'text'")
 							if os.Getenv("TESTING") != "true" {
 								os.Exit(1)
 							}
@@ -38,7 +38,7 @@ func NewBoxStopCommand() *cobra.Command {
 						}
 						i++
 					} else {
-						fmt.Println("错误: --output 需要参数值")
+						fmt.Println("Error: --output requires a value")
 						if os.Getenv("TESTING") != "true" {
 							os.Exit(1)
 						}
@@ -48,13 +48,13 @@ func NewBoxStopCommand() *cobra.Command {
 					if !strings.HasPrefix(args[i], "-") && boxID == "" {
 						boxID = args[i]
 					} else if strings.HasPrefix(args[i], "-") {
-						fmt.Printf("错误: 未知选项 %s\n", args[i])
+						fmt.Printf("Error: Unknown option %s\n", args[i])
 						if os.Getenv("TESTING") != "true" {
 							os.Exit(1)
 						}
 						return
 					} else {
-						fmt.Printf("错误: 意外的参数 %s\n", args[i])
+						fmt.Printf("Error: Unexpected argument %s\n", args[i])
 						if os.Getenv("TESTING") != "true" {
 							os.Exit(1)
 						}
@@ -63,29 +63,29 @@ func NewBoxStopCommand() *cobra.Command {
 				}
 			}
 
-			// 验证盒子ID
+			// Validate box ID
 			if boxID == "" {
-				fmt.Println("错误: 需要盒子ID")
+				fmt.Println("Error: Box ID is required")
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
 				}
 				return
 			}
 
-			// 调用API停止盒子
+			// Call API to stop the box
 			apiURL := fmt.Sprintf("http://localhost:28080/api/v1/boxes/%s/stop", boxID)
 			if envURL := os.Getenv("API_URL"); envURL != "" {
 				apiURL = fmt.Sprintf("%s/api/v1/boxes/%s/stop", envURL, boxID)
 			}
 
 			if os.Getenv("DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "请求地址: %s\n", apiURL)
+				fmt.Fprintf(os.Stderr, "Request URL: %s\n", apiURL)
 			}
 
-			// 创建POST请求
+			// Create POST request
 			req, err := http.NewRequest("POST", apiURL, nil)
 			if err != nil {
-				fmt.Printf("错误: 创建请求失败: %v\n", err)
+				fmt.Printf("Error: Failed to create request: %v\n", err)
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
 				}
@@ -93,11 +93,11 @@ func NewBoxStopCommand() *cobra.Command {
 			}
 			req.Header.Set("Content-Type", "application/json")
 
-			// 发送请求
+			// Send request
 			client := &http.Client{}
 			resp, err := client.Do(req)
 			if err != nil {
-				fmt.Printf("错误: 调用API失败: %v\n", err)
+				fmt.Printf("Error: API call failed: %v\n", err)
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
 				}
@@ -107,7 +107,7 @@ func NewBoxStopCommand() *cobra.Command {
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				fmt.Printf("错误: 读取响应失败: %v\n", err)
+				fmt.Printf("Error: Failed to read response: %v\n", err)
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
 				}
@@ -115,28 +115,28 @@ func NewBoxStopCommand() *cobra.Command {
 			}
 
 			if os.Getenv("DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "响应状态码: %d\n", resp.StatusCode)
-				fmt.Fprintf(os.Stderr, "响应内容: %s\n", string(body))
+				fmt.Fprintf(os.Stderr, "Response status code: %d\n", resp.StatusCode)
+				fmt.Fprintf(os.Stderr, "Response content: %s\n", string(body))
 			}
 
-			// 处理HTTP状态码
+			// Handle HTTP status code
 			switch resp.StatusCode {
 			case 200:
 				if outputFormat == "json" {
-					fmt.Println(`{"status":"success","message":"盒子已成功停止"}`)
+					fmt.Println(`{"status":"success","message":"Box stopped successfully"}`)
 				} else {
-					fmt.Println("盒子已成功停止")
+					fmt.Println("Box stopped successfully")
 				}
 			case 404:
-				fmt.Printf("盒子未找到: %s\n", boxID)
+				fmt.Printf("Box not found: %s\n", boxID)
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
 				}
 				return
 			default:
-				fmt.Printf("错误: 停止盒子失败 (HTTP %d)\n", resp.StatusCode)
+				fmt.Printf("Error: Failed to stop box (HTTP %d)\n", resp.StatusCode)
 				if os.Getenv("DEBUG") == "true" {
-					fmt.Fprintf(os.Stderr, "响应: %s\n", string(body))
+					fmt.Fprintf(os.Stderr, "Response: %s\n", string(body))
 				}
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
@@ -150,13 +150,13 @@ func NewBoxStopCommand() *cobra.Command {
 }
 
 func printBoxStopHelp() {
-	fmt.Println("用法: gbox box stop <id> [选项]")
+	fmt.Println("Usage: gbox box stop <id> [options]")
 	fmt.Println()
-	fmt.Println("选项:")
-	fmt.Println("    --output          输出格式 (json或text, 默认: text)")
+	fmt.Println("Options:")
+	fmt.Println("    --output          Output format (json or text, default: text)")
 	fmt.Println()
-	fmt.Println("示例:")
-	fmt.Println("    gbox box stop 550e8400-e29b-41d4-a716-446655440000              # 停止一个盒子")
-	fmt.Println("    gbox box stop 550e8400-e29b-41d4-a716-446655440000 --output json  # 停止盒子并输出JSON")
+	fmt.Println("Examples:")
+	fmt.Println("    gbox box stop 550e8400-e29b-41d4-a716-446655440000              # Stop a box")
+	fmt.Println("    gbox box stop 550e8400-e29b-41d4-a716-446655440000 --output json  # Stop a box and output JSON")
 	fmt.Println()
 }

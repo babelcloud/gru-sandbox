@@ -29,7 +29,7 @@ func NewBoxReclaimCommand() *cobra.Command {
 			var boxID string
 			var force bool = false
 
-			// 解析参数
+			// Parse arguments
 			for i := 0; i < len(args); i++ {
 				switch args[i] {
 				case "--help":
@@ -39,7 +39,7 @@ func NewBoxReclaimCommand() *cobra.Command {
 					if i+1 < len(args) {
 						outputFormat = args[i+1]
 						if outputFormat != "json" && outputFormat != "text" {
-							fmt.Println("错误: 无效的输出格式。必须是 'json' 或 'text'")
+							fmt.Println("Error: Invalid output format. Must be 'json' or 'text'")
 							if os.Getenv("TESTING") != "true" {
 								os.Exit(1)
 							}
@@ -47,7 +47,7 @@ func NewBoxReclaimCommand() *cobra.Command {
 						}
 						i++
 					} else {
-						fmt.Println("错误: --output 需要参数值")
+						fmt.Println("Error: --output requires a value")
 						if os.Getenv("TESTING") != "true" {
 							os.Exit(1)
 						}
@@ -59,13 +59,13 @@ func NewBoxReclaimCommand() *cobra.Command {
 					if !strings.HasPrefix(args[i], "-") && boxID == "" {
 						boxID = args[i]
 					} else if strings.HasPrefix(args[i], "-") {
-						fmt.Printf("错误: 未知选项 %s\n", args[i])
+						fmt.Printf("Error: Unknown option %s\n", args[i])
 						if os.Getenv("TESTING") != "true" {
 							os.Exit(1)
 						}
 						return
 					} else {
-						fmt.Printf("错误: 意外的参数 %s\n", args[i])
+						fmt.Printf("Error: Unexpected argument %s\n", args[i])
 						if os.Getenv("TESTING") != "true" {
 							os.Exit(1)
 						}
@@ -74,23 +74,23 @@ func NewBoxReclaimCommand() *cobra.Command {
 				}
 			}
 
-			// 准备API URL
+			// Prepare API URL
 			var apiURL string
 			if boxID == "" {
-				// 如果没有指定盒子ID，则执行全局回收
+				// If no box ID specified, perform global reclaim
 				apiURL = "http://localhost:28080/api/v1/boxes/reclaim"
 				if envURL := os.Getenv("API_URL"); envURL != "" {
 					apiURL = fmt.Sprintf("%s/api/v1/boxes/reclaim", envURL)
 				}
 			} else {
-				// 如果指定了盒子ID，则只回收特定盒子
+				// If box ID specified, reclaim only that specific box
 				apiURL = fmt.Sprintf("http://localhost:28080/api/v1/boxes/%s/reclaim", boxID)
 				if envURL := os.Getenv("API_URL"); envURL != "" {
 					apiURL = fmt.Sprintf("%s/api/v1/boxes/%s/reclaim", envURL, boxID)
 				}
 			}
 
-			// 添加强制参数
+			// Add force parameter
 			if force {
 				if strings.Contains(apiURL, "?") {
 					apiURL += "&force=true"
@@ -100,13 +100,13 @@ func NewBoxReclaimCommand() *cobra.Command {
 			}
 
 			if os.Getenv("DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "请求地址: %s\n", apiURL)
+				fmt.Fprintf(os.Stderr, "Request URL: %s\n", apiURL)
 			}
 
-			// 创建POST请求
+			// Create POST request
 			req, err := http.NewRequest("POST", apiURL, nil)
 			if err != nil {
-				fmt.Printf("错误: 创建请求失败: %v\n", err)
+				fmt.Printf("Error: Failed to create request: %v\n", err)
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
 				}
@@ -115,11 +115,11 @@ func NewBoxReclaimCommand() *cobra.Command {
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Accept", "application/json")
 
-			// 发送请求
+			// Send request
 			client := &http.Client{}
 			resp, err := client.Do(req)
 			if err != nil {
-				fmt.Printf("错误: 调用API失败: %v\n", err)
+				fmt.Printf("Error: API call failed: %v\n", err)
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
 				}
@@ -129,7 +129,7 @@ func NewBoxReclaimCommand() *cobra.Command {
 
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				fmt.Printf("错误: 读取响应失败: %v\n", err)
+				fmt.Printf("Error: Failed to read response: %v\n", err)
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
 				}
@@ -137,51 +137,51 @@ func NewBoxReclaimCommand() *cobra.Command {
 			}
 
 			if os.Getenv("DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "响应状态码: %d\n", resp.StatusCode)
-				fmt.Fprintf(os.Stderr, "响应内容: %s\n", string(body))
+				fmt.Fprintf(os.Stderr, "Response status code: %d\n", resp.StatusCode)
+				fmt.Fprintf(os.Stderr, "Response content: %s\n", string(body))
 			}
 
-			// 处理HTTP状态码
+			// Handle HTTP status code
 			switch resp.StatusCode {
 			case 200:
 				if outputFormat == "json" {
-					// JSON格式直接输出
+					// Output JSON directly
 					fmt.Println(string(body))
 				} else {
-					// 文本格式输出
+					// Output in text format
 					var response BoxReclaimResponse
 					if err := json.Unmarshal(body, &response); err != nil {
-						fmt.Println("盒子资源已成功回收")
+						fmt.Println("Box resources successfully reclaimed")
 					} else {
 						fmt.Println(response.Message)
 						if response.StoppedCount > 0 {
-							fmt.Printf("已停止 %d 个盒子\n", response.StoppedCount)
+							fmt.Printf("Stopped %d boxes\n", response.StoppedCount)
 						}
 						if response.DeletedCount > 0 {
-							fmt.Printf("已删除 %d 个盒子\n", response.DeletedCount)
+							fmt.Printf("Deleted %d boxes\n", response.DeletedCount)
 						}
 					}
 				}
 			case 404:
 				if boxID != "" {
-					fmt.Printf("盒子未找到: %s\n", boxID)
+					fmt.Printf("Box not found: %s\n", boxID)
 				} else {
-					fmt.Println("找不到可回收的盒子")
+					fmt.Println("No boxes found to reclaim")
 				}
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
 				}
 				return
 			case 400:
-				fmt.Printf("错误: 无效的请求: %s\n", string(body))
+				fmt.Printf("Error: Invalid request: %s\n", string(body))
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
 				}
 				return
 			default:
-				fmt.Printf("错误: 回收盒子资源失败 (HTTP %d)\n", resp.StatusCode)
+				fmt.Printf("Error: Failed to reclaim box resources (HTTP %d)\n", resp.StatusCode)
 				if os.Getenv("DEBUG") == "true" {
-					fmt.Fprintf(os.Stderr, "响应: %s\n", string(body))
+					fmt.Fprintf(os.Stderr, "Response: %s\n", string(body))
 				}
 				if os.Getenv("TESTING") != "true" {
 					os.Exit(1)
@@ -195,16 +195,16 @@ func NewBoxReclaimCommand() *cobra.Command {
 }
 
 func printBoxReclaimHelp() {
-	fmt.Println("用法: gbox box reclaim <id> [选项]")
+	fmt.Println("Usage: gbox box reclaim <id> [options]")
 	fmt.Println()
-	fmt.Println("选项:")
-	fmt.Println("    --output          输出格式 (json或text, 默认: text)")
-	fmt.Println("    -f, --force       强制回收资源，即使盒子正在运行")
+	fmt.Println("Options:")
+	fmt.Println("    --output          Output format (json or text, default: text)")
+	fmt.Println("    -f, --force       Force resource reclamation, even if box is running")
 	fmt.Println()
-	fmt.Println("示例:")
-	fmt.Println("    gbox box reclaim 550e8400-e29b-41d4-a716-446655440000              # 回收盒子资源")
-	fmt.Println("    gbox box reclaim 550e8400-e29b-41d4-a716-446655440000 --force      # 强制回收盒子资源")
-	fmt.Println("    gbox box reclaim 550e8400-e29b-41d4-a716-446655440000 --output json  # 输出JSON格式结果")
-	fmt.Println("    gbox box reclaim                                      # 回收所有符合条件的盒子资源")
+	fmt.Println("Examples:")
+	fmt.Println("    gbox box reclaim 550e8400-e29b-41d4-a716-446655440000              # Reclaim box resources")
+	fmt.Println("    gbox box reclaim 550e8400-e29b-41d4-a716-446655440000 --force      # Force reclaim box resources")
+	fmt.Println("    gbox box reclaim 550e8400-e29b-41d4-a716-446655440000 --output json  # Output result in JSON format")
+	fmt.Println("    gbox box reclaim                                      # Reclaim resources for all eligible boxes")
 	fmt.Println()
 }

@@ -2,7 +2,7 @@ export * from "./list-boxes.js";
 export * from "./run-python.js";
 export * from "./run-bash.js";
 export * from "./read-file.js";
-
+export * from "./view-by-url.js";
 // Re-export tool names and descriptions for convenience
 export const TOOL_NAMES = {
   LIST_BOXES: "list-boxes",

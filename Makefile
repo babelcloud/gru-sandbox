@@ -55,6 +55,10 @@ build-image-%: ## Build specific docker image (e.g., build-image-python)
 	@echo "Building docker image $*..."
 	@make -C images build-$*
 
+run-container-%: ## Run specific docker image (e.g., run-container-python)
+	@echo "Running docker container $*..."
+	@make -C images run-$*
+
 # Create distribution package
 .PHONY: dist
 dist: build ## Create distribution package

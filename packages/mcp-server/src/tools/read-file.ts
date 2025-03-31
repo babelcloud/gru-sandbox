@@ -1,4 +1,4 @@
-import { withLogging } from "../utils.js";
+import { LogFunction, withLogging } from "../utils.js";
 import { config } from "../config.js";
 import { GBox, FILE_SIZE_LIMITS } from "../sdk/index.js";
 import { MCPLogger } from "../mcp-logger.js";
@@ -27,8 +27,8 @@ async function handleFileContent(
   contentLength: number,
   path: string,
   boxId: string,
-  signal: AbortSignal,
-  logger: MCPLogger
+  logger: MCPLogger,
+  signal?: AbortSignal,
 ) {
   // For directories, return error
   if (fileStat.type === "directory") {
@@ -127,79 +127,84 @@ async function handleFileContent(
   };
 }
 
-// Read file handler
-export const handleReadFile = withLogging(
-  async (log, { path, boxId }, { signal }) => {
-    const logger = new MCPLogger(log);
-    const gbox = new GBox({
-      apiUrl: config.apiServer.url,
-      logger,
-    });
+const readFileParamsShape = z.object(readFileParams);
+// Read file handler implementation
+export async function readFileHandler(
+  log: LogFunction,
+  { path, boxId }: z.infer<typeof readFileParamsShape>,
+  { signal }: { signal?: AbortSignal }
+) {
+  const logger = new MCPLogger(log);
+  const gbox = new GBox({
+    apiUrl: config.apiServer.url,
+    logger,
+  });
 
-    logger.info(`Reading file: ${path}${boxId ? ` from box: ${boxId}` : ""}`);
+  logger.info(`Reading file: ${path}${boxId ? ` from box: ${boxId}` : ""}`);
 
-    // First check if file exists and get metadata
-    let metadata = await gbox.file.getFileMetadata(`${boxId}${path}`, signal);
+  // First check if file exists and get metadata
+  let metadata = await gbox.file.getFileMetadata(`${boxId}${path}`, signal);
 
-    // If file doesn't exist and we have a boxId, try to share it
-    if (!metadata && boxId) {
-      logger.info(`File not found, attempting to share from box: ${boxId}`);
+  // If file doesn't exist and we have a boxId, try to share it
+  if (!metadata && boxId) {
+    logger.info(`File not found, attempting to share from box: ${boxId}`);
 
-      // Share file from box
-      const shareResponse = await gbox.file.shareFile(path, boxId, signal);
-      if (!shareResponse || !shareResponse.success) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: shareResponse?.message || "Failed to share file",
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      logger.info(
-        `File shared successfully: ${
-          shareResponse.message
-        }\nShared files: ${shareResponse.fileList
-          .map((f) => f.path)
-          .join(", ")}`
-      );
-
-      // Retry getting file metadata after sharing
-      metadata = await gbox.file.getFileMetadata(`${boxId}${path}`, signal);
-    }
-
-    if (!metadata) {
+    // Share file from box
+    const shareResponse = await gbox.file.shareFile(path, boxId, signal);
+    if (!shareResponse || !shareResponse.success) {
       return {
         content: [
           {
             type: "text" as const,
-            text: "File not found",
+            text: shareResponse?.message || "Failed to share file",
           },
         ],
         isError: true,
       };
     }
 
-    const { fileStat, mimeType, contentLength } = metadata;
-
     logger.info(
-      `File metadata: ${JSON.stringify(
-        fileStat
-      )}, mimeType: ${mimeType}, contentLength: ${contentLength}`
+      `File shared successfully: ${
+        shareResponse.message
+      }\nShared files: ${shareResponse.fileList
+        .map((f) => f.path)
+        .join(", ")}`
     );
 
-    return handleFileContent(
-      gbox,
-      fileStat,
-      mimeType,
-      contentLength,
-      path,
-      boxId,
-      signal,
-      logger
-    );
+    // Retry getting file metadata after sharing
+    metadata = await gbox.file.getFileMetadata(`${boxId}${path}`, signal);
   }
-);
+
+  if (!metadata) {
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: "File not found",
+        },
+      ],
+      isError: true,
+    };
+  }
+
+  const { fileStat, mimeType, contentLength } = metadata;
+
+  logger.info(
+    `File metadata: ${JSON.stringify(
+      fileStat
+    )}, mimeType: ${mimeType}, contentLength: ${contentLength}`
+  );
+
+  return handleFileContent(
+    gbox,
+    fileStat,
+    mimeType,
+    contentLength,
+    path,
+    boxId,
+    logger,
+    signal
+  );
+}
+
+export const handleReadFile = withLogging(readFileHandler);

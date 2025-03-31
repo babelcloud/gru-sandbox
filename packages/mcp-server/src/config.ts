@@ -23,6 +23,6 @@ export const config = {
   images: {
     python: process.env.PY_IMG || "babelcloud/gbox-python:latest",
     typescript: process.env.TS_IMG || "babelcloud/gbox-typescript:latest",
-    bash: process.env.SH_IMG || "ubuntu:latest",
+    bash: process.env.SH_IMG || "babelcloud/gbox-python:latest",
   },
 } as const;

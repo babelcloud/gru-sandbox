@@ -3,7 +3,7 @@ package common
 import "encoding/json"
 
 const (
-	DefaultImage = "ubuntu:latest"
+	DefaultImage = "babelcloud/gbox-python:latest"
 	// DefaultWorkDirPath is the base path for all box-related directories
 	DefaultWorkDirPath = "/var/gbox"
 	// DefaultShareDirPath is the path for the shared directory within a box

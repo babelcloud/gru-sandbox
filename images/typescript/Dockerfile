@@ -8,7 +8,7 @@ RUN apt update && apt install -y --no-install-recommends tini && apt clean && rm
 WORKDIR /root
 
 # Install global TypeScript and other common tools
-RUN npm install -g typescript ts-node @types/node
+RUN npm install -g typescript tsx @types/node
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["sleep", "infinity"]

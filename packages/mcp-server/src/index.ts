@@ -21,6 +21,12 @@ import {
 import type { LoggingMessageNotification } from "@modelcontextprotocol/sdk/types.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import type { LogFn } from "./types.js";
+import {
+  handleRunTypescript,
+  RUN_TYPESCRIPT_DESCRIPTION,
+  RUN_TYPESCRIPT_TOOL,
+  runTypescriptParams,
+} from "./tools/run-typescript.js";
 
 const enableLogging = true;
 
@@ -93,6 +99,13 @@ mcpServer.tool(
   RUN_PYTHON_DESCRIPTION,
   runPythonParams,
   handleRunPython(log)
+);
+
+mcpServer.tool(
+  RUN_TYPESCRIPT_TOOL,
+  RUN_TYPESCRIPT_DESCRIPTION,
+  runTypescriptParams,
+  handleRunTypescript(log)
 );
 
 mcpServer.tool(

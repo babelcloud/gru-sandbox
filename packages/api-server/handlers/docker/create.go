@@ -112,13 +112,30 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 		}
 
 		// Add mount configuration
-		mounts = append(mounts, mount.Mount{
-			Type:        mountType,
-			Source:      m.Source,
-			Target:      m.Target,
-			ReadOnly:    m.ReadOnly,
-			Consistency: m.Consistency,
-		})
+		mountConfig := mount.Mount{
+			Type:     mountType,
+			Source:   m.Source,
+			Target:   m.Target,
+			ReadOnly: m.ReadOnly,
+		}
+
+		// Set consistency if specified
+		if m.Consistency != "" {
+			switch m.Consistency {
+			case "default":
+				mountConfig.Consistency = mount.ConsistencyDefault
+			case "cached":
+				mountConfig.Consistency = mount.ConsistencyCached
+			case "delegated":
+				mountConfig.Consistency = mount.ConsistencyDelegated
+			default:
+				logger.Error("Invalid mount consistency: %s", m.Consistency)
+				resp.WriteError(http.StatusBadRequest, fmt.Errorf("invalid mount consistency: %s", m.Consistency))
+				return
+			}
+		}
+
+		mounts = append(mounts, mountConfig)
 	}
 
 	// Create container

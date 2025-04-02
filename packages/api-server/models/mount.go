@@ -12,6 +12,13 @@ const (
 	MountTypeTmpfs MountType = "tmpfs"
 )
 
+// Valid mount consistency values
+const (
+	ConsistencyDefault   = "default"   // Default consistency
+	ConsistencyCached    = "cached"    // Host-to-container propagation is relaxed
+	ConsistencyDelegated = "delegated" // Container-to-host propagation is relaxed
+)
+
 // Mount represents a mount configuration for a box
 type Mount struct {
 	Type        MountType `json:"type"`                  // Type of mount (bind, volume, tmpfs)

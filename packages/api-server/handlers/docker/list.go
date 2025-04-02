@@ -19,15 +19,12 @@ func handleListBoxes(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 
 	// Build Docker filter args
 	filterArgs := filters.NewArgs()
-	// Add base filter for gbox containers
-	filterArgs.Add("label", GboxLabelName)
-	logger.Debug("Initialized filter args with base filter: %v", filterArgs)
 
 	// Get filters from query parameters
-	filters := req.QueryParameters("filter")
-	logger.Debug("Received query filters: %v", filters)
+	queryFilters := req.QueryParameters("filter")
+	logger.Debug("Received query filters: %v", queryFilters)
 
-	for _, filter := range filters {
+	for _, filter := range queryFilters {
 		// Parse filter format: field=value
 		// For label filters, value might contain multiple equals signs
 		firstEquals := strings.Index(filter, "=")
@@ -72,7 +69,7 @@ func handleListBoxes(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 
 	// Get containers with filters
 	logger.Debug("Querying Docker with filters: %v", filterArgs)
-	containerList, err := h.getAllContainers(req.Request.Context())
+	containerList, err := h.getContainers(req.Request.Context(), &filterArgs)
 	if err != nil {
 		logger.Error("Failed to list containers: %v", err)
 		resp.WriteError(http.StatusInternalServerError, err)

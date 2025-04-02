@@ -37,17 +37,29 @@ func (h *DockerBoxHandler) getContainerByID(ctx context.Context, boxID string) (
 	return &boxes[0], nil
 }
 
-// getAllContainers finds all containers with gbox label
-func (h *DockerBoxHandler) getAllContainers(ctx context.Context) ([]types.Container, error) {
+// getContainers finds containers with gbox label and optional additional filters
+func (h *DockerBoxHandler) getContainers(ctx context.Context, additionalFilters *filters.Args) ([]types.Container, error) {
 	logger := log.New()
-	logger.Debug("Getting all containers")
+	logger.Debug("Getting containers")
 
 	// Create a filter to only list gbox containers
 	filterArgs := filters.NewArgs()
 	filterArgs.Add("label", fmt.Sprintf("%s=gbox", GboxLabelName))
 	logger.Debug("Added base filter for gbox label: %v", filterArgs)
 
-	containers, err := h.client.ContainerList(ctx, types.ContainerListOptions{
+	// Merge additional filters if provided
+	if additionalFilters != nil {
+		// Get all keys from additional filters
+		for _, key := range additionalFilters.Keys() {
+			// Get all values for this key
+			for _, value := range additionalFilters.Get(key) {
+				filterArgs.Add(key, value)
+			}
+		}
+		logger.Debug("Merged additional filters, final filters: %v", filterArgs)
+	}
+
+	containers, err := h.client.ContainerList(ctx, container.ListOptions{
 		All:     true, // Include stopped containers
 		Filters: filterArgs,
 	})

@@ -96,6 +96,11 @@ func main() {
 		Returns(200, "OK", models.BoxesDeleteResponse{}).
 		Returns(500, "Internal Server Error", models.BoxError{}))
 
+	ws.Route(ws.POST("/boxes/reclaim").To(boxHandler.ReclaimBoxes).
+		Doc("reclaim inactive boxes").
+		Returns(200, "OK", models.BoxReclaimResponse{}).
+		Returns(500, "Internal Server Error", models.BoxError{}))
+
 	ws.Route(ws.POST("/boxes/{id}/exec").To(boxHandler.ExecBox).
 		Doc("execute a command in a box").
 		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).

@@ -22,42 +22,27 @@ LDFLAGS := -ldflags "-X github.com/babelcloud/gru-sandbox/packages/cli/internal/
                      -X github.com/babelcloud/gru-sandbox/packages/cli/internal/version.Commit=$(COMMIT)"
 
 # Supported platforms
-PLATFORMS := linux-amd64 linux-arm64 darwin-amd64 darwin-arm64 windows-amd64
+PLATFORMS := linux-amd64 linux-arm64 darwin-amd64 darwin-arm64
 
-.PHONY: all clean help binary binary-all install test-setup test-box test-boxes test-env-check test-cleanup
+.PHONY: all clean help binary binary-all install e2e-setup e2e e2e-env-check e2e-cleanup e2e-%
 
 # Default target
-all: help
+all: help ## Show this help message (default target)
 
 # Help information
-help:
-	@echo "Available commands:"
-	@echo "  make binary        - Build binary for the current platform"
-	@echo "  make binary-all    - Build binaries for all supported platforms"
-	@echo "  make clean         - Clean the build directory"
-	@echo "  make install       - Install to local system (current platform only)"
-	@echo "  make test-setup    - Setup test environment (build and start test API server)"
-	@echo "  make test-box CMD=<cmd>  - Run test for a specific box command"
-	@echo "  make test-boxes    - Run tests for all box commands"
-	@echo "  make test-cleanup  - Clean up test environment and stop test API server"
-	@echo "  make help          - Display this help information"
-	@echo ""
-	@echo "Environment variables:"
-	@echo "  GOOS               - Target operating system (default: $(GOOS))"
-	@echo "  GOARCH             - Target architecture (default: $(GOARCH))"
-	@echo "  VERSION            - Version number (default: $(VERSION))"
-	@echo "  SKIP_BUILD         - Skip building test API server image (default: false)"
+help: ## Show this help message
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 # Check if test API server is running
-test-env-check:
+e2e-env-check: ## Check if test API server is running
 	@if ! curl -s http://localhost:28081/api/v1/boxes > /dev/null; then \
-		echo "Error: Test API server is not running. Please run 'make test-setup' first."; \
+		echo "Error: Test API server is not running. Please run 'make e2e-setup' first."; \
 		exit 1; \
 	fi
 
 # Setup test environment
-test-setup:
-	@echo "Setting up test environment..."
+e2e-setup: ## Setup e2e test environment (build and start test API server)
+	@echo "Setting up e2e test environment..."
 	@if [ "$(SKIP_BUILD)" = "false" ]; then \
 		echo "Building test API server image..."; \
 		cd ../api-server && make docker-build IMG=$(TEST_API_IMAGE) || exit 1; \
@@ -67,65 +52,56 @@ test-setup:
 			exit 1; \
 		fi; \
 	fi
-	@echo "Starting test API server..."
-	@API_SERVER_IMG_TAG=test docker compose -f ../../manifests/docker/docker-compose.test.yml up -d
-	@echo "Waiting for test API server to be ready..."
+	@echo "Starting e2e test API server..."
+	@API_SERVER_IMG_TAG=test docker compose --env-file ../../manifests/docker/.env.test -f ../../manifests/docker/docker-compose.yml up -d
+	@echo "Waiting for e2e test API server to be ready..."
 	@for i in $$(seq 1 30); do \
 		if curl -s http://localhost:28081/api/v1/boxes > /dev/null; then \
-			echo "Test API server is ready!"; \
+			echo "E2E test API server is ready!"; \
 			exit 0; \
 		fi; \
 		sleep 1; \
 	done; \
-	echo "Error: Test API server failed to start within 30 seconds."; \
+	echo "Error: E2E test API server failed to start within 30 seconds."; \
 	exit 1
 
-# Run test for a specific box command
-test-box: test-env-check
-	@if [ -z "$(CMD)" ]; then \
-		echo "Error: Please specify the command to test using CMD=<cmd>"; \
-		echo "Example: make test-box CMD=box_create"; \
-		exit 1; \
-	fi
-	@cd exp-test && ./run_test --$(CMD)
+# Run test for a specific command using pattern matching
+.PHONY: e2e-%
+e2e-%: e2e-env-check ## Run test for a specific command (e.g. make e2e-create)
+	@cd e2e && ./run-test --$*
 
-# Run tests for all box commands
-test-boxes: test-env-check
-	@cd exp-test && ./run_test
+# Run tests for all commands
+e2e: e2e-env-check ## Run tests for all commands
+	@cd e2e && ./run-test
 
 # Clean build directory
-clean:
+clean: ## Clean the build directory
 	@echo "Cleaning build directory..."
 	@rm -rf $(BUILD_DIR)
 	@echo "Cleaning completed"
 
 # Build binary for a single platform
-binary:
+binary: ## Build binary for the current platform (GOOS/GOARCH)
 	@echo "Building $(BINARY_NAME) binary ($(GOOS)/$(GOARCH))..."
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_FILE)
 	@echo "Binary built: $(BUILD_DIR)/$(BINARY_NAME)"
 
 # Build binaries for all supported platforms
-binary-all:
+binary-all: ## Build binaries for all supported platforms
 	@echo "Building binaries for all supported platforms..."
 	@mkdir -p $(BUILD_DIR)
 	@for platform in $(PLATFORMS); do \
 		os=$$(echo $$platform | cut -d- -f1); \
 		arch=$$(echo $$platform | cut -d- -f2); \
-		if [ "$$os" = "windows" ]; then \
-			suffix=".exe"; \
-		else \
-			suffix=""; \
-		fi; \
-		outfile="$(BUILD_DIR)/$(BINARY_NAME)-$$platform$$suffix"; \
+		outfile="$(BUILD_DIR)/$(BINARY_NAME)-$$platform"; \
 		echo "Building $$outfile..."; \
 		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build $(LDFLAGS) -o $$outfile $(MAIN_FILE); \
 	done
 	@echo "All platform binaries have been built"
 
 # Clean up test environment
-test-cleanup:
-	@echo "Cleaning up test environment..."
-	@API_SERVER_IMG_TAG=test docker compose -f ../../manifests/docker/docker-compose.test.yml down
-	@echo "Test environment cleaned up"
+e2e-cleanup: ## Clean up e2e test environment and stop test API server
+	@echo "Cleaning up e2e test environment..."
+	@API_SERVER_IMG_TAG=test docker compose --env-file ../../manifests/docker/.env.test -f ../../manifests/docker/docker-compose.yml down
+	@echo "E2E test environment cleaned up"

@@ -113,7 +113,8 @@ func setupDocker() error {
 	}
 
 	composePath := filepath.Join(scriptDir, "..", "manifests", "docker", "docker-compose.yml")
-	cmd := exec.Command("docker", "compose", "-f", composePath, "up", "-d")
+	envFilePath := filepath.Join(scriptDir, "..", "manifests", "docker", ".env.prod")
+	cmd := exec.Command("docker", "compose", "--env-file", envFilePath, "-f", composePath, "up", "-d")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

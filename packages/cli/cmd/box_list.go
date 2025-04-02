@@ -92,7 +92,7 @@ func NewBoxListCommand() *cobra.Command {
 
 			// Call API server
 			apiURL := "http://localhost:28080/api/v1/boxes" + queryParams
-			if envURL := os.Getenv("API_URL"); envURL != "" {
+			if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
 				apiURL = envURL + "/api/v1/boxes" + queryParams
 			}
 

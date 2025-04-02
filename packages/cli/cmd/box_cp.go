@@ -78,7 +78,7 @@ func NewBoxCpCommand() *cobra.Command {
 			dst := args[1]
 			debugEnabled := os.Getenv("DEBUG") == "true"
 			apiURL := "http://localhost:28080/api/v1"
-			if envURL := os.Getenv("API_URL"); envURL != "" {
+			if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
 				apiURL = envURL + "/api/v1"
 			}
 

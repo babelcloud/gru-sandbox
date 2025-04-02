@@ -12,7 +12,7 @@ const (
 	GboxLabelPartOf    = GboxLabelPrefix + ".part-of"
 	GboxLabelManagedBy = GboxLabelPrefix + ".managed-by"
 
-	GboxLabelCompose = "com.docker.compose.project"
+	GboxNamespace = "com.docker.compose.project"
 
 	GboxExtraLabelPrefix = "ai.gru.gbox.extra"
 )

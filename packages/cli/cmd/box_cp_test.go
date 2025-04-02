@@ -73,11 +73,11 @@ func TestCopyFromBoxToLocal(t *testing.T) {
 	defer server.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", server.URL)
+	os.Setenv("API_ENDPOINT", server.URL)
 
 	// Capture stdout and stderr
 	stdoutR, stdoutW, _ := os.Pipe()
@@ -166,11 +166,11 @@ func TestCopyFromLocalToBox(t *testing.T) {
 	defer server.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", server.URL)
+	os.Setenv("API_ENDPOINT", server.URL)
 
 	// Capture stdout and stderr
 	stdoutR, stdoutW, _ := os.Pipe()
@@ -238,11 +238,11 @@ func TestCopyFromBoxToStdout(t *testing.T) {
 	defer server.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", server.URL)
+	os.Setenv("API_ENDPOINT", server.URL)
 
 	// Capture stdout and stderr
 	stdoutR, stdoutW, _ := os.Pipe()

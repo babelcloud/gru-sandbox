@@ -14,12 +14,10 @@ func init() {
 
 	// Set default values
 	v.SetDefault("api.url", "http://localhost:28080")
-	v.SetDefault("api.test_url", "http://localhost:28081")
 
 	// Environment variables
 	v.AutomaticEnv()
-	v.BindEnv("api.url", "API_URL")
-	v.BindEnv("api.test_url", "API_TEST_URL")
+	v.BindEnv("api.url", "API_ENDPOINT")
 
 	// Config file
 	v.SetConfigName("config")
@@ -50,9 +48,4 @@ func init() {
 // GetAPIURL returns the API server URL
 func GetAPIURL() string {
 	return v.GetString("api.url")
-}
-
-// GetTestAPIURL returns the test API server URL
-func GetTestAPIURL() string {
-	return v.GetString("api.test_url")
 }

@@ -27,31 +27,15 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$REPO_ROOT/.env"
 
 # Load configurations from .env file if it exists
-# Usage: load_env_config [env_file_path]
-load_env_config() {
+# Usage: load_dotenv [env_file_path]
+load_dotenv() {
     local env_file="${1:-$ENV_FILE}"
     
     if [[ -f "$env_file" ]]; then
         debug_log "Loading configuration from $env_file"
         
-        # Read variables from .env file
-        while IFS='=' read -r key value || [[ -n "$key" ]]; do
-            # Skip comments and empty lines
-            [[ $key =~ ^#.*$ || -z "$key" ]] && continue
-            
-            # Remove leading/trailing whitespace
-            key=$(echo "$key" | xargs)
-            value=$(echo "$value" | xargs)
-            
-            # Export variables to environment
-            if [[ -n "$key" && -n "$value" ]]; then
-                export "$key"="$value"
-                # Only show GO_IMPL for debugging purposes
-                [[ "$key" == "GO_IMPL" ]] && debug_log "Using $key=$value from .env file"
-                # Check for DEBUG flag
-                [[ "$key" == "DEBUG" ]] && debug_log "Debug mode enabled from .env file"
-            fi
-        done < "$env_file"
+        # Source the .env file directly
+        source "$env_file"
     else
         debug_log "No .env file found at $env_file, using environment variables"
     fi

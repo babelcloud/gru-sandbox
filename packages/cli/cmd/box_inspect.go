@@ -60,7 +60,7 @@ func NewBoxInspectCommand() *cobra.Command {
 
 			// Call API to get box details
 			apiURL := fmt.Sprintf("http://localhost:28080/api/v1/boxes/%s", boxID)
-			if envURL := os.Getenv("API_URL"); envURL != "" {
+			if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
 				apiURL = fmt.Sprintf("%s/api/v1/boxes/%s", envURL, boxID)
 			}
 

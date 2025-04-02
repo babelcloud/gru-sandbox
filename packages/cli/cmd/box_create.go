@@ -10,17 +10,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
+
 	"github.com/spf13/cobra"
 )
-
-type BoxCreateRequest struct {
-	Image      string            `json:"image,omitempty"`
-	Cmd        string            `json:"cmd,omitempty"`
-	Args       []string          `json:"args,omitempty"`
-	Env        map[string]string `json:"env,omitempty"`
-	Labels     map[string]string `json:"labels,omitempty"`
-	WorkingDir string            `json:"workingDir,omitempty"`
-}
 
 type BoxCreateResponse struct {
 	ID string `json:"id"`
@@ -124,7 +117,7 @@ func NewBoxCreateCommand() *cobra.Command {
 			}
 
 			// Build request body
-			request := BoxCreateRequest{}
+			request := models.BoxCreateRequest{}
 
 			if image != "" {
 				request.Image = image
@@ -142,6 +135,9 @@ func NewBoxCreateCommand() *cobra.Command {
 				request.WorkingDir = workingDir
 			}
 
+			// 空值赋值给 ImagePullSecret，保证接口一致性
+			request.ImagePullSecret = ""
+
 			// Process environment variables
 			if len(env) > 0 {
 				request.Env = make(map[string]string)
@@ -155,11 +151,11 @@ func NewBoxCreateCommand() *cobra.Command {
 
 			// Process labels
 			if len(labels) > 0 {
-				request.Labels = make(map[string]string)
+				request.ExtraLabels = make(map[string]string)
 				for _, l := range labels {
 					parts := strings.SplitN(l, "=", 2)
 					if len(parts) == 2 {
-						request.Labels[parts[0]] = parts[1]
+						request.ExtraLabels[parts[0]] = parts[1]
 					}
 				}
 			}
@@ -181,7 +177,7 @@ func NewBoxCreateCommand() *cobra.Command {
 
 			// Call API server
 			apiURL := "http://localhost:28080/api/v1/boxes"
-			if envURL := os.Getenv("API_URL"); envURL != "" {
+			if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
 				apiURL = envURL + "/api/v1/boxes"
 			}
 			resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(requestBody))
@@ -230,12 +226,12 @@ func printBoxCreateHelp() {
 	fmt.Println("Usage: gbox box create [options] [--] <command> [args...]")
 	fmt.Println()
 	fmt.Println("Options:")
-	fmt.Println("    --output          Output format (json or text, default: text)")
-	fmt.Println("    --image           Container image")
-	fmt.Println("    --env             Environment variable, format KEY=VALUE")
-	fmt.Println("    -w, --work-dir    Working directory")
-	fmt.Println("    -l, --label       Custom label, format KEY=VALUE")
-	fmt.Println("    --                Command and its arguments")
+	fmt.Println("    --output            Output format (json or text, default: text)")
+	fmt.Println("    --image             Container image")
+	fmt.Println("    --env               Environment variable, format KEY=VALUE")
+	fmt.Println("    -w, --work-dir      Working directory")
+	fmt.Println("    -l, --label         Custom label, format KEY=VALUE")
+	fmt.Println("    --                  Command and its arguments")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("    gbox box create --image python:3.9 -- python3 -c 'print(\"Hello\")'")

@@ -23,7 +23,7 @@ setup() {
 
     # Start docker-compose services
     echo "Starting docker-compose services..."
-    docker compose -f "$SCRIPT_DIR/../manifests/docker/docker-compose.yml" up -d
+    docker compose --env-file "$SCRIPT_DIR/../manifests/docker/.env.prod" -f "$SCRIPT_DIR/../manifests/docker/docker-compose.yml" up -d
     
     echo "Docker setup completed successfully"
 }
@@ -34,7 +34,7 @@ cleanup() {
     
     # Stop docker-compose services
     echo "Stopping docker-compose services..."
-    docker compose -f "$SCRIPT_DIR/../manifests/docker/docker-compose.yml" down
+    docker compose --env-file "$SCRIPT_DIR/../manifests/docker/.env.prod" -f "$SCRIPT_DIR/../manifests/docker/docker-compose.yml" down
     
     echo "Docker cleanup completed successfully"
 }

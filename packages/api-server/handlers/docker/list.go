@@ -22,7 +22,7 @@ func handleListBoxes(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 	filterArgs := filters.NewArgs()
 	// Add base filter for gbox containers
 	filterArgs.Add("label", fmt.Sprintf("%s=gbox", GboxLabelName))
-	filterArgs.Add("label", fmt.Sprintf("%s=%s", GboxLabelCompose, config.GetGboxLabelCompose()))
+	filterArgs.Add("label", fmt.Sprintf("%s=%s", GboxNamespace, config.GetGboxNamespace()))
 	logger.Debug("Initialized filter args with base filter: %v", filterArgs)
 
 	// Get filters from query parameters

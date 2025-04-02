@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,7 +40,7 @@ func TestNewBoxCreateCommand(t *testing.T) {
 		defer r.Body.Close()
 
 		// Parse request JSON
-		var req BoxCreateRequest
+		var req models.BoxCreateRequest
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
@@ -57,11 +58,11 @@ func TestNewBoxCreateCommand(t *testing.T) {
 	defer mockServer.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", mockServer.URL)
+	os.Setenv("API_ENDPOINT", mockServer.URL)
 
 	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
@@ -107,14 +108,14 @@ func TestNewBoxCreateCommandWithLabelsAndWorkDir(t *testing.T) {
 		assert.NoError(t, err)
 		defer r.Body.Close()
 
-		var req BoxCreateRequest
+		var req models.BoxCreateRequest
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
 		// Validate labels and working directory
 		assert.Equal(t, "nginx:latest", req.Image)
 		assert.Equal(t, "/app", req.WorkingDir)
-		assert.Equal(t, map[string]string{"app": "web", "env": "test"}, req.Labels)
+		assert.Equal(t, map[string]string{"app": "web", "env": "test"}, req.ExtraLabels)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
@@ -123,11 +124,11 @@ func TestNewBoxCreateCommandWithLabelsAndWorkDir(t *testing.T) {
 	defer mockServer.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", mockServer.URL)
+	os.Setenv("API_ENDPOINT", mockServer.URL)
 
 	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
@@ -178,11 +179,11 @@ func TestNewBoxCreateCommandWithJSONOutput(t *testing.T) {
 	defer mockServer.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", mockServer.URL)
+	os.Setenv("API_ENDPOINT", mockServer.URL)
 
 	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
@@ -301,7 +302,7 @@ func TestNewBoxCreateCommandWithMultipleOptions(t *testing.T) {
 		defer r.Body.Close()
 
 		// Parse request JSON
-		var req BoxCreateRequest
+		var req models.BoxCreateRequest
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
@@ -323,7 +324,7 @@ func TestNewBoxCreateCommandWithMultipleOptions(t *testing.T) {
 			"env":     "prod",
 			"version": "1.0",
 		}
-		assert.Equal(t, expectedLabels, req.Labels)
+		assert.Equal(t, expectedLabels, req.ExtraLabels)
 
 		// Return mock response
 		w.Header().Set("Content-Type", "application/json")
@@ -333,11 +334,11 @@ func TestNewBoxCreateCommandWithMultipleOptions(t *testing.T) {
 	defer mockServer.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", mockServer.URL)
+	os.Setenv("API_ENDPOINT", mockServer.URL)
 
 	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()

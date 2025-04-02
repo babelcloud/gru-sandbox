@@ -81,7 +81,7 @@ func NewBoxDeleteCommand() *cobra.Command {
 			if deleteAll {
 				// Get the list of all boxes
 				apiURL := "http://localhost:28080/api/v1/boxes"
-				if envURL := os.Getenv("API_URL"); envURL != "" {
+				if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
 					apiURL = envURL + "/api/v1/boxes"
 				}
 				resp, err := http.Get(apiURL)
@@ -155,7 +155,7 @@ func NewBoxDeleteCommand() *cobra.Command {
 				success := true
 				for _, box := range response.Boxes {
 					apiURL := fmt.Sprintf("http://localhost:28080/api/v1/boxes/%s", box.ID)
-					if envURL := os.Getenv("API_URL"); envURL != "" {
+					if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
 						apiURL = fmt.Sprintf("%s/api/v1/boxes/%s", envURL, box.ID)
 					}
 					req, err := http.NewRequest("DELETE", apiURL, strings.NewReader(`{"force":true}`))
@@ -200,7 +200,7 @@ func NewBoxDeleteCommand() *cobra.Command {
 
 			// Delete single box
 			apiURL := fmt.Sprintf("http://localhost:28080/api/v1/boxes/%s", boxID)
-			if envURL := os.Getenv("API_URL"); envURL != "" {
+			if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
 				apiURL = fmt.Sprintf("%s/api/v1/boxes/%s", envURL, boxID)
 			}
 			req, err := http.NewRequest("DELETE", apiURL, strings.NewReader(`{"force":true}`))

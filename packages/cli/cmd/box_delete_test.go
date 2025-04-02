@@ -53,11 +53,11 @@ func TestDeleteSingleBox(t *testing.T) {
 	defer mockServer.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", mockServer.URL)
+	os.Setenv("API_ENDPOINT", mockServer.URL)
 
 	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
@@ -134,11 +134,11 @@ func TestDeleteAllBoxes(t *testing.T) {
 	defer mockServer.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", mockServer.URL)
+	os.Setenv("API_ENDPOINT", mockServer.URL)
 
 	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
@@ -194,11 +194,11 @@ func TestDeleteAllBoxesEmpty(t *testing.T) {
 	defer mockServer.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", mockServer.URL)
+	os.Setenv("API_ENDPOINT", mockServer.URL)
 
 	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
@@ -248,11 +248,11 @@ func TestDeleteBoxWithJSONOutput(t *testing.T) {
 	defer mockServer.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", mockServer.URL)
+	os.Setenv("API_ENDPOINT", mockServer.URL)
 
 	// Create pipe to capture stdout
 	r, w, _ := os.Pipe()
@@ -343,11 +343,11 @@ func TestDeleteAllBoxesWithConfirmation(t *testing.T) {
 	defer mockServer.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
-	defer os.Setenv("API_URL", origAPIURL)
+	origAPIURL := os.Getenv("API_ENDPOINT")
+	defer os.Setenv("API_ENDPOINT", origAPIURL)
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", mockServer.URL)
+	os.Setenv("API_ENDPOINT", mockServer.URL)
 
 	// Simulate user typing "y" for confirmation
 	r, w, _ := os.Pipe()

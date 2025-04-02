@@ -79,13 +79,13 @@ func NewBoxReclaimCommand() *cobra.Command {
 			if boxID == "" {
 				// If no box ID specified, perform global reclaim
 				apiURL = "http://localhost:28080/api/v1/boxes/reclaim"
-				if envURL := os.Getenv("API_URL"); envURL != "" {
+				if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
 					apiURL = fmt.Sprintf("%s/api/v1/boxes/reclaim", envURL)
 				}
 			} else {
 				// If box ID specified, reclaim only that specific box
 				apiURL = fmt.Sprintf("http://localhost:28080/api/v1/boxes/%s/reclaim", boxID)
-				if envURL := os.Getenv("API_URL"); envURL != "" {
+				if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
 					apiURL = fmt.Sprintf("%s/api/v1/boxes/%s/reclaim", envURL, boxID)
 				}
 			}

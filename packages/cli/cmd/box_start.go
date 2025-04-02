@@ -79,7 +79,7 @@ func NewBoxStartCommand() *cobra.Command {
 
 			// Call API to start the box
 			apiURL := fmt.Sprintf("http://localhost:28080/api/v1/boxes/%s/start", boxID)
-			if envURL := os.Getenv("API_URL"); envURL != "" {
+			if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
 				apiURL = fmt.Sprintf("%s/api/v1/boxes/%s/start", envURL, boxID)
 			}
 

@@ -27,36 +27,13 @@ source "$SCRIPT_DIR/common"
 ALIAS_NAMES=(setup cleanup export)
 ALIAS_CMDS=("cluster setup" "cluster cleanup" "mcp export")
 
-# Build binary if not found
-build_binary_if_needed() {
-    local binary_path="$1"
-    local platform="$2"
-    
-    if [[ ! -f "$binary_path" ]]; then
-        echo "Binary not found at $binary_path, building..."
-        cd "$(dirname "$CLI_MAKEFILE")"
-        
-        if [[ -n "$platform" ]]; then
-            # Build for specific platform
-            local os=$(echo "$platform" | cut -d- -f1)
-            local arch=$(echo "$platform" | cut -d- -f2)
-            GOOS=$os GOARCH=$arch make binary
-        else
-            # Build for current platform
-            make binary
-        fi
-        
-        if [[ ! -f "$binary_path" ]]; then
-            echo "Error: Failed to build binary at $binary_path" >&2
-            exit 1
-        fi
-    fi
-}
-
 # Ensure required directories and files exist
 ensure_box_symlinks() {
     # Load environment configuration from .env file
-    load_env_config
+    load_dotenv
+
+    # Export DEBUG variable for subprocesses
+    export DEBUG
     
     # Parse GO_IMPL environment variable for commands that should use Go implementation
     local go_impl_arr=()
@@ -66,13 +43,57 @@ ensure_box_symlinks() {
 
     local symlinks_created=false
     local go_runner_script="$REPO_ROOT/packages/cli/bin/gbox"
-    local go_binary="$CLI_BIN_DIR/gbox"
     
-    # Check if we're in production mode
-    if [[ "$ENV" == "prod" ]]; then
-        # In production mode, use the binary directly
-        build_binary_if_needed "$go_binary"
-        chmod +x "$go_binary"
+    # Detect current platform
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local arch=$(uname -m)
+    
+    # Map architecture names
+    case "$arch" in
+        x86_64)
+            arch="amd64"
+            ;;
+        aarch64|arm64)
+            arch="arm64"
+            ;;
+    esac
+    
+    # Map OS names
+    case "$os" in
+        darwin|linux)
+            # These match binary naming convention
+            ;;
+        *)
+            # Default to current platform
+            echo "Warning: Unsupported OS: $os" >&2
+            ;;
+    esac
+    
+    local binary_suffix=""
+    if [[ "$os" == "windows" ]]; then
+        binary_suffix=".exe"
+    fi
+    
+    # Set path to the platform-specific binary
+    local go_binary="$REPO_ROOT/packages/cli/build/gbox-${os}-${arch}${binary_suffix}"
+    
+    # Also check for the default binary as fallback
+    local default_binary="$REPO_ROOT/packages/cli/build/gbox"
+    
+    # Check if we're in production mode (DEV_MODE=false)
+    if [[ "$DEV_MODE" != "true" ]]; then
+        # In production mode, use the binary directly (assuming it's built by 'make build')
+        if [[ ! -f "$go_binary" ]]; then
+            if [[ -f "$default_binary" ]]; then
+                echo "Platform-specific binary not found, using default binary instead."
+                go_binary="$default_binary"
+            else
+                echo "Warning: Neither platform-specific ($go_binary) nor default binary found. Ensure 'make build' was run." >&2
+            fi
+        fi
+        
+        debug_log "Using binary: $go_binary"
+        chmod +x "$go_binary" # Ensure it's executable
     else
         # In development mode, use the script
         if [[ ! -f "$go_runner_script" ]]; then
@@ -125,21 +146,14 @@ ensure_box_symlinks() {
             fi
         done
         
-        # Skip if symlink already exists and points to the correct target
+        # Always remove old symlink if it exists
         if [[ -L "$symlink_path" ]]; then
-            local target=$(readlink "$symlink_path")
-            # Skip if the symlink already points to the correct target
-            if [[ ("$target" == "$go_runner_script" && "$use_go" == "true" && "$ENV" != "prod") || 
-                  ("$target" == "$go_binary" && "$use_go" == "true" && "$ENV" == "prod") ||
-                  ("$target" != "$go_runner_script" && "$target" != "$go_binary" && "$use_go" != "true") ]]; then
-                continue
-            fi
-            # Otherwise, remove the old symlink
+            debug_log "Removing existing symlink: $symlink_path"
             rm -f "$symlink_path"
         fi
         
         if [[ "$use_go" == "true" ]]; then
-            if [[ "$ENV" == "prod" ]]; then
+            if [[ "$DEV_MODE" != "true" ]]; then
                 # Create symlink to binary in production mode
                 ln -s "$go_binary" "$symlink_path"
                 debug_log "Created symlink: $symlink_path → $go_binary (Go binary in production mode)"
@@ -230,9 +244,9 @@ Configuration:
     GO_IMPL             Comma-separated list of commands to use Go implementation
                         (e.g. GO_IMPL=box_list,box_create or GO_IMPL=all)
                         Can be set in .env file or as an environment variable
-    ENV                 Environment mode (dev/prod)
-                        In dev mode, uses go run for Go implementations
-                        In prod mode, uses pre-built binaries
+    DEV_MODE            Development mode (true/false)
+                        In development mode (true), uses go run for Go implementations
+                        In production mode (false), uses pre-built binaries
                         Can be set in .env file or as an environment variable
 
 Examples:
@@ -244,10 +258,10 @@ Examples:
     
     # Using .env file:
     # Add GO_IMPL=box_list,box_create to .env file
-    # Add ENV=prod to use pre-built binaries
+    # Add DEV_MODE=false to use pre-built binaries
     
     # Or use environment variables:
-    # GO_IMPL=box_list,box_create ENV=prod gbox box list
+    # GO_IMPL=box_list,box_create DEV_MODE=false gbox box list
 
 Use "gbox <command> --help" for more information about a command.
 EOF
@@ -281,12 +295,16 @@ case "$1" in
         # Ensure box symlinks exist before executing box commands
         ensure_box_symlinks
         
-        cmd="$1"
-        shift
-        if [[ -x "$SCRIPT_DIR/gbox-$cmd" ]]; then
+        if [[ "$DEV_MODE" != "true" && -f "$go_binary" ]]; then
+            # Execute the binary with all original arguments
+            debug_log "Executing: $go_binary $@"
+            exec "$go_binary" "$@"
+        elif [[ -x "$SCRIPT_DIR/gbox-$1" ]]; then
+            cmd="$1"
+            shift
             exec "$SCRIPT_DIR/gbox-$cmd" "$@"
         else
-            echo "Error: Command '$cmd' not found" >&2
+            echo "Error: Command '$1' not found" >&2
             exit 1
         fi
         ;;

@@ -96,7 +96,7 @@ func handleDeleteAllBoxes(h *DockerBoxHandler, req *restful.Request, resp *restf
 	// Build Docker filter args
 	filterArgs := filters.NewArgs()
 	filterArgs.Add("label", fmt.Sprintf("%s=gbox", GboxLabelName))
-	filterArgs.Add("label", fmt.Sprintf("%s=%s", GboxLabelCompose, config.GetGboxLabelCompose()))
+	filterArgs.Add("label", fmt.Sprintf("%s=%s", GboxNamespace, config.GetGboxNamespace()))
 	logger.Debug("Added base filter for gbox label: %v", filterArgs)
 
 	// Get containers with filters

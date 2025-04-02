@@ -42,15 +42,15 @@ func TestBoxStartSuccess(t *testing.T) {
 	defer server.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
+	origAPIURL := os.Getenv("API_ENDPOINT")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
-		os.Setenv("API_URL", origAPIURL)
+		os.Setenv("API_ENDPOINT", origAPIURL)
 		os.Setenv("TESTING", origTESTING)
 	}()
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", server.URL)
+	os.Setenv("API_ENDPOINT", server.URL)
 	os.Setenv("TESTING", "true")
 
 	// Create pipe to capture stdout
@@ -100,15 +100,15 @@ func TestBoxStartWithJsonOutput(t *testing.T) {
 	defer server.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
+	origAPIURL := os.Getenv("API_ENDPOINT")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
-		os.Setenv("API_URL", origAPIURL)
+		os.Setenv("API_ENDPOINT", origAPIURL)
 		os.Setenv("TESTING", origTESTING)
 	}()
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", server.URL)
+	os.Setenv("API_ENDPOINT", server.URL)
 	os.Setenv("TESTING", "true")
 
 	// Create pipe to capture stdout
@@ -154,15 +154,15 @@ func TestBoxStartNotFound(t *testing.T) {
 	defer server.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
+	origAPIURL := os.Getenv("API_ENDPOINT")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
-		os.Setenv("API_URL", origAPIURL)
+		os.Setenv("API_ENDPOINT", origAPIURL)
 		os.Setenv("TESTING", origTESTING)
 	}()
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", server.URL)
+	os.Setenv("API_ENDPOINT", server.URL)
 	os.Setenv("TESTING", "true")
 
 	// Create pipe to capture stdout
@@ -208,15 +208,15 @@ func TestBoxStartAlreadyRunning(t *testing.T) {
 	defer server.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
+	origAPIURL := os.Getenv("API_ENDPOINT")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
-		os.Setenv("API_URL", origAPIURL)
+		os.Setenv("API_ENDPOINT", origAPIURL)
 		os.Setenv("TESTING", origTESTING)
 	}()
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", server.URL)
+	os.Setenv("API_ENDPOINT", server.URL)
 	os.Setenv("TESTING", "true")
 
 	// Create pipe to capture stdout
@@ -262,15 +262,15 @@ func TestBoxStartInvalidRequest(t *testing.T) {
 	defer server.Close()
 
 	// Save original environment variables
-	origAPIURL := os.Getenv("API_URL")
+	origAPIURL := os.Getenv("API_ENDPOINT")
 	origTESTING := os.Getenv("TESTING")
 	defer func() {
-		os.Setenv("API_URL", origAPIURL)
+		os.Setenv("API_ENDPOINT", origAPIURL)
 		os.Setenv("TESTING", origTESTING)
 	}()
 
 	// Set API URL to mock server
-	os.Setenv("API_URL", server.URL)
+	os.Setenv("API_ENDPOINT", server.URL)
 	os.Setenv("TESTING", "true")
 
 	// Create pipe to capture stdout

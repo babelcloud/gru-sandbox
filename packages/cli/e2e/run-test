@@ -21,13 +21,13 @@ set executed_tests {}
 #   box_create <- box_inspect
 #   box_create <- box_delete
 set test_scripts {
-    box_create    ;# Base command, no dependencies
-    box_list      ;# Depends on box_create
-    box_start     ;# Depends on box_create
-    box_stop      ;# Depends on box_create, box_start
-    box_cp        ;# Depends on box_create, box_start
-    box_inspect   ;# Depends on box_create
-    box_delete    ;# Depends on box_create
+    box-create    ;# Base command, no dependencies
+    box-list      ;# Depends on box_create
+    box-start     ;# Depends on box_create
+    box-stop      ;# Depends on box_create, box_start
+    box-cp        ;# Depends on box_create, box_start
+    box-inspect   ;# Depends on box_create
+    box-delete    ;# Depends on box_create
 }
 
 # Parse command line arguments
@@ -45,7 +45,7 @@ foreach arg $argv {
 }
 
 # Set API URL for tests
-set env(API_URL) "http://localhost:28081"
+set env(API_ENDPOINT) "http://localhost:28081"
 
 # Check if test API server is running
 puts "\n${BLUE}Checking test API server...${NC}"

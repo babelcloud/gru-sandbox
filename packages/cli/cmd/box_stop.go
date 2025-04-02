@@ -74,7 +74,7 @@ func NewBoxStopCommand() *cobra.Command {
 
 			// Call API to stop the box
 			apiURL := fmt.Sprintf("http://localhost:28080/api/v1/boxes/%s/stop", boxID)
-			if envURL := os.Getenv("API_URL"); envURL != "" {
+			if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
 				apiURL = fmt.Sprintf("%s/api/v1/boxes/%s/stop", envURL, boxID)
 			}
 

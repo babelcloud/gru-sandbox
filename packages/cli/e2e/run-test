@@ -21,13 +21,13 @@ set executed_tests {}
 #   box_create <- box_inspect
 #   box_create <- box_delete
 set test_scripts {
-    box-create    ;# Base command, no dependencies
-    box-list      ;# Depends on box_create
-    box-start     ;# Depends on box_create
-    box-stop      ;# Depends on box_create, box_start
-    box-cp        ;# Depends on box_create, box_start
-    box-inspect   ;# Depends on box_create
-    box-delete    ;# Depends on box_create
+    box-create.exp    ;# Base command, no dependencies
+    box-list.exp      ;# Depends on box_create
+    box-start.exp     ;# Depends on box_create
+    box-stop.exp      ;# Depends on box_create, box_start
+    box-cp.exp        ;# Depends on box_create, box_start
+    box-inspect.exp   ;# Depends on box_create
+    box-delete.exp    ;# Depends on box_create
 }
 
 # Parse command line arguments

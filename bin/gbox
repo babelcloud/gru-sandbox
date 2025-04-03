@@ -151,20 +151,14 @@ ensure_box_symlinks() {
             fi
         done
         
-        # Always remove old symlink if it exists
-        if [[ -L "$symlink_path" ]]; then
-            debug_log "Removing existing symlink: $symlink_path"
-            rm -f "$symlink_path"
-        fi
-        
         if [[ "$use_go" == "true" ]]; then
             if [[ "$DEV_MODE" != "true" ]]; then
                 # Create symlink to binary in production mode
-                ln -s "$go_binary" "$symlink_path"
+                ln -sf "$go_binary" "$symlink_path"
                 debug_log "Created symlink: $symlink_path → $go_binary (Go binary in production mode)"
             else
                 # Create symlink to cli gbox script in development mode
-                ln -s "$go_runner_script" "$symlink_path"
+                ln -sf "$go_runner_script" "$symlink_path"
                 debug_log "Created symlink: $symlink_path → $go_runner_script (Go implementation in development mode)"
             fi
             symlinks_created=true
@@ -177,7 +171,7 @@ ensure_box_symlinks() {
             fi
             
             # Create symlink to bash script
-            ln -s "$script_path" "$symlink_path"
+            ln -sf "$script_path" "$symlink_path"
             debug_log "Created symlink: $symlink_path → $script_path (Bash implementation)"
             symlinks_created=true
         fi

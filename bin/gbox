@@ -133,9 +133,14 @@ ensure_box_symlinks() {
         debug_log "Discovered box subcommands: ${box_subcommands[*]}"
     fi
     
+    # if $GBOX_BIN does not exist, create it
+    if [[ ! -d "$GBOX_BIN" ]]; then
+        mkdir -p "$GBOX_BIN"
+    fi
+
     # Process each box subcommand
     for subcmd in "${box_subcommands[@]}"; do
-        local symlink_path="$BIN_DIR/gbox-box-$subcmd"
+        local symlink_path="$GBOX_BIN/gbox-box-$subcmd"
         
         # Determine if this command should use Go implementation
         local use_go=false

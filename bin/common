@@ -10,6 +10,7 @@ GBOX_COMMON_SOURCED=1
 # Define common paths
 GBOX_CLUSTER=${GBOX_CLUSTER:-"gbox"}
 GBOX_HOME=${GBOX_HOME:-"$HOME/.gbox"}
+GBOX_BIN=${GBOX_BIN:-"$GBOX_HOME/bin"}
 GBOX_KUBECFG=${GBOX_KUBECFG:-"$GBOX_HOME/kubeconfig"}
 
 # Debug mode - set to true for verbose output

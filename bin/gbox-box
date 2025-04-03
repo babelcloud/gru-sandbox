@@ -49,39 +49,39 @@ help() {
 case "$1" in
     list|ls)
         shift
-        "$(dirname "$0")/gbox-box-list" "$@"
+        "${GBOX_BIN}/gbox-box-list" "$@"
         ;;
     create)
         shift
-        "$(dirname "$0")/gbox-box-create" "$@"
+        "${GBOX_BIN}/gbox-box-create" "$@"
         ;;
     delete)
         shift
-        "$(dirname "$0")/gbox-box-delete" "$@"
+        "${GBOX_BIN}/gbox-box-delete" "$@"
         ;;
     exec)
         shift
-        "$(dirname "$0")/gbox-box-exec" "$@"
+        "${GBOX_BIN}/gbox-box-exec" "$@"
         ;;
     start)
         shift
-        "$(dirname "$0")/gbox-box-start" "$@"
+        "${GBOX_BIN}/gbox-box-start" "$@"
         ;;
     stop)
         shift
-        "$(dirname "$0")/gbox-box-stop" "$@"
+        "${GBOX_BIN}/gbox-box-stop" "$@"
         ;;
     inspect)
         shift
-        "$(dirname "$0")/gbox-box-inspect" "$@"
+        "${GBOX_BIN}/gbox-box-inspect" "$@"
         ;;
     reclaim)
         shift
-        "$(dirname "$0")/gbox-box-reclaim" "$@"
+        "${GBOX_BIN}/gbox-box-reclaim" "$@"
         ;;
     cp)
         shift
-        "$(dirname "$0")/gbox-box-cp" "$@"
+        "${GBOX_BIN}/gbox-box-cp" "$@"
         ;;
     --help|help)
         help "${2:-all}"

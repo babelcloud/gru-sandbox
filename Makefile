@@ -129,17 +129,5 @@ e2e: ## Run e2e tests
 	@echo "Running e2e tests..."
 	@make -C packages/cli e2e
 
-e2e-%: ## Run e2e tests for a specific command
-	@echo "Running e2e tests for $*..."
-	@make -C packages/cli e2e-$*
-
-e2e-setup: ## Setup e2e test envisronment
-	@echo "Setting up e2e test environment..."
-	@make -C packages/cli e2e-setup
-
-e2e-cleanup: ## Cleanup e2e test environment
-	@echo "Cleaning up e2e test environment..."
-	@make -C packages/cli e2e-cleanup
-
 # Default target
 .DEFAULT_GOAL := help 

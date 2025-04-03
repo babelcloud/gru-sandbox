@@ -12,10 +12,6 @@ MAIN_FILE := main.go
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
-# Test configurations
-TEST_API_IMAGE := babelcloud/gbox-api-server:test
-SKIP_BUILD ?= false
-
 # LDFLAGS for embedding version information
 LDFLAGS := -ldflags "-X github.com/babelcloud/gru-sandbox/packages/cli/internal/version.Version=$(VERSION) \
                      -X github.com/babelcloud/gru-sandbox/packages/cli/internal/version.BuildTime=$(BUILD_TIME) \
@@ -43,17 +39,10 @@ e2e-env-check: ## Check if test API server is running
 # Setup test environment
 e2e-setup: ## Setup e2e test environment (build and start test API server)
 	@echo "Setting up e2e test environment..."
-	@if [ "$(SKIP_BUILD)" = "false" ]; then \
-		echo "Building test API server image..."; \
-		cd ../api-server && make docker-build IMG=$(TEST_API_IMAGE) || exit 1; \
-	else \
-		if ! docker inspect $(TEST_API_IMAGE) > /dev/null 2>&1; then \
-			echo "Error: Test API server image not found. Please run without SKIP_BUILD=true first."; \
-			exit 1; \
-		fi; \
-	fi
 	@echo "Starting e2e test API server..."
-	@API_SERVER_IMG_TAG=test docker compose --env-file ../../manifests/docker/.env.test -f ../../manifests/docker/docker-compose.yml up -d
+	@SERVICE_PORT=28081 \
+	 PREFIX=test \
+	 docker compose -f ../../manifests/docker/docker-compose.yml up -d --build
 	@echo "Waiting for e2e test API server to be ready..."
 	@for i in $$(seq 1 30); do \
 		if curl -s http://localhost:28081/api/v1/boxes > /dev/null; then \
@@ -103,5 +92,7 @@ binary-all: ## Build binaries for all supported platforms
 # Clean up test environment
 e2e-cleanup: ## Clean up e2e test environment and stop test API server
 	@echo "Cleaning up e2e test environment..."
-	@API_SERVER_IMG_TAG=test docker compose --env-file ../../manifests/docker/.env.test -f ../../manifests/docker/docker-compose.yml down
+	@PREFIX=test \
+	 SERVICE_PORT=28081 \
+	 docker compose -f ../../manifests/docker/docker-compose.yml down
 	@echo "E2E test environment cleaned up"

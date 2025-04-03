@@ -22,6 +22,7 @@ func init() {
 	// Set default values
 	v.SetDefault("server.port", 28080)
 	v.SetDefault("cluster.mode", "docker")
+	v.SetDefault("gbox.namespace", "gbox-boxes")
 
 	// Environment variables
 	v.AutomaticEnv()
@@ -32,6 +33,7 @@ func init() {
 	v.BindEnv("gbox.home", "GBOX_HOME")
 	v.BindEnv("gbox.share", "GBOX_SHARE")
 	v.BindEnv("gbox.host_share", "GBOX_HOST_SHARE")
+	v.BindEnv("gbox.namespace", "GBOX_NAMESPACE")
 
 	// Config file
 	v.SetConfigName("config")
@@ -79,4 +81,9 @@ func GetConfig() (Config, error) {
 // GetServerPort returns the configured server port
 func GetServerPort() int {
 	return v.GetInt("server.port")
+}
+
+// GetGboxNamespace returns the configured gbox namespace value
+func GetGboxNamespace() string {
+	return v.GetString("gbox.namespace")
 }

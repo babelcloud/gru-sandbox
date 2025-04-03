@@ -1,0 +1,41 @@
+name: Builds
+
+on:
+  push:
+    branches: [ "**" ]
+    paths:
+      - 'packages/cli/**'
+  pull_request:
+    branches: [ "**" ]
+    paths:
+      - 'packages/cli/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+          cache-dependency-path: packages/cli/go.sum
+
+      - name: Install dependencies
+        run: |
+          cd packages/cli
+          go mod tidy
+
+      - name: Run tests
+        run: |
+          cd packages/cli
+          go test -v ./cmd/...
+
+
+

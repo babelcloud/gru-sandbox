@@ -13,10 +13,174 @@ while [ -h "$SOURCE" ]; do
     [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+BIN_DIR="$REPO_ROOT/bin"
+SCRIPT_IMPL_DIR="$REPO_ROOT/packages/cli/cmd/script"
+MAIN_GO="$REPO_ROOT/packages/cli/main.go"
+CLI_BIN_DIR="$REPO_ROOT/packages/cli/build"
+CLI_MAKEFILE="$REPO_ROOT/packages/cli/Makefile"
+
+# Source common functions
+source "$SCRIPT_DIR/common"
 
 # Command aliases using parallel arrays
 ALIAS_NAMES=(setup cleanup export)
 ALIAS_CMDS=("cluster setup" "cluster cleanup" "mcp export")
+
+# Ensure required directories and files exist
+ensure_box_symlinks() {
+    # Load environment configuration from .env file
+    load_dotenv
+
+    # Export DEBUG variable for subprocesses
+    export DEBUG
+    
+    # Parse GO_IMPL environment variable for commands that should use Go implementation
+    local go_impl_arr=()
+    if [[ -n "$GO_IMPL" ]]; then
+        IFS=',' read -r -a go_impl_arr <<< "$GO_IMPL"
+    fi
+
+    local symlinks_created=false
+    local go_runner_script="$REPO_ROOT/packages/cli/bin/gbox"
+    
+    # Detect current platform
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local arch=$(uname -m)
+    
+    # Map architecture names
+    case "$arch" in
+        x86_64)
+            arch="amd64"
+            ;;
+        aarch64|arm64)
+            arch="arm64"
+            ;;
+    esac
+    
+    # Map OS names
+    case "$os" in
+        darwin|linux)
+            # These match binary naming convention
+            ;;
+        *)
+            # Default to current platform
+            echo "Warning: Unsupported OS: $os" >&2
+            ;;
+    esac
+    
+    local binary_suffix=""
+    if [[ "$os" == "windows" ]]; then
+        binary_suffix=".exe"
+    fi
+    
+    # Set path to the platform-specific binary
+    local go_binary="$REPO_ROOT/packages/cli/build/gbox-${os}-${arch}${binary_suffix}"
+    
+    # Also check for the default binary as fallback
+    local default_binary="$REPO_ROOT/packages/cli/build/gbox"
+    
+    # Check if we're in production mode (DEV_MODE=false)
+    if [[ "$DEV_MODE" != "true" ]]; then
+        # In production mode, use the binary directly (assuming it's built by 'make build')
+        if [[ ! -f "$go_binary" ]]; then
+            if [[ -f "$default_binary" ]]; then
+                echo "Platform-specific binary not found, using default binary instead."
+                go_binary="$default_binary"
+            else
+                echo "Warning: Neither platform-specific ($go_binary) nor default binary found. Ensure 'make build' was run." >&2
+            fi
+        fi
+        
+        debug_log "Using binary: $go_binary"
+        chmod +x "$go_binary" # Ensure it's executable
+    else
+        # In development mode, use the script
+        if [[ ! -f "$go_runner_script" ]]; then
+            echo "Error: CLI gbox script not found at $go_runner_script" >&2
+            exit 1
+        fi
+        chmod +x "$go_runner_script"
+    fi
+    
+    # Check if main.go exists
+    if [[ ! -f "$MAIN_GO" ]]; then
+        echo "Error: Cannot find main.go at $MAIN_GO" >&2
+        exit 1
+    fi
+    
+    # Dynamically discover box subcommands
+    local box_subcommands=()
+    
+    # Check Bash script files to discover subcommands
+    local SCRIPT_DIR="$REPO_ROOT/packages/cli/cmd/script"
+    if [[ -d "$SCRIPT_DIR" ]]; then
+        for script_file in "$SCRIPT_DIR"/gbox-box-*; do
+            if [[ -f "$script_file" ]]; then
+                # Extract subcommand from filename (gbox-box-list -> list)
+                local file_name=$(basename "$script_file")
+                local cmd_name=${file_name#gbox-box-}
+                box_subcommands+=("$cmd_name")
+            fi
+        done
+    fi
+    
+    # If no subcommands found, use a default list as fallback
+    if [[ ${#box_subcommands[@]} -eq 0 ]]; then
+        box_subcommands=("list" "create" "delete" "exec" "start" "stop" "inspect" "reclaim" "cp")
+        debug_log "Warning: No box subcommands discovered, using default list"
+    else
+        debug_log "Discovered box subcommands: ${box_subcommands[*]}"
+    fi
+    
+    # if $GBOX_BIN does not exist, create it
+    if [[ ! -d "$GBOX_BIN" ]]; then
+        mkdir -p "$GBOX_BIN"
+    fi
+
+    # Process each box subcommand
+    for subcmd in "${box_subcommands[@]}"; do
+        local symlink_path="$GBOX_BIN/gbox-box-$subcmd"
+        
+        # Determine if this command should use Go implementation
+        local use_go=false
+        for go_cmd in "${go_impl_arr[@]}"; do
+            if [[ "$go_cmd" == "box_$subcmd" || "$go_cmd" == "all" ]]; then
+                use_go=true
+                break
+            fi
+        done
+        
+        if [[ "$use_go" == "true" ]]; then
+            if [[ "$DEV_MODE" != "true" ]]; then
+                # Create symlink to binary in production mode
+                ln -sf "$go_binary" "$symlink_path"
+                debug_log "Created symlink: $symlink_path → $go_binary (Go binary in production mode)"
+            else
+                # Create symlink to cli gbox script in development mode
+                ln -sf "$go_runner_script" "$symlink_path"
+                debug_log "Created symlink: $symlink_path → $go_runner_script (Go implementation in development mode)"
+            fi
+            symlinks_created=true
+        else
+            # Look for bash implementation
+            local script_path="$SCRIPT_IMPL_DIR/gbox-box-${subcmd}"
+            if [[ ! -f "$script_path" ]]; then
+                echo "Error: Cannot find bash implementation ($script_path) for $subcmd" >&2
+                exit 1
+            fi
+            
+            # Create symlink to bash script
+            ln -sf "$script_path" "$symlink_path"
+            debug_log "Created symlink: $symlink_path → $script_path (Bash implementation)"
+            symlinks_created=true
+        fi
+    done
+    
+    if [[ "$symlinks_created" == "true" ]]; then
+        debug_log "All required symlinks have been created."
+    fi
+}
 
 # Get alias command by name
 get_alias() {
@@ -75,12 +239,28 @@ EOF
 Options:
     --help [short|all]  Show this help message (default: all)
 
+Configuration:
+    GO_IMPL             Comma-separated list of commands to use Go implementation
+                        (e.g. GO_IMPL=box_list,box_create or GO_IMPL=all)
+                        Can be set in .env file or as an environment variable
+    DEV_MODE            Development mode (true/false)
+                        In development mode (true), uses go run for Go implementations
+                        In production mode (false), uses pre-built binaries
+                        Can be set in .env file or as an environment variable
+
 Examples:
     gbox setup                 # Initialize the environment
     gbox box create mybox      # Create a new box
     gbox box list              # List all boxes
     gbox export                # Export MCP configuration
     gbox cleanup               # Clean up everything
+    
+    # Using .env file:
+    # Add GO_IMPL=box_list,box_create to .env file
+    # Add DEV_MODE=false to use pre-built binaries
+    
+    # Or use environment variables:
+    # GO_IMPL=box_list,box_create DEV_MODE=false gbox box list
 
 Use "gbox <command> --help" for more information about a command.
 EOF
@@ -110,7 +290,24 @@ execute_alias() {
 
 # Main command handler
 case "$1" in
-    cluster|box|mcp)
+    box)
+        # Ensure box symlinks exist before executing box commands
+        ensure_box_symlinks
+        
+        if [[ "$DEV_MODE" != "true" && -f "$go_binary" ]]; then
+            # Execute the binary with all original arguments
+            debug_log "Executing: $go_binary $@"
+            exec "$go_binary" "$@"
+        elif [[ -x "$SCRIPT_DIR/gbox-$1" ]]; then
+            cmd="$1"
+            shift
+            exec "$SCRIPT_DIR/gbox-$cmd" "$@"
+        else
+            echo "Error: Command '$1' not found" >&2
+            exit 1
+        fi
+        ;;
+    cluster|mcp)
         cmd="$1"
         shift
         if [[ -x "$SCRIPT_DIR/gbox-$cmd" ]]; then

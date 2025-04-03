@@ -1,14 +1,14 @@
-name: gbox
+name: ${PREFIX}${PREFIX:+-}gbox
 
 services:
   api-server:
-    container_name: gbox-api-server
+    container_name: ${PREFIX}${PREFIX:+-}gbox-api-server
     build:
       context: ../../packages/api-server
       dockerfile: ../../packages/api-server/Dockerfile
     image: babelcloud/gbox-api-server:${API_SERVER_IMG_TAG:-latest}
     ports:
-      - "28080:28080"
+      - "${SERVICE_PORT:-28080}:28080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${GBOX_HOME:-$HOME/.gbox}:/var/gbox
@@ -16,4 +16,5 @@ services:
       - TZ=Asia/Shanghai
       - GBOX_HOST_SHARE=${GBOX_SHARE:-$HOME/.gbox/share}
       - GBOX_SHARE=/var/gbox/share
+      - GBOX_NAMESPACE=${PREFIX}${PREFIX:+-}gbox-boxes
     restart: unless-stopped 

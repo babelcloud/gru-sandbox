@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/babelcloud/gru-sandbox/packages/api-server/config"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 	"github.com/docker/docker/api/types"
@@ -45,6 +46,7 @@ func (h *DockerBoxHandler) getContainers(ctx context.Context, additionalFilters 
 	// Create a filter to only list gbox containers
 	filterArgs := filters.NewArgs()
 	filterArgs.Add("label", fmt.Sprintf("%s=gbox", GboxLabelName))
+	filterArgs.Add("label", fmt.Sprintf("%s=%s", GboxNamespace, config.GetGboxNamespace()))
 	logger.Debug("Added base filter for gbox label: %v", filterArgs)
 
 	// Merge additional filters if provided

@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/emicklei/go-restful/v3"
 
+	"github.com/babelcloud/gru-sandbox/packages/api-server/config"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 )
@@ -95,6 +96,7 @@ func handleDeleteAllBoxes(h *DockerBoxHandler, req *restful.Request, resp *restf
 	// Build Docker filter args
 	filterArgs := filters.NewArgs()
 	filterArgs.Add("label", fmt.Sprintf("%s=gbox", GboxLabelName))
+	filterArgs.Add("label", fmt.Sprintf("%s=%s", GboxNamespace, config.GetGboxNamespace()))
 	logger.Debug("Added base filter for gbox label: %v", filterArgs)
 
 	// Get containers with filters

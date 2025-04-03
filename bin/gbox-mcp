@@ -140,14 +140,36 @@ EOF
             echo "Preview of merged configuration:"
             echo "----------------------------------------"
             if [[ -f "$target_config" ]]; then
-                jq -s '.[0] * .[1]' "$target_config" "$temp_config"
+                # Check if target_config is empty or whitespace-only
+                if [[ ! -s "$target_config" ]] || [[ "$(tr -d '[:space:]' < "$target_config")" == "" ]]; then
+                    cat "$temp_config"
+                else
+                    # Validate target_config JSON
+                    if ! jq empty "$target_config" 2>/dev/null; then
+                        echo "Error: $target_config contains invalid JSON"
+                        rm "$temp_config"
+                        return 1
+                    fi
+                    jq -s '.[0] * .[1]' "$target_config" "$temp_config"
+                fi
             else
                 cat "$temp_config"
             fi
         else
             if [[ -f "$target_config" ]]; then
-                jq -s '.[0] * .[1]' "$target_config" "$temp_config" > "${target_config}.new"
-                mv "${target_config}.new" "$target_config"
+                # Check if target_config is empty or whitespace-only
+                if [[ ! -s "$target_config" ]] || [[ "$(tr -d '[:space:]' < "$target_config")" == "" ]]; then
+                    mv "$temp_config" "$target_config"
+                else
+                    # Validate target_config JSON
+                    if ! jq empty "$target_config" 2>/dev/null; then
+                        echo "Error: $target_config contains invalid JSON"
+                        rm "$temp_config"
+                        return 1
+                    fi
+                    jq -s '.[0] * .[1]' "$target_config" "$temp_config" > "${target_config}.new"
+                    mv "${target_config}.new" "$target_config"
+                fi
             else
                 mv "$temp_config" "$target_config"
             fi

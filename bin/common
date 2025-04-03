@@ -10,7 +10,37 @@ GBOX_COMMON_SOURCED=1
 # Define common paths
 GBOX_CLUSTER=${GBOX_CLUSTER:-"gbox"}
 GBOX_HOME=${GBOX_HOME:-"$HOME/.gbox"}
+GBOX_BIN=${GBOX_BIN:-"$GBOX_HOME/bin"}
 GBOX_KUBECFG=${GBOX_KUBECFG:-"$GBOX_HOME/kubeconfig"}
+
+# Debug mode - set to true for verbose output
+DEBUG=${DEBUG:-false}
+
+# Debug logging function
+debug_log() {
+    if [[ "$DEBUG" == "true" ]]; then
+        echo "$@"
+    fi
+}
+
+# Get repo root directory
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_FILE="$REPO_ROOT/.env"
+
+# Load configurations from .env file if it exists
+# Usage: load_dotenv [env_file_path]
+load_dotenv() {
+    local env_file="${1:-$ENV_FILE}"
+    
+    if [[ -f "$env_file" ]]; then
+        debug_log "Loading configuration from $env_file"
+        
+        # Source the .env file directly
+        source "$env_file"
+    else
+        debug_log "No .env file found at $env_file, using environment variables"
+    fi
+}
 
 # Common help message handler
 # Usage: show_help <help_type> <cmd_name> <cmd_short_desc> <cmd_usage> <cmd_commands> <cmd_args> <cmd_examples>

@@ -184,7 +184,7 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 // prepareLabels prepares container labels
 func prepareLabels(boxID string, boxReq *models.BoxCreateRequest) map[string]string {
 	labels := map[string]string{
-		GboxLabelCompose:   "gbox-boxes",
+		GboxNamespace:      config.GetGboxNamespace(),
 		GboxLabelID:        boxID,
 		GboxLabelName:      "gbox",
 		GboxLabelVersion:   "v1",

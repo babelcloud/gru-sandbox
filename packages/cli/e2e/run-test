@@ -1,0 +1,154 @@
+#!/usr/bin/env expect
+
+# Colors for output
+set GREEN "\033\[0;32m"
+set RED "\033\[0;31m"
+set YELLOW "\033\[1;33m"
+set BLUE "\033\[0;34m"
+set NC "\033\[0m"
+
+# Get script directory
+set script_dir [file dirname [file normalize [info script]]]
+
+# Track executed tests
+set executed_tests {}
+
+# Test scripts to run in dependency order
+# Dependency Graph:
+#   box_create <- box_list
+#   box_create <- box_start <- box_stop
+#   box_create <- box_start <- box_cp
+#   box_create <- box_inspect
+#   box_create <- box_delete
+set test_scripts {
+    box-create.exp    ;# Base command, no dependencies
+    box-list.exp      ;# Depends on box_create
+    box-start.exp     ;# Depends on box_create
+    box-stop.exp      ;# Depends on box_create, box_start
+    box-cp.exp        ;# Depends on box_create, box_start
+    box-inspect.exp   ;# Depends on box_create
+    box-delete.exp    ;# Depends on box_create
+}
+
+# Parse command line arguments
+set selected_test ""
+foreach arg $argv {
+    switch -glob -- $arg {
+        "--*" {
+            set selected_test [string range $arg 2 end]
+        }
+        default {
+            puts "Unknown argument: $arg"
+            exit 1
+        }
+    }
+}
+
+# Set API URL for tests
+set env(API_ENDPOINT) "http://localhost:28081"
+
+# Check if test API server is running
+puts "\n${BLUE}Checking test API server...${NC}"
+if {[catch {exec curl -s -f http://localhost:28081/api/v1/boxes} result]} {
+    puts "\n${RED}Error: Test API server is not running. Please run 'make test-setup' first.${NC}"
+    exit 1
+} else {
+    puts "${GREEN}✓ Test API server is running${NC}"
+}
+
+# Run tests
+set total_tests 0
+set passed_tests 0
+set case_count 0
+
+if {$selected_test != ""} {
+    # Run specific test
+    if {[file exists $script_dir/$selected_test]} {
+        if {[lsearch $executed_tests $selected_test] >= 0} {
+            puts "\n${BLUE}Skipping already executed test: $selected_test${NC}"
+            return
+        }
+        incr total_tests
+        puts "\n${YELLOW}========================================${NC}"
+        puts "${YELLOW}Running test: $selected_test${NC}"
+        puts "${YELLOW}========================================${NC}"
+        
+        # Count test cases in the script
+        set fp [open "$script_dir/$selected_test" r]
+        set content [read $fp]
+        close $fp
+        set cases [regexp -all "Testing \[^\n\]*\\.\\.\\." $content]
+        puts "${BLUE}Found $cases test cases${NC}\n"
+        
+        if {[catch {
+            set output [exec $script_dir/$selected_test]
+            puts "${BLUE}Test output:${NC}\n$output"
+            puts "\n${GREEN}Test passed: $selected_test${NC}"
+        } result]} {
+            puts "${BLUE}Test output:${NC}\n$result"
+            puts "\n${RED}Test failed: $selected_test${NC}"
+            puts "${YELLOW}========================================${NC}"
+            exit 1
+        }
+        puts "${YELLOW}========================================${NC}"
+        incr passed_tests
+        lappend executed_tests $selected_test
+    } else {
+        puts "\n${RED}Test script not found: $selected_test${NC}"
+        exit 1
+    }
+} else {
+    # Run all tests
+    foreach test $test_scripts {
+        if {[file exists $script_dir/$test]} {
+            if {[lsearch $executed_tests $test] >= 0} {
+                puts "\n${BLUE}Skipping already executed test: $test${NC}"
+                continue
+            }
+            incr total_tests
+            puts "\n${YELLOW}========================================${NC}"
+            puts "${YELLOW}Running test: $test${NC}"
+            puts "${YELLOW}========================================${NC}"
+            
+            # Count test cases in the script
+            set fp [open "$script_dir/$test" r]
+            set content [read $fp]
+            close $fp
+            set cases [regexp -all "Testing \[^\n\]*\\.\\.\\." $content]
+            puts "${BLUE}Found $cases test cases${NC}\n"
+            
+            if {[catch {
+                set output [exec $script_dir/$test]
+                puts "${BLUE}Test output:${NC}\n$output"
+                puts "\n${GREEN}Test passed: $test${NC}"
+            } result]} {
+                puts "${BLUE}Test output:${NC}\n$result"
+                puts "\n${RED}Test failed: $test${NC}"
+                puts "${YELLOW}========================================${NC}"
+                exit 1
+            }
+            puts "${YELLOW}========================================${NC}"
+            incr passed_tests
+            lappend executed_tests $test
+        }
+    }
+}
+
+# Print summary
+puts "\n${YELLOW}========================================${NC}"
+puts "${YELLOW}Test Summary:${NC}"
+puts "${YELLOW}========================================${NC}"
+puts "Total test files: $total_tests"
+puts "Passed files: ${GREEN}$passed_tests${NC}"
+if {$passed_tests != $total_tests} {
+    puts "Failed files: ${RED}[expr $total_tests - $passed_tests]${NC}"
+} else {
+    puts "Failed files: 0"
+}
+puts "${YELLOW}========================================${NC}"
+
+if {$passed_tests == $total_tests} {
+    exit 0
+} else {
+    exit 1
+} 

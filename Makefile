@@ -41,8 +41,12 @@ help: ## Show this help message
 # Build all components
 .PHONY: build
 build: check-pnpm ## Build all components
-	@echo "Building components..."
+	@echo "Building Go binary for all platforms..."
+	@$(MAKE) -c packages/cli binary-all
+	# Binaries are kept in packages/cli/build/
+	@echo "Building mcp-server..."
 	@cd packages/mcp-server && pnpm install && pnpm build
+	@echo "Build completed"
 
 # Build docker images
 .PHONY: build-images
@@ -70,11 +74,14 @@ dist: build ## Create distribution package
 	@mkdir -p $(DIST_DIR)/bin
 	@mkdir -p $(DIST_DIR)/manifests
 	@mkdir -p $(DIST_DIR)/packages/mcp-server
+	@mkdir -p $(DIST_DIR)/packages/cli/build
 
 	# Copy files maintaining directory structure
 	@cp -r bin/* $(DIST_DIR)/bin/
 	@cp -r manifests/* $(DIST_DIR)/manifests/
 	@rsync -av --exclude='node_modules' packages/mcp-server/ $(DIST_DIR)/packages/mcp-server/
+	@cp -r packages/cli/build/* $(DIST_DIR)/packages/cli/build/
+	
 	@cp LICENSE README.md $(DIST_DIR)/
 
 	# Generate .env files
@@ -117,6 +124,10 @@ mcp-inspect: ## Start mcp server
 mcp: build ## Start mcp server with distribution package
 	@echo "Starting mcp server with distribution package..."
 	@cd packages/mcp-server && pnpm inspect:dist
+
+e2e: ## Run e2e tests
+	@echo "Running e2e tests..."
+	@make -C packages/cli e2e
 
 # Default target
 .DEFAULT_GOAL := help 

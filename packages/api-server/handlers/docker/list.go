@@ -8,6 +8,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/emicklei/go-restful/v3"
 
+	"github.com/babelcloud/gru-sandbox/packages/api-server/config"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 )
@@ -20,14 +21,15 @@ func handleListBoxes(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 	// Build Docker filter args
 	filterArgs := filters.NewArgs()
 	// Add base filter for gbox containers
-	filterArgs.Add("label", GboxLabelName)
+	filterArgs.Add("label", fmt.Sprintf("%s=gbox", GboxLabelName))
+	filterArgs.Add("label", fmt.Sprintf("%s=%s", GboxNamespace, config.GetGboxNamespace()))
 	logger.Debug("Initialized filter args with base filter: %v", filterArgs)
 
 	// Get filters from query parameters
-	filters := req.QueryParameters("filter")
-	logger.Debug("Received query filters: %v", filters)
+	queryFilters := req.QueryParameters("filter")
+	logger.Debug("Received query filters: %v", queryFilters)
 
-	for _, filter := range filters {
+	for _, filter := range queryFilters {
 		// Parse filter format: field=value
 		// For label filters, value might contain multiple equals signs
 		firstEquals := strings.Index(filter, "=")
@@ -40,8 +42,9 @@ func handleListBoxes(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 
 		switch field {
 		case "id":
-			filterArgs.Add("id", value)
-			logger.Debug("Added id filter: %s", value)
+			// Use name filter for box ID (container name is gbox-{id})
+			filterArgs.Add("name", fmt.Sprintf("gbox-%s", value))
+			logger.Debug("Added ID filter using name: gbox-%s", value)
 		case "label":
 			// Check if the value contains an equals sign
 			if strings.Contains(value, "=") {
@@ -72,7 +75,7 @@ func handleListBoxes(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 
 	// Get containers with filters
 	logger.Debug("Querying Docker with filters: %v", filterArgs)
-	containerList, err := h.getAllContainers(req.Request.Context())
+	containerList, err := h.getContainers(req.Request.Context(), &filterArgs)
 	if err != nil {
 		logger.Error("Failed to list containers: %v", err)
 		resp.WriteError(http.StatusInternalServerError, err)

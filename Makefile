@@ -42,7 +42,7 @@ help: ## Show this help message
 .PHONY: build
 build: check-pnpm ## Build all components
 	@echo "Building Go binary for all platforms..."
-	@cd packages/cli && $(MAKE) binary-all
+	@$(MAKE) -c packages/cli binary-all
 	# Binaries are kept in packages/cli/build/
 	@echo "Building mcp-server..."
 	@cd packages/mcp-server && pnpm install && pnpm build

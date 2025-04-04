@@ -1,7 +1,8 @@
-import * as dotenv from "dotenv-defaults";
-import * as dotenvExpand from "dotenv-expand";
 import path from "path";
 import { fileURLToPath } from "url";
+
+import * as dotenv from "dotenv-defaults";
+import * as dotenvExpand from "dotenv-expand";
 
 // Get the directory name in ES modules
 const __filename = fileURLToPath(import.meta.url);

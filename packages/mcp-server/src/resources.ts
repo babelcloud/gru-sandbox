@@ -1,10 +1,10 @@
 import { config } from "./config.js";
-import { GBox } from "./sdk/index.js";
 import { MCPLogger } from "./mcp-logger.js";
+import { GBox } from "./sdk/index.js";
 import {
+  type LogFunction,
   withLogging,
   withLoggingResourceTemplate,
-  type LogFunction,
 } from "./utils.js";
 
 // Box interface

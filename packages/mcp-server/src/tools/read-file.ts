@@ -1,9 +1,10 @@
-import { withLogging } from "../utils.js";
-import { config } from "../config.js";
-import { GBox, FILE_SIZE_LIMITS } from "../sdk/index.js";
-import { MCPLogger } from "../mcp-logger.js";
 import { z } from "zod";
+
+import { config } from "../config.js";
+import { MCPLogger } from "../mcp-logger.js";
+import { FILE_SIZE_LIMITS, GBox } from "../sdk/index.js";
 import type { FileStat } from "../sdk/types.js";
+import { withLogging } from "../utils.js";
 
 export const READ_FILE_TOOL = "read-file";
 export const READ_FILE_DESCRIPTION = `Read a file from the API server.

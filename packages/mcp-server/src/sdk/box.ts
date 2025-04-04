@@ -1,12 +1,12 @@
+import { Client } from "./client";
 import type {
   Box,
   BoxRunResult,
   CreateBoxOptions,
-  RunOptions,
-  Logger,
   GBoxConfig,
+  Logger,
+  RunOptions,
 } from "./types";
-import { Client } from "./client";
 
 export class BoxService {
   private readonly client: Client;

@@ -1,10 +1,10 @@
+import { Client } from "./client";
 import type {
   FileMetadataResponse,
   FileShareResponse,
   GBoxConfig,
   Logger,
 } from "./types";
-import { Client } from "./client";
 
 interface FileShareRequest {
   path: string;

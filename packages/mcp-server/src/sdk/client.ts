@@ -1,4 +1,4 @@
-import type { Logger, GBoxConfig } from "./types";
+import type { GBoxConfig, Logger } from "./types";
 
 export interface ClientRequestOptions extends RequestInit {
   params?: Record<string, string>;

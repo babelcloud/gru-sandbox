@@ -1,32 +1,33 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
+import type { LoggingMessageNotification } from "@modelcontextprotocol/sdk/types.js";
+
 import { boxTemplate, handleBoxResource } from "./resources.js";
 import {
-  LIST_BOXES_TOOL,
   LIST_BOXES_DESCRIPTION,
-  RUN_PYTHON_TOOL,
-  RUN_PYTHON_DESCRIPTION,
-  RUN_BASH_TOOL,
-  RUN_BASH_DESCRIPTION,
-  READ_FILE_TOOL,
+  LIST_BOXES_TOOL,
   READ_FILE_DESCRIPTION,
+  READ_FILE_TOOL,
+  RUN_BASH_DESCRIPTION,
+  RUN_BASH_TOOL,
+  RUN_PYTHON_DESCRIPTION,
+  RUN_PYTHON_TOOL,
   handleListBoxes,
-  handleRunPython,
-  handleRunBash,
   handleReadFile,
-  runPythonParams,
-  runBashParams,
+  handleRunBash,
+  handleRunPython,
   readFileParams,
+  runBashParams,
+  runPythonParams,
 } from "./tools/index.js";
-import type { LoggingMessageNotification } from "@modelcontextprotocol/sdk/types.js";
-import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
-import type { LogFn } from "./types.js";
 import {
-  handleRunTypescript,
   RUN_TYPESCRIPT_DESCRIPTION,
   RUN_TYPESCRIPT_TOOL,
+  handleRunTypescript,
   runTypescriptParams,
 } from "./tools/run-typescript.js";
+import type { LogFn } from "./types.js";
 
 const enableLogging = true;
 

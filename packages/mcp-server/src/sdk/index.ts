@@ -3,8 +3,8 @@ export * from "./client";
 export * from "./box";
 export * from "./file";
 
-import { Client } from "./client";
 import { BoxService } from "./box";
+import { Client } from "./client";
 import { FileService } from "./file";
 import type { GBoxConfig } from "./types";
 

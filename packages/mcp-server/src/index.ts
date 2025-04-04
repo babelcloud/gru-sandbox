@@ -115,10 +115,8 @@ mcpServer.tool(
   handleRunBash(log)
 );
 
-// Start server
 const transport = new StdioServerTransport();
 await mcpServer.connect(transport);
-// Log successful startup
 log({
   level: "info",
   data: "Server started successfully",

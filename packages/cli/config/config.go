@@ -13,11 +13,11 @@ func init() {
 	v = viper.New()
 
 	// Set default values
-	v.SetDefault("api.url", "http://localhost:28080")
+	v.SetDefault("api.endpoint", "http://localhost:28080")
 
 	// Environment variables
 	v.AutomaticEnv()
-	v.BindEnv("api.url", "API_ENDPOINT")
+	v.BindEnv("api.endpoint", "API_ENDPOINT")
 
 	// Config file
 	v.SetConfigName("config")
@@ -47,5 +47,5 @@ func init() {
 
 // GetAPIURL returns the API server URL
 func GetAPIURL() string {
-	return v.GetString("api.url")
+	return v.GetString("api.endpoint")
 }

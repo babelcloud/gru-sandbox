@@ -57,7 +57,7 @@ e2e-setup: ## Setup e2e test environment (build and start test API server)
 # Run test for a specific command using pattern matching
 .PHONY: e2e-%
 e2e-%: e2e-env-check ## Run test for a specific command (e.g. make e2e-create)
-	@cd e2e && ./run-test --$*
+	@cd e2e && ./run-test --$*.exp
 
 # Run tests for all commands
 e2e: e2e-env-check ## Run tests for all commands

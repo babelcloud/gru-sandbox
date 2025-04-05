@@ -21,36 +21,21 @@ var (
 	// Script directory (relative to packages/cli)
 	scriptDir = filepath.Clean("../../bin")
 
+	// rootCmd represents the base command when called without any subcommands
 	rootCmd = &cobra.Command{
-		Use:                "gru",
-		Short:              "Gru CLI tool",
-		DisableFlagParsing: true,
-		Run: func(cmd *cobra.Command, args []string) {
-			showHelp("all")
-		},
-		// Completely disable Cobra's default help
-		DisableAutoGenTag:          true,
-		DisableFlagsInUseLine:      true,
-		DisableSuggestions:         true,
-		SuggestionsMinimumDistance: 1000,
-		// Override default help
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 && args[0] == "--help" {
-				showHelp("all")
-				return nil
-			}
-			showHelp("all")
-			return nil
-		},
+		Use:   "gru",
+		Short: "Gru CLI Tool",
+		Long: `Gru CLI is a command-line tool for managing and operating box, cluster, and mcp resources.
+It provides a set of commands to create, manage, and operate these resources.`,
 	}
 )
 
+// Execute runs the root command and handles any errors
+func Execute() error {
+	return rootCmd.Execute()
+}
+
 func init() {
-	cobra.EnableCommandSorting = false
-
-	// Setup help command
-	setupHelpCommand(rootCmd)
-
 	// Add alias commands
 	for alias, cmd := range aliasMap {
 		createAliasCommand(alias, cmd)
@@ -62,43 +47,28 @@ func init() {
 	rootCmd.AddCommand(NewMcpCommand())
 }
 
-// Execute runs the root command
-func Execute() error {
-	return rootCmd.Execute()
-}
-
-// Create alias command
+// createAliasCommand creates a new command that acts as an alias to another command
 func createAliasCommand(alias, targetCmd string) {
 	parts := strings.Split(targetCmd, " ")
 	aliasCmd := &cobra.Command{
-		Use:                alias,
-		Short:              fmt.Sprintf("Alias for '%s'", targetCmd),
-		DisableFlagParsing: true,
-		DisableAutoGenTag:  true,
+		Use:   alias,
+		Short: fmt.Sprintf("Alias for '%s'", targetCmd),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 && args[0] == "--help" {
-				allArgs := append([]string{parts[1], "--help"}, args[1:]...)
-				return executeScript(parts[0], allArgs)
-			}
 			allArgs := append(parts[1:], args...)
 			return executeScript(parts[0], allArgs)
 		},
 	}
-	// Set alias command help function
-	aliasCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		allArgs := append([]string{parts[1], "--help"}, args...)
-		executeScript(parts[0], allArgs)
-	})
+
 	rootCmd.AddCommand(aliasCmd)
 }
 
-// Execute script
+// executeScript runs an external script with the given arguments
 func executeScript(cmdName string, args []string) error {
 	scriptPath := filepath.Join(scriptDir, fmt.Sprintf("gbox-%s", cmdName))
 
 	// Check if script exists
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
-		return fmt.Errorf("script not found: %s", scriptPath)
+		return fmt.Errorf("Script not found: %s", scriptPath)
 	}
 
 	// Prepare command

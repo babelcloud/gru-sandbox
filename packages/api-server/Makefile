@@ -1,6 +1,14 @@
 # Image URL to use all building/pushing image targets
 IMG ?= ghcr.io/babelcloud/gbox-api-server:latest
 
+# Common prefix for Go packages
+MODULE_PREFIX := github.com/babelcloud/gru-sandbox
+
+# Version information variables
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
 # Platform specific variables
 PLATFORMS ?= linux/amd64,linux/arm64
 BUILDX_BUILDER ?= gbox-builder
@@ -11,22 +19,27 @@ BUILD_DIR ?= build
 GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
+# LDFLAGS for embedding version information
+LDFLAGS := -ldflags "-X $(MODULE_PREFIX)/packages/api-server/internal/version.Version=$(VERSION) \
+                     -X $(MODULE_PREFIX)/packages/api-server/internal/version.BuildTime=$(BUILD_TIME) \
+                     -X $(MODULE_PREFIX)/packages/api-server/internal/version.Commit=$(COMMIT)"
+
 # Show help
 .PHONY: help
 help: ## Show this help message
-	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' Makefile | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' Makefile | awk 'BEGIN {FSv = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 # Run the API server in development mode
 .PHONY: dev
 dev: ## Run the API server in development mode
-	DEBUG=true go run main.go
+	DEBUG=true go run $(LDFLAGS) main.go
 
 # Build binary for current platform
 .PHONY: binary
 binary: ## Build binary for current platform
 	@echo "Building binary for $(GOOS)/$(GOARCH)..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BUILD_DIR)/$(BINARY_NAME) main.go
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) main.go
 	@echo "Binary built: $(BUILD_DIR)/$(BINARY_NAME)"
 
 # Build binaries for all platforms
@@ -34,16 +47,20 @@ binary: ## Build binary for current platform
 binary-all: ## Build binaries for all platforms
 	@echo "Building binaries for all platforms..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 main.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 main.go
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 main.go
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 main.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 main.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 main.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 main.go
 	@echo "Binaries built in $(BUILD_DIR)"
 
 # Build the docker image locally
 .PHONY: docker-build
 docker-build: ## Build docker image locally
-	docker build -t ${IMG} .
+	docker build \
+	  --build-arg VERSION=$(VERSION) \
+	  --build-arg COMMIT=$(COMMIT) \
+	  --build-arg BUILD_TIME=$(BUILD_TIME) \
+	  -t ${IMG} .
 
 # Build multi-architecture docker image
 .PHONY: docker-buildx
@@ -61,6 +78,9 @@ docker-buildx: ## Build multi-architecture docker image
 	fi
 	docker buildx build --platform $(PLATFORMS) \
 		-t ${IMG} \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT=$(COMMIT) \
+		--build-arg BUILD_TIME=$(BUILD_TIME) \
 		--push \
 		--builder "$$BUILDER" \
 		-f Dockerfile \

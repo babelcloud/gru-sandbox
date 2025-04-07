@@ -1,5 +1,8 @@
 # Makefile for gbox CLI
 
+# Common prefix for Go packages
+MODULE_PREFIX := github.com/babelcloud/gru-sandbox
+
 # Variable definitions
 BINARY_NAME := gbox
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -13,9 +16,9 @@ GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
 # LDFLAGS for embedding version information
-LDFLAGS := -ldflags "-X github.com/babelcloud/gru-sandbox/packages/cli/internal/version.Version=$(VERSION) \
-                     -X github.com/babelcloud/gru-sandbox/packages/cli/internal/version.BuildTime=$(BUILD_TIME) \
-                     -X github.com/babelcloud/gru-sandbox/packages/cli/internal/version.Commit=$(COMMIT)"
+LDFLAGS := -ldflags "-X $(MODULE_PREFIX)/packages/cli/internal/version.Version=$(VERSION) \
+                     -X $(MODULE_PREFIX)/packages/cli/internal/version.BuildTime=$(BUILD_TIME) \
+                     -X $(MODULE_PREFIX)/packages/cli/internal/version.Commit=$(COMMIT)"
 
 # Supported platforms
 PLATFORMS := linux-amd64 linux-arm64 darwin-amd64 darwin-arm64
@@ -57,11 +60,11 @@ e2e-setup: ## Setup e2e test environment (build and start test API server)
 # Run test for a specific command using pattern matching
 .PHONY: e2e-%
 e2e-%: e2e-env-check ## Run test for a specific command (e.g. make e2e-create)
-	@cd e2e && ./run-test --$*.exp
+	@cd e2e && ./run-test.exp --$*.exp
 
 # Run tests for all commands
 e2e: e2e-env-check ## Run tests for all commands
-	@cd e2e && ./run-test
+	@cd e2e && ./run-test.exp
 
 # Clean build directory
 clean: ## Clean the build directory

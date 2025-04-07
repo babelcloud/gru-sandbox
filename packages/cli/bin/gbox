@@ -15,18 +15,27 @@ debug_log() {
 # Get the name of the symlink when called through a symlink
 LINK_NAME=$(basename "$0")
 
-# Validate LINK_NAME format first
-if [[ ! "$LINK_NAME" =~ ^gbox-([^-]+)-(.+)$ ]]; then
+# Validate LINK_NAME format and extract command parts
+if [[ "$LINK_NAME" == "gbox" ]]; then
+    # Handle direct gbox execution
+    if [[ "$1" == "--version" ]]; then
+        CMD_TYPE="version"
+        SUB_CMD=""
+    else
+        CMD_TYPE="$1"
+        SUB_CMD="$2"
+        shift
+    fi
+    debug_log "Direct gbox execution - CMD_TYPE: ${CMD_TYPE:-none}, SUB_CMD: ${SUB_CMD:-none}"
+elif [[ "$LINK_NAME" =~ ^gbox-([^-]+)(-(.+))?$ ]]; then
+    CMD_TYPE="${BASH_REMATCH[1]}"
+    SUB_CMD="${BASH_REMATCH[3]}"
+    debug_log "Symlink execution - CMD_TYPE: $CMD_TYPE, SUB_CMD: ${SUB_CMD:-none}"
+else
     echo "Error: Invalid command format: $LINK_NAME" >&2
-    echo "This script should be called through a symlink named gbox-<command>-<subcommand>" >&2
+    echo "This script should be called as 'gbox <command>' or through a symlink named 'gbox-<command>[-<subcommand>]'" >&2
     exit 1
 fi
-
-# Extract command type and subcommand
-CMD_TYPE="${BASH_REMATCH[1]}"
-SUB_CMD="${BASH_REMATCH[2]}"
-debug_log "CMD_TYPE: $CMD_TYPE"
-debug_log "SUB_CMD: $SUB_CMD"
 
 # find_repo_root function with caching
 find_repo_root() {
@@ -110,8 +119,12 @@ fi
 # Change to CLI directory for go run context
 cd "$CLI_DIR"
 
-debug_log "Running go implementation for $CMD_TYPE $SUB_CMD from $CLI_DIR"
+debug_log "Running go implementation for $CMD_TYPE ${SUB_CMD:+$SUB_CMD }from $CLI_DIR"
 
 # Build and execute go run command
 # Using exec replaces the shell process with the go run process
-exec go run "$MAIN_GO" "$CMD_TYPE" "$SUB_CMD" "$@" 
+if [[ -n "$SUB_CMD" ]]; then
+    exec go run "$MAIN_GO" "$CMD_TYPE" "$SUB_CMD" "$@"
+else
+    exec go run "$MAIN_GO" "$CMD_TYPE" "$@"
+fi 

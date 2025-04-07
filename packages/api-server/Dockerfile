@@ -1,6 +1,12 @@
 # Build stage
 FROM golang:1.23.7-alpine3.21 AS builder
 
+# Build arguments for version information
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_TIME=unknown
+ARG MODULE_PREFIX=github.com/babelcloud/gru-sandbox
+
 # Set working directory
 WORKDIR /app
 
@@ -13,8 +19,12 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o api-server
+# Build the application with version information
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags "-X ${MODULE_PREFIX}/packages/api-server/internal/version.Version=${VERSION} \
+              -X ${MODULE_PREFIX}/packages/api-server/internal/version.BuildTime=${BUILD_TIME} \
+              -X ${MODULE_PREFIX}/packages/api-server/internal/version.Commit=${COMMIT}" \
+    -o api-server
 
 # Final stage
 FROM alpine:3.21

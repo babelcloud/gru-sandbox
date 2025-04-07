@@ -27,6 +27,30 @@ source "$SCRIPT_DIR/common"
 ALIAS_NAMES=(setup cleanup export)
 ALIAS_CMDS=("cluster setup" "cluster cleanup" "mcp export")
 
+# Create symlink based on mode
+create_symlink() {
+    local target_path="$1"
+    local symlink_paths=("${@:2}")  # Get all arguments starting from the second one as an array
+    local description="$target_path"
+    
+    for symlink_path in "${symlink_paths[@]}"; do
+        ln -sf "$target_path" "$symlink_path"
+    done
+    
+    # Set description based on target path
+    if [[ "$target_path" == "$go_binary" ]]; then
+        description="Go binary in production mode"
+    elif [[ "$target_path" == "$go_runner_script" ]]; then
+        description="Go implementation in development mode"
+    fi
+    
+    # Generate a comma-separated list of symlink paths
+    local symlinks_str=$(printf ", %s" "${symlink_paths[@]}")
+    symlinks_str=${symlinks_str:2}  # Remove leading ", "
+    
+    debug_log "Created symlinks: $symlinks_str → $target_path ($description)"
+}
+
 # Ensure required directories and files exist
 ensure_box_symlinks() {
     # Load environment configuration from .env file
@@ -109,6 +133,22 @@ ensure_box_symlinks() {
         exit 1
     fi
     
+    # if $GBOX_BIN does not exist, create it
+    if [[ ! -d "$GBOX_BIN" ]]; then
+        mkdir -p "$GBOX_BIN"
+    fi
+
+    # Create version command symlinks
+    local version_symlink="$GBOX_BIN/gbox-version"
+    local gbox_symlink="$GBOX_BIN/gbox"
+    
+    if [[ "$DEV_MODE" != "true" ]]; then
+        create_symlink "$go_binary" "$version_symlink" "$gbox_symlink"
+    else
+        create_symlink "$go_runner_script" "$version_symlink" "$gbox_symlink"
+    fi
+    symlinks_created=true
+    
     # Dynamically discover box subcommands
     local box_subcommands=()
     
@@ -132,11 +172,6 @@ ensure_box_symlinks() {
     else
         debug_log "Discovered box subcommands: ${box_subcommands[*]}"
     fi
-    
-    # if $GBOX_BIN does not exist, create it
-    if [[ ! -d "$GBOX_BIN" ]]; then
-        mkdir -p "$GBOX_BIN"
-    fi
 
     # Process each box subcommand
     for subcmd in "${box_subcommands[@]}"; do
@@ -153,13 +188,9 @@ ensure_box_symlinks() {
         
         if [[ "$use_go" == "true" ]]; then
             if [[ "$DEV_MODE" != "true" ]]; then
-                # Create symlink to binary in production mode
-                ln -sf "$go_binary" "$symlink_path"
-                debug_log "Created symlink: $symlink_path → $go_binary (Go binary in production mode)"
+                create_symlink "$go_binary" "$symlink_path"
             else
-                # Create symlink to cli gbox script in development mode
-                ln -sf "$go_runner_script" "$symlink_path"
-                debug_log "Created symlink: $symlink_path → $go_runner_script (Go implementation in development mode)"
+                create_symlink "$go_runner_script" "$symlink_path"
             fi
             symlinks_created=true
         else
@@ -171,8 +202,7 @@ ensure_box_symlinks() {
             fi
             
             # Create symlink to bash script
-            ln -sf "$script_path" "$symlink_path"
-            debug_log "Created symlink: $symlink_path → $script_path (Bash implementation)"
+            create_symlink "$script_path" "$symlink_path"
             symlinks_created=true
         fi
     done
@@ -223,6 +253,7 @@ EOF
                 fi
             done
             printf "    %-18s %s\n" "help" "Show help information"
+            printf "    %-18s %s\n" "version" "Show version information"
 
             echo ""
             echo "Sub Commands:"
@@ -238,6 +269,7 @@ EOF
 
 Options:
     --help [short|all]  Show this help message (default: all)
+    --version          Show version information
 
 Configuration:
     GO_IMPL             Comma-separated list of commands to use Go implementation
@@ -254,6 +286,7 @@ Examples:
     gbox box list              # List all boxes
     gbox export                # Export MCP configuration
     gbox cleanup               # Clean up everything
+    gbox version               # Show version information
     
     # Using .env file:
     # Add GO_IMPL=box_list,box_create to .env file
@@ -307,6 +340,10 @@ case "$1" in
             exit 1
         fi
         ;;
+    version)
+        ensure_box_symlinks
+        exec "$GBOX_BIN/gbox-version"
+        ;;
     cluster|mcp)
         cmd="$1"
         shift
@@ -322,6 +359,10 @@ case "$1" in
         ;;
     help)
         help "${2:-all}"
+        ;;
+    --version)
+        ensure_box_symlinks
+        exec "$GBOX_BIN/gbox" --version
         ;;
     *)
         if [[ -n "$1" ]] && [ -n "$(get_alias "$1")" ]; then

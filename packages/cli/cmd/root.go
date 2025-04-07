@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/babelcloud/gru-sandbox/packages/cli/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -27,6 +28,15 @@ var (
 		Short: "Gru CLI Tool",
 		Long: `Gru CLI is a command-line tool for managing and operating box, cluster, and mcp resources.
 It provides a set of commands to create, manage, and operate these resources.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// If version flag is set, print the version and exit
+			if cmd.Flag("version").Changed {
+				info := version.ClientInfo()
+				fmt.Printf("GBOX version %s, build %s\n", info["Version"], info["GitCommit"])
+				return nil
+			}
+			return cmd.Help()
+		},
 	}
 )
 
@@ -36,6 +46,9 @@ func Execute() error {
 }
 
 func init() {
+	// Add global version flag
+	rootCmd.PersistentFlags().BoolP("version", "v", false, "Print version information and exit")
+
 	// Add alias commands
 	for alias, cmd := range aliasMap {
 		createAliasCommand(alias, cmd)
@@ -45,6 +58,7 @@ func init() {
 	rootCmd.AddCommand(NewBoxCommand())
 	rootCmd.AddCommand(NewClusterCommand())
 	rootCmd.AddCommand(NewMcpCommand())
+	rootCmd.AddCommand(NewVersionCommand())
 }
 
 // createAliasCommand creates a new command that acts as an alias to another command

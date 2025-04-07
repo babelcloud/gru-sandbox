@@ -9,7 +9,6 @@ type BoxCreateRequest struct {
 	Args            []string          `json:"args,omitempty"`
 	WorkingDir      string            `json:"workingDir,omitempty"`
 	ExtraLabels     map[string]string `json:"labels,omitempty"`
-	Mounts          []Mount           `json:"mounts,omitempty"`          // Additional mount configurations
 }
 
 // BoxCreateResponse represents the response from creating a box

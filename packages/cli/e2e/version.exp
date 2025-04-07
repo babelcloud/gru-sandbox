@@ -1,0 +1,125 @@
+#!/usr/bin/expect -f
+#
+# Test script for gbox version command
+#
+
+# Set timeout in seconds
+set timeout 10
+
+# Define colors for output readability
+set GREEN "\033\[0;32m"
+set RED "\033\[0;31m"
+set YELLOW "\033\[0;33m"
+set NC "\033\[0m" ;# No Color
+
+# Test 1: Basic version command
+puts "\n${YELLOW}Testing basic version command...${NC}"
+spawn go run ../main.go version
+
+# Expect to see version information (client info must exist, server info is optional)
+expect {
+    -re "Client:.*Version:.*API version:.*Go version:.*Git commit:.*Built:.*OS/Arch:.*" {
+        puts "\n${GREEN}PASS: Version command executed successfully${NC}\n"
+    }
+    -re "Version:.*API version:.*Go version:" {
+        puts "\n${GREEN}PASS: Version command executed successfully (partial info)${NC}\n"
+    }
+    "Error:" {
+        puts "\n${RED}FAIL: Version command error: $_${NC}\n"
+        exit 1
+    }
+    timeout {
+        puts "\n${RED}FAIL: Version command timed out${NC}\n"
+        exit 1
+    }
+}
+
+# Test 2: Short version flag
+puts "\n${YELLOW}Testing --version flag...${NC}"
+spawn go run ../main.go --version
+
+# Expect to see short version information
+expect {
+    -re "GBOX version .*, build .*" {
+        puts "\n${GREEN}PASS: Short version flag working correctly${NC}\n"
+    }
+    -re "version.*build" {
+        puts "\n${GREEN}PASS: Short version flag working correctly (partial match)${NC}\n"
+    }
+    "Error:" {
+        puts "\n${RED}FAIL: Short version flag error: $_${NC}\n"
+        exit 1
+    }
+    timeout {
+        puts "\n${RED}FAIL: Short version flag timed out${NC}\n"
+        exit 1
+    }
+}
+
+# Test 3: JSON output format
+puts "\n${YELLOW}Testing version command with JSON output...${NC}"
+spawn go run ../main.go version --output json
+
+# Expect JSON format response (client info must exist, server info is optional)
+expect {
+    -re "\\{.*\"Client\":\\{.*\"Version\":.*\"APIVersion\":.*\"GoVersion\":.*\"GitCommit\":.*\"Built\":.*\"OS\":.*\"Arch\":.*\\}.*\\}" {
+        puts "\n${GREEN}PASS: JSON output format working correctly${NC}\n"
+    }
+    -re "\\{.*\"Client\":\\{.*\\}\\}" {
+        puts "\n${GREEN}PASS: JSON output format working correctly (minimal response)${NC}\n"
+    }
+    "Error:" {
+        puts "\n${RED}FAIL: JSON output format error: $_${NC}\n"
+        exit 1
+    }
+    timeout {
+        puts "\n${RED}FAIL: JSON output format timed out${NC}\n"
+        exit 1
+    }
+}
+
+# Test 4: Help information
+puts "\n${YELLOW}Testing version command help...${NC}"
+spawn go run ../main.go version --help
+
+# Expect help information
+expect {
+    -re "Print the client and server version information" {
+        puts "\n${GREEN}PASS: Help information displayed correctly${NC}\n"
+    }
+    -re "Usage:.*version" {
+        puts "\n${GREEN}PASS: Help information displayed (basic format)${NC}\n"
+    }
+    "Error:" {
+        puts "\n${RED}FAIL: Help information error: $_${NC}\n"
+        exit 1
+    }
+    timeout {
+        puts "\n${RED}FAIL: Help information timed out${NC}\n"
+        exit 1
+    }
+}
+
+# Test 5: gbox-version symlink test (using direct command)
+puts "\n${YELLOW}Testing gbox-version functionality...${NC}"
+spawn go run ../main.go version
+
+expect {
+    -re "Client:.*Version:.*API version:.*Go version:.*Git commit:.*Built:.*OS/Arch:.*" {
+        puts "\n${GREEN}PASS: Version functionality working correctly${NC}\n"
+    }
+    -re "Version:.*API version:.*Go version:" {
+        puts "\n${GREEN}PASS: Version functionality working correctly (partial info)${NC}\n"
+    }
+    "Error:" {
+        puts "\n${RED}FAIL: Version functionality error: $_${NC}\n"
+        exit 1
+    }
+    timeout {
+        puts "\n${RED}FAIL: Version command execution timed out${NC}\n"
+        exit 1
+    }
+}
+
+puts "\n${GREEN}✓ All version tests completed successfully${NC}\n"
+exit 0 

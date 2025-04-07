@@ -49,6 +49,9 @@ func main() {
 		logger.Fatal("Failed to initialize file handler: %v", err)
 	}
 
+	// Initialize version handler
+	versionHandler := handlers.NewVersionHandler()
+
 	// Initialize and start cron manager
 	cronManager := cron.NewManager(logger, boxHandler, fileHandler)
 	cronManager.Start()
@@ -62,6 +65,12 @@ func main() {
 	ws.Path("/api/v1").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
+
+	// Add version route
+	ws.Route(ws.GET("/version").To(versionHandler.GetVersion).
+		Doc("get server version information").
+		Returns(200, "OK", map[string]string{}).
+		Returns(500, "Internal Server Error", models.BoxError{}))
 
 	// Add routes
 	ws.Route(ws.GET("/boxes").To(boxHandler.ListBoxes).

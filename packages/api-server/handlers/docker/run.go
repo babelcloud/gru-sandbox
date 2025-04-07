@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/babelcloud/gru-sandbox/packages/api-server/config"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/common"
-	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 )
 
@@ -62,10 +62,9 @@ func readDockerStream(reader io.Reader) (string, string, error) {
 
 // collectOutput collects output from a reader with line limit
 func collectOutput(reader io.Reader, stdoutLimit, stderrLimit int) (string, string) {
-	logger := log.New()
 	stdout, stderr, err := readDockerStream(reader)
 	if err != nil {
-		logger.Error("Error reading Docker stream: %v", err)
+		log.Printf("Error reading Docker stream: %v", err)
 		return "", ""
 	}
 
@@ -94,12 +93,10 @@ func collectOutput(reader io.Reader, stdoutLimit, stderrLimit int) (string, stri
 
 // handleRunBox handles the run box operation
 func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Response) {
-	logger := log.New()
-
 	// Parse request body
 	var runReq models.BoxRunRequest
 	if err := req.ReadEntity(&runReq); err != nil {
-		logger.Error("Error reading request body: %v", err)
+		log.Printf("Error reading request body: %v", err)
 		writeError(resp, http.StatusBadRequest, "INVALID_REQUEST", fmt.Sprintf("Error reading request body: %v", err))
 		return
 	}
@@ -114,14 +111,14 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 
 	// Get image name
 	img := common.GetImage(runReq.Image)
-	logger.Info("Checking image: %q", img)
+	log.Printf("Checking image: %q", img)
 
 	// Check if image exists
 	_, _, err := h.client.ImageInspectWithRaw(req.Request.Context(), img)
 	if err == nil {
-		logger.Info("Using existing image: %q", img)
+		log.Printf("Using existing image: %q", img)
 	} else {
-		logger.Info("Image %q not found, pulling", img)
+		log.Printf("Image %q not found, pulling", img)
 		if err := pullImage(h, req, resp, img, runReq.ImagePullSecret); err != nil {
 			return
 		}
@@ -160,8 +157,8 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 
 	// Get share directory from config
 	fileConfig := config.NewFileConfig().(*config.FileConfig)
-	if err := fileConfig.Initialize(logger); err != nil {
-		logger.Error("Error initializing file config: %v", err)
+	if err := fileConfig.Initialize(nil); err != nil {
+		log.Printf("Error initializing file config: %v", err)
 		resp.WriteError(http.StatusInternalServerError, err)
 		return
 	}
@@ -170,7 +167,7 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 	hostShareDir := filepath.Join(fileConfig.GetHostShareDir(), boxID)
 	shareDir := filepath.Join(fileConfig.GetFileShareDir(), boxID)
 	if err := os.MkdirAll(shareDir, 0755); err != nil {
-		logger.Error("Error creating share directory: %v", err)
+		log.Printf("Error creating share directory: %v", err)
 		resp.WriteError(http.StatusInternalServerError, err)
 		return
 	}
@@ -195,7 +192,7 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 		case models.MountTypeTmpfs:
 			mountType = mount.TypeTmpfs
 		default:
-			logger.Error("Invalid mount type: %s", m.Type)
+			log.Printf("Invalid mount type: %s", m.Type)
 			resp.WriteError(http.StatusBadRequest, fmt.Errorf("invalid mount type: %s", m.Type))
 			return
 		}
@@ -203,14 +200,14 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 		// Validate source path for bind mounts
 		if m.Type == models.MountTypeBind {
 			if !filepath.IsAbs(m.Source) {
-				logger.Error("Source path must be absolute: %s", m.Source)
+				log.Printf("Source path must be absolute: %s", m.Source)
 				resp.WriteError(http.StatusBadRequest, fmt.Errorf("source path must be absolute: %s", m.Source))
 				return
 			}
 
 			// Check if source path exists
 			if _, err := os.Stat(m.Source); err != nil {
-				logger.Error("Source path does not exist: %s", m.Source)
+				log.Printf("Source path does not exist: %s", m.Source)
 				resp.WriteError(http.StatusBadRequest, fmt.Errorf("source path does not exist: %s", m.Source))
 				return
 			}
@@ -234,7 +231,7 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 			case "delegated":
 				mountConfig.Consistency = mount.ConsistencyDelegated
 			default:
-				logger.Error("Invalid mount consistency: %s", m.Consistency)
+				log.Printf("Invalid mount consistency: %s", m.Consistency)
 				resp.WriteError(http.StatusBadRequest, fmt.Errorf("invalid mount consistency: %s", m.Consistency))
 				return
 			}
@@ -261,14 +258,14 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 		containerName,
 	)
 	if err != nil {
-		logger.Error("Error creating container: %v", err)
+		log.Printf("Error creating container: %v", err)
 		resp.WriteError(http.StatusInternalServerError, err)
 		return
 	}
 
 	// Start container
 	if err := h.client.ContainerStart(req.Request.Context(), containerResp.ID, types.ContainerStartOptions{}); err != nil {
-		logger.Error("Error starting container: %v", err)
+		log.Printf("Error starting container: %v", err)
 		resp.WriteError(http.StatusInternalServerError, err)
 		return
 	}
@@ -278,7 +275,7 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 	var statusCode int64
 	select {
 	case err := <-errCh:
-		logger.Error("Error waiting for container: %v", err)
+		log.Printf("Error waiting for container: %v", err)
 		resp.WriteError(http.StatusInternalServerError, err)
 		return
 	case status := <-statusCh:
@@ -291,7 +288,7 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 		ShowStderr: true,
 	})
 	if err != nil {
-		logger.Error("Error getting container logs: %v", err)
+		log.Printf("Error getting container logs: %v", err)
 		resp.WriteError(http.StatusInternalServerError, err)
 		return
 	}
@@ -305,7 +302,7 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 		Force: true,
 	})
 	if err != nil {
-		logger.Error("Error removing container: %v", err)
+		log.Printf("Error removing container: %v", err)
 		// Don't fail the request if cleanup fails
 	}
 

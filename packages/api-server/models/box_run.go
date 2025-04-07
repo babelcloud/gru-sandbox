@@ -2,11 +2,20 @@ package models
 
 // BoxRunRequest represents a request to run a command in a box
 type BoxRunRequest struct {
-	Cmd             []string `json:"cmd,omitempty"`
-	Args            []string `json:"args,omitempty"`
-	Stdin           string   `json:"stdin,omitempty"`
-	StdoutLineLimit int      `json:"stdoutLineLimit,omitempty"`
-	StderrLineLimit int      `json:"stderrLineLimit,omitempty"`
+	// Container creation options
+	Image           string            `json:"image,omitempty"`           // Image to use for the container
+	ImagePullSecret string            `json:"imagePullSecret,omitempty"` // For docker: base64 encoded auth string
+	Env             map[string]string `json:"env,omitempty"`            // Environment variables
+	WorkingDir      string            `json:"workingDir,omitempty"`     // Working directory
+	ExtraLabels     map[string]string `json:"labels,omitempty"`         // Additional labels
+	Mounts          []Mount           `json:"mounts,omitempty"`         // Volume mounts
+
+	// Command execution options
+	Cmd             []string `json:"cmd,omitempty"`             // Command to run
+	Args            []string `json:"args,omitempty"`            // Command arguments
+	Stdin           string   `json:"stdin,omitempty"`           // Standard input to send
+	StdoutLineLimit int      `json:"stdoutLineLimit,omitempty"` // Max lines to return from stdout
+	StderrLineLimit int      `json:"stderrLineLimit,omitempty"` // Max lines to return from stderr
 }
 
 // BoxRunResponse represents the response from a run operation

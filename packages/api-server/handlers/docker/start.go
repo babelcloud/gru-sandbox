@@ -3,11 +3,8 @@ package docker
 import (
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/emicklei/go-restful/v3"
 
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
@@ -19,13 +16,6 @@ func handleStartBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Res
 	logger := log.New()
 	boxID := req.PathParameter("id")
 	logger.Info("Starting box: %s", boxID)
-
-	// Parse request body
-	var startReq models.BoxStartRequest
-	if err := req.ReadEntity(&startReq); err != nil {
-		// If no request body, continue with default empty mounts
-		startReq.Mounts = []models.Mount{}
-	}
 
 	containerSummary, err := h.getContainerByID(req.Request.Context(), boxID)
 	if err != nil {
@@ -47,66 +37,6 @@ func handleStartBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Res
 		logger.Info("Box is already running: %s", boxID)
 		resp.WriteErrorString(http.StatusBadRequest, "box is already running")
 		return
-	}
-
-	// Process mount configurations
-	var mounts []mount.Mount
-	for _, m := range startReq.Mounts {
-		mountType := mount.TypeBind
-		switch m.Type {
-		case models.MountTypeBind:
-			mountType = mount.TypeBind
-		case models.MountTypeVolume:
-			mountType = mount.TypeVolume
-		case models.MountTypeTmpfs:
-			mountType = mount.TypeTmpfs
-		default:
-			logger.Error("Invalid mount type: %s", m.Type)
-			resp.WriteError(http.StatusBadRequest, fmt.Errorf("invalid mount type: %s", m.Type))
-			return
-		}
-
-		// Validate source path for bind mounts
-		if m.Type == models.MountTypeBind {
-			if !filepath.IsAbs(m.Source) {
-				logger.Error("Source path must be absolute: %s", m.Source)
-				resp.WriteError(http.StatusBadRequest, fmt.Errorf("source path must be absolute: %s", m.Source))
-				return
-			}
-
-			// Check if source path exists
-			if _, err := os.Stat(m.Source); err != nil {
-				logger.Error("Source path does not exist: %s", m.Source)
-				resp.WriteError(http.StatusBadRequest, fmt.Errorf("source path does not exist: %s", m.Source))
-				return
-			}
-		}
-
-		// Add mount configuration
-		mountConfig := mount.Mount{
-			Type:     mountType,
-			Source:   m.Source,
-			Target:   m.Target,
-			ReadOnly: m.ReadOnly,
-		}
-
-		// Set consistency if specified
-		if m.Consistency != "" {
-			switch m.Consistency {
-			case "default":
-				mountConfig.Consistency = mount.ConsistencyDefault
-			case "cached":
-				mountConfig.Consistency = mount.ConsistencyCached
-			case "delegated":
-				mountConfig.Consistency = mount.ConsistencyDelegated
-			default:
-				logger.Error("Invalid mount consistency: %s", m.Consistency)
-				resp.WriteError(http.StatusBadRequest, fmt.Errorf("invalid mount consistency: %s", m.Consistency))
-				return
-			}
-		}
-
-		mounts = append(mounts, mountConfig)
 	}
 
 	// Log container details before starting

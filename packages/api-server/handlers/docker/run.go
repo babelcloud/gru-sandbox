@@ -5,14 +5,19 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/emicklei/go-restful/v3"
 
+	"github.com/babelcloud/gru-sandbox/packages/api-server/config"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/common"
+	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
 	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
 )
 
@@ -57,9 +62,10 @@ func readDockerStream(reader io.Reader) (string, string, error) {
 
 // collectOutput collects output from a reader with line limit
 func collectOutput(reader io.Reader, stdoutLimit, stderrLimit int) (string, string) {
+	logger := log.New()
 	stdout, stderr, err := readDockerStream(reader)
 	if err != nil {
-		log.Printf("Error reading Docker stream: %v", err)
+		logger.Error("Error reading Docker stream: %v", err)
 		return "", ""
 	}
 
@@ -88,36 +94,12 @@ func collectOutput(reader io.Reader, stdoutLimit, stderrLimit int) (string, stri
 
 // handleRunBox handles the run box operation
 func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Response) {
-	boxID := req.PathParameter("id")
-	log.Printf("Received run request for box: %s", boxID)
-
-	box, err := h.getContainerByID(req.Request.Context(), boxID)
-	if err != nil {
-		if err.Error() == "box not found" {
-			log.Printf("Box not found: %s", boxID)
-			writeError(resp, http.StatusNotFound, "BOX_NOT_FOUND", fmt.Sprintf("Box not found: %s", boxID))
-		} else if err.Error() == "box ID is required" {
-			log.Printf("Invalid request: box ID is required")
-			writeError(resp, http.StatusBadRequest, "INVALID_REQUEST", "Box ID is required")
-		} else {
-			log.Printf("Error getting container: %v", err)
-			writeError(resp, http.StatusInternalServerError, "INTERNAL_ERROR", fmt.Sprintf("Error getting container: %v", err))
-		}
-		return
-	}
-
-	// Check container status
-	if box.State != "running" {
-		log.Printf("Box %s is not running (current state: stopped)", boxID)
-		writeError(resp, http.StatusConflict, "BOX_NOT_RUNNING",
-			fmt.Sprintf("Box %s is not running (current state: stopped)", boxID))
-		return
-	}
+	logger := log.New()
 
 	// Parse request body
 	var runReq models.BoxRunRequest
 	if err := req.ReadEntity(&runReq); err != nil {
-		log.Printf("Error reading request body: %v", err)
+		logger.Error("Error reading request body: %v", err)
 		writeError(resp, http.StatusBadRequest, "INVALID_REQUEST", fmt.Sprintf("Error reading request body: %v", err))
 		return
 	}
@@ -130,98 +112,213 @@ func handleRunBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Respo
 		runReq.StderrLineLimit = 100
 	}
 
-	// Create exec configuration
-	execConfig := types.ExecConfig{
-		User:         "", // Use default user
-		Privileged:   false,
-		Tty:          false,
-		AttachStdin:  runReq.Stdin != "", // Only attach stdin if stdin string is provided
-		AttachStderr: true,
-		AttachStdout: true,
-		Detach:       false,
-		DetachKeys:   "",  // Use default detach keys
-		Env:          nil, // No additional environment variables
-		WorkingDir:   common.DefaultWorkDirPath,
-		Cmd:          append(runReq.Cmd, runReq.Args...),
-	}
+	// Get image name
+	img := common.GetImage(runReq.Image)
+	logger.Info("Checking image: %q", img)
 
-	log.Printf("Creating exec with config: %+v", execConfig)
-
-	// Create exec instance
-	execCreate, err := h.client.ContainerExecCreate(req.Request.Context(), box.ID, execConfig)
-	if err != nil {
-		log.Printf("Error creating exec: %v", err)
-		writeError(resp, http.StatusInternalServerError, "EXEC_FAILED", fmt.Sprintf("Error creating exec: %v", err))
-		return
-	}
-
-	// Attach to exec instance
-	execAttach, err := h.client.ContainerExecAttach(req.Request.Context(), execCreate.ID, types.ExecStartCheck{
-		Detach: false,
-		Tty:    false,
-	})
-	if err != nil {
-		log.Printf("Error attaching to exec: %v", err)
-		writeError(resp, http.StatusInternalServerError, "EXEC_FAILED", fmt.Sprintf("Error attaching to exec: %v", err))
-		return
-	}
-	defer execAttach.Close()
-
-	// Create channels for collecting output
-	outputChan := make(chan struct {
-		stdout string
-		stderr string
-	})
-	exitCodeChan := make(chan int)
-
-	// Start goroutine to collect output
-	go func() {
-		stdout, stderr := collectOutput(execAttach.Reader, runReq.StdoutLineLimit, runReq.StderrLineLimit)
-		outputChan <- struct {
-			stdout string
-			stderr string
-		}{stdout, stderr}
-	}()
-
-	// Write stdin if provided
-	if runReq.Stdin != "" {
-		go func() {
-			_, err := io.WriteString(execAttach.Conn, runReq.Stdin)
-			if err != nil {
-				log.Printf("Error writing stdin: %v", err)
-			}
-			// Close write end of the connection to signal EOF
-			if closer, ok := execAttach.Conn.(interface{ CloseWrite() error }); ok {
-				closer.CloseWrite()
-			}
-		}()
-	}
-
-	// Wait for exec to complete and get exit code
-	go func() {
-		execInspect, err := h.client.ContainerExecInspect(req.Request.Context(), execCreate.ID)
-		if err != nil {
-			log.Printf("Error inspecting exec: %v", err)
-			exitCodeChan <- -1
+	// Check if image exists
+	_, _, err := h.client.ImageInspectWithRaw(req.Request.Context(), img)
+	if err == nil {
+		logger.Info("Using existing image: %q", img)
+	} else {
+		logger.Info("Image %q not found, pulling", img)
+		if err := pullImage(h, req, resp, img, runReq.ImagePullSecret); err != nil {
 			return
 		}
-		exitCodeChan <- execInspect.ExitCode
-	}()
+	}
 
-	// Collect results
-	output := <-outputChan
-	exitCode := <-exitCodeChan
+	boxID := common.GenerateBoxID()
+	containerName := fmt.Sprintf("gbox-%s", boxID)
+
+	// Prepare labels
+	labels := map[string]string{
+		GboxNamespace:      config.GetGboxNamespace(),
+		GboxLabelID:        boxID,
+		GboxLabelName:      "gbox",
+		GboxLabelVersion:   "v1",
+		GboxLabelComponent: "sandbox",
+		GboxLabelManagedBy: "gru-api-server",
+	}
+
+	// Add command configuration to labels
+	if len(runReq.Cmd) > 0 {
+		labels[GboxLabelPrefix+".cmd"] = runReq.Cmd[0]
+	}
+	if len(runReq.Args) > 0 {
+		labels[GboxLabelPrefix+".args"] = common.JoinArgs(runReq.Args)
+	}
+	if runReq.WorkingDir != "" {
+		labels[GboxLabelPrefix+".working-dir"] = runReq.WorkingDir
+	}
+
+	// Add custom labels with prefix
+	if runReq.ExtraLabels != nil {
+		for k, v := range runReq.ExtraLabels {
+			labels[GboxExtraLabelPrefix+"."+k] = v
+		}
+	}
+
+	// Get share directory from config
+	fileConfig := config.NewFileConfig().(*config.FileConfig)
+	if err := fileConfig.Initialize(logger); err != nil {
+		logger.Error("Error initializing file config: %v", err)
+		resp.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	// Create share directory for the box
+	hostShareDir := filepath.Join(fileConfig.GetHostShareDir(), boxID)
+	shareDir := filepath.Join(fileConfig.GetFileShareDir(), boxID)
+	if err := os.MkdirAll(shareDir, 0755); err != nil {
+		logger.Error("Error creating share directory: %v", err)
+		resp.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	// Prepare volume mounts
+	mounts := []mount.Mount{
+		{
+			Type:   mount.TypeBind,
+			Source: hostShareDir,
+			Target: common.DefaultShareDirPath,
+		},
+	}
+
+	// Add user-specified mounts
+	for _, m := range runReq.Mounts {
+		mountType := mount.TypeBind
+		switch m.Type {
+		case models.MountTypeBind:
+			mountType = mount.TypeBind
+		case models.MountTypeVolume:
+			mountType = mount.TypeVolume
+		case models.MountTypeTmpfs:
+			mountType = mount.TypeTmpfs
+		default:
+			logger.Error("Invalid mount type: %s", m.Type)
+			resp.WriteError(http.StatusBadRequest, fmt.Errorf("invalid mount type: %s", m.Type))
+			return
+		}
+
+		// Validate source path for bind mounts
+		if m.Type == models.MountTypeBind {
+			if !filepath.IsAbs(m.Source) {
+				logger.Error("Source path must be absolute: %s", m.Source)
+				resp.WriteError(http.StatusBadRequest, fmt.Errorf("source path must be absolute: %s", m.Source))
+				return
+			}
+
+			// Check if source path exists
+			if _, err := os.Stat(m.Source); err != nil {
+				logger.Error("Source path does not exist: %s", m.Source)
+				resp.WriteError(http.StatusBadRequest, fmt.Errorf("source path does not exist: %s", m.Source))
+				return
+			}
+		}
+
+		// Add mount configuration
+		mountConfig := mount.Mount{
+			Type:     mountType,
+			Source:   m.Source,
+			Target:   m.Target,
+			ReadOnly: m.ReadOnly,
+		}
+
+		// Set consistency if specified
+		if m.Consistency != "" {
+			switch m.Consistency {
+			case "default":
+				mountConfig.Consistency = mount.ConsistencyDefault
+			case "cached":
+				mountConfig.Consistency = mount.ConsistencyCached
+			case "delegated":
+				mountConfig.Consistency = mount.ConsistencyDelegated
+			default:
+				logger.Error("Invalid mount consistency: %s", m.Consistency)
+				resp.WriteError(http.StatusBadRequest, fmt.Errorf("invalid mount consistency: %s", m.Consistency))
+				return
+			}
+		}
+
+		mounts = append(mounts, mountConfig)
+	}
+
+	// Create container
+	containerResp, err := h.client.ContainerCreate(
+		req.Request.Context(),
+		&container.Config{
+			Image:      img,
+			Cmd:        append(runReq.Cmd, runReq.Args...),
+			Env:        common.GetEnvVars(runReq.Env),
+			WorkingDir: runReq.WorkingDir,
+			Labels:     labels,
+		},
+		&container.HostConfig{
+			Mounts: mounts,
+		},
+		nil,
+		nil,
+		containerName,
+	)
+	if err != nil {
+		logger.Error("Error creating container: %v", err)
+		resp.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	// Start container
+	if err := h.client.ContainerStart(req.Request.Context(), containerResp.ID, types.ContainerStartOptions{}); err != nil {
+		logger.Error("Error starting container: %v", err)
+		resp.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	// Wait for container to finish
+	statusCh, errCh := h.client.ContainerWait(req.Request.Context(), containerResp.ID, container.WaitConditionNotRunning)
+	var statusCode int64
+	select {
+	case err := <-errCh:
+		logger.Error("Error waiting for container: %v", err)
+		resp.WriteError(http.StatusInternalServerError, err)
+		return
+	case status := <-statusCh:
+		statusCode = status.StatusCode
+	}
+
+	// Get container logs
+	logs, err := h.client.ContainerLogs(req.Request.Context(), containerResp.ID, types.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+	})
+	if err != nil {
+		logger.Error("Error getting container logs: %v", err)
+		resp.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	defer logs.Close()
+
+	// Collect output with line limits
+	stdout, stderr := collectOutput(logs, runReq.StdoutLineLimit, runReq.StderrLineLimit)
+
+	// Remove container
+	err = h.client.ContainerRemove(req.Request.Context(), containerResp.ID, types.ContainerRemoveOptions{
+		Force: true,
+	})
+	if err != nil {
+		logger.Error("Error removing container: %v", err)
+		// Don't fail the request if cleanup fails
+	}
 
 	// Prepare response
 	result := models.BoxRunResponse{
 		Box: models.Box{
 			ID:     boxID,
-			Status: box.State,
-			Image:  box.Image,
+			Status: "exited",
+			Image:  img,
 		},
-		ExitCode: exitCode,
-		Stdout:   output.stdout,
-		Stderr:   output.stderr,
+		ExitCode: int(statusCode),
+		Stdout:   stdout,
+		Stderr:   stderr,
 	}
 
 	resp.WriteAsJson(result)

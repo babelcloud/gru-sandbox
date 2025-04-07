@@ -228,9 +228,11 @@ func TestBoxInspectHelp(t *testing.T) {
 	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
 	// Check if help message contains key sections
-	assert.Contains(t, output, "Usage: gbox box inspect <id> [options]")
+	assert.Contains(t, output, "Usage:")
+	assert.Contains(t, output, "inspect [box-id]")
+	assert.Contains(t, output, "Get detailed information about a box")
 	assert.Contains(t, output, "--output")
-	assert.Contains(t, output, "json or text")
-	assert.Contains(t, output, "Get box details")
-	assert.Contains(t, output, "Get box details in JSON format")
+	assert.Contains(t, output, "Output format (json or text)")
+	assert.Contains(t, output, "--help")
+	assert.Contains(t, output, "gbox box inspect 550e8400")
 }

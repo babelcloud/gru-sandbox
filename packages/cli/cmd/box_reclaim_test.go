@@ -344,12 +344,13 @@ func TestBoxReclaimHelp(t *testing.T) {
 	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
 	// Check if help message contains key sections
-	assert.Contains(t, output, "Usage: gbox box reclaim <id> [options]")
+	assert.Contains(t, output, "Usage:")
+	assert.Contains(t, output, "reclaim [box-id]")
+	assert.Contains(t, output, "Reclaim a box")
 	assert.Contains(t, output, "--output")
 	assert.Contains(t, output, "-f, --force")
-	assert.Contains(t, output, "Reclaim box resources")
-	assert.Contains(t, output, "Force reclaim box resources")
-	assert.Contains(t, output, "Reclaim resources for all eligible boxes")
+	assert.Contains(t, output, "Force resource reclamation")
+	assert.Contains(t, output, "gbox box reclaim 550e8400")
 }
 
 // TestBoxReclaimNotFound tests the case when box is not found

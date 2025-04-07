@@ -9,8 +9,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/babelcloud/gru-sandbox/packages/cli/config"
 	"github.com/spf13/cobra"
 )
+
+type BoxListOptions struct {
+	OutputFormat string
+	Filters      []string
+}
 
 type BoxResponse struct {
 	Boxes []struct {
@@ -21,171 +27,122 @@ type BoxResponse struct {
 }
 
 func NewBoxListCommand() *cobra.Command {
+	opts := &BoxListOptions{}
+
 	cmd := &cobra.Command{
-		Use:                "list",
-		Short:              "List all available boxes",
-		Long:               "List all available boxes with various filtering options",
-		DisableFlagParsing: true,
-		Run: func(cmd *cobra.Command, args []string) {
-			var outputFormat string
-			var filters []string
-
-			// Parse arguments, supporting the same format as in bash script
-			for i := 0; i < len(args); i++ {
-				switch args[i] {
-				case "--output":
-					if i+1 < len(args) {
-						outputFormat = args[i+1]
-						if outputFormat != "json" && outputFormat != "text" {
-							fmt.Println("Error: Invalid output format. Must be 'json' or 'text'")
-							os.Exit(1)
-						}
-						i++
-					} else {
-						fmt.Println("Error: --output requires a value")
-						os.Exit(1)
-					}
-				case "-f", "--filter":
-					if i+1 < len(args) {
-						filter := args[i+1]
-						if !strings.Contains(filter, "=") {
-							fmt.Println("Error: Invalid filter format. Use field=value")
-							os.Exit(1)
-						}
-						filters = append(filters, filter)
-						i++
-					} else {
-						fmt.Println("Error: --filter requires a value")
-						os.Exit(1)
-					}
-				case "--help":
-					printBoxListHelp()
-					return
-				default:
-					fmt.Printf("Error: Unknown option %s\n", args[i])
-					os.Exit(1)
-				}
-			}
-
-			// If output format not specified, default to text
-			if outputFormat == "" {
-				outputFormat = "text"
-			}
-
-			// Build query parameters
-			queryParams := ""
-			if len(filters) > 0 {
-				for i, f := range filters {
-					parts := strings.SplitN(f, "=", 2)
-					if len(parts) == 2 {
-						field := parts[0]
-						value := url.QueryEscape(parts[1])
-
-						if i == 0 {
-							queryParams = "?filter=" + field + "=" + value
-						} else {
-							queryParams += "&filter=" + field + "=" + value
-						}
-					}
-				}
-			}
-
-			// Call API server
-			apiURL := "http://localhost:28080/api/v1/boxes" + queryParams
-			if envURL := os.Getenv("API_ENDPOINT"); envURL != "" {
-				apiURL = envURL + "/api/v1/boxes" + queryParams
-			}
-
-			if os.Getenv("DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "Request URL: %s\n", apiURL)
-			}
-
-			resp, err := http.Get(apiURL)
-			if err != nil {
-				fmt.Printf("Error: API call failed: %v\n", err)
-				os.Exit(1)
-			}
-			defer resp.Body.Close()
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				fmt.Printf("Error: Failed to read response: %v\n", err)
-				os.Exit(1)
-			}
-
-			if os.Getenv("DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "Response status code: %d\n", resp.StatusCode)
-				fmt.Fprintf(os.Stderr, "Response content: %s\n", string(body))
-			}
-
-			// Handle HTTP status code
-			switch resp.StatusCode {
-			case 200:
-				var response BoxResponse
-				if err := json.Unmarshal(body, &response); err != nil {
-					fmt.Printf("Error: Failed to parse JSON response: %v\n", err)
-					os.Exit(1)
-				}
-
-				if outputFormat == "json" {
-					// JSON format output
-					fmt.Println(string(body))
-				} else {
-					// Text format output
-					if len(response.Boxes) == 0 {
-						fmt.Println("No boxes found")
-						return
-					}
-
-					// Print header
-					fmt.Println("ID                                      IMAGE               STATUS")
-					fmt.Println("---------------------------------------- ------------------- ---------------")
-
-					// Print each box's information
-					for _, box := range response.Boxes {
-						image := box.Image
-						if strings.HasPrefix(image, "sha256:") {
-							image = strings.TrimPrefix(image, "sha256:")
-							if len(image) > 12 {
-								image = image[:12]
-							}
-						}
-						fmt.Printf("%-40s %-20s %s\n", box.ID, image, box.Status)
-					}
-				}
-			case 404:
-				fmt.Println("No boxes found")
-			default:
-				fmt.Printf("Error: Failed to get box list (HTTP %d)\n", resp.StatusCode)
-				if os.Getenv("DEBUG") == "true" {
-					fmt.Fprintf(os.Stderr, "Response: %s\n", string(body))
-				}
-				os.Exit(1)
-			}
+		Use:   "list",
+		Short: "List all available boxes",
+		Long:  "List all available boxes with various filtering options",
+		Example: `  gbox box list
+  gbox box list --output json
+  gbox box list --filter 'label=project=myapp'
+  gbox box list --filter 'ancestor=ubuntu:latest'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runList(opts)
 		},
 	}
+
+	flags := cmd.Flags()
+	flags.StringVar(&opts.OutputFormat, "output", "text", "Output format (json or text)")
+	flags.StringArrayVarP(&opts.Filters, "filter", "f", []string{}, "Filter boxes (format: field=value)")
+
+	cmd.RegisterFlagCompletionFunc("output", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return []string{"json", "text"}, cobra.ShellCompDirectiveNoFileComp
+	})
 
 	return cmd
 }
 
-func printBoxListHelp() {
-	fmt.Println("Usage: gbox box list [options]")
-	fmt.Println()
-	fmt.Println("Parameters:")
-	fmt.Println("    gbox box list                              # List all boxes")
-	fmt.Println("    gbox box list --output json                # List boxes in JSON format")
-	fmt.Println("    gbox box list -f 'label=project=myapp'     # List boxes with label project=myapp")
-	fmt.Println("    gbox box list -f 'ancestor=ubuntu:latest'  # List boxes using ubuntu:latest image")
-	fmt.Println()
-	fmt.Println("Commands:")
-	fmt.Println("    --output          Output format (json or text, default: text)")
-	fmt.Println("    -f, --filter      Filter boxes (format: field=value)")
-	fmt.Println("                      Supported fields: id, label, ancestor")
-	fmt.Println("                      Examples:")
-	fmt.Println("                      -f 'id=abc123'")
-	fmt.Println("                      -f 'label=project=myapp'")
-	fmt.Println("                      -f 'ancestor=ubuntu:latest'")
-	fmt.Println()
-	fmt.Println("Options:")
-	fmt.Println("    --help            Show help information")
+func runList(opts *BoxListOptions) error {
+	queryParams := buildQueryParams(opts.Filters)
+
+	apiBase := config.GetAPIURL()
+	apiURL := fmt.Sprintf("%s/api/v1/boxes%s", strings.TrimSuffix(apiBase, "/"), queryParams)
+
+	if os.Getenv("DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "Request URL: %s\n", apiURL)
+	}
+
+	resp, err := http.Get(apiURL)
+	if err != nil {
+		return fmt.Errorf("API call failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %v", err)
+	}
+
+	if os.Getenv("DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "Response status code: %d\n", resp.StatusCode)
+		fmt.Fprintf(os.Stderr, "Response content: %s\n", string(body))
+	}
+
+	return handleResponse(resp.StatusCode, body, opts.OutputFormat)
+}
+
+func buildQueryParams(filters []string) string {
+	if len(filters) == 0 {
+		return ""
+	}
+
+	var params []string
+	for _, filter := range filters {
+		parts := strings.SplitN(filter, "=", 2)
+		if len(parts) == 2 {
+			field := parts[0]
+			value := url.QueryEscape(parts[1])
+			params = append(params, fmt.Sprintf("filter=%s=%s", field, value))
+		}
+	}
+
+	return "?" + strings.Join(params, "&")
+}
+
+func handleResponse(statusCode int, body []byte, outputFormat string) error {
+	switch statusCode {
+	case 200:
+		var response BoxResponse
+		if err := json.Unmarshal(body, &response); err != nil {
+			return fmt.Errorf("failed to parse JSON response: %v", err)
+		}
+
+		if outputFormat == "json" {
+			fmt.Println(string(body))
+		} else {
+			printTextFormat(response)
+		}
+	case 404:
+		fmt.Println("No boxes found")
+	default:
+		errorMsg := fmt.Sprintf("failed to get box list (HTTP %d)", statusCode)
+		if os.Getenv("DEBUG") == "true" {
+			errorMsg = fmt.Sprintf("%s\nResponse: %s", errorMsg, string(body))
+		}
+		return fmt.Errorf("%s", errorMsg)
+	}
+
+	return nil
+}
+
+func printTextFormat(response BoxResponse) {
+	if len(response.Boxes) == 0 {
+		fmt.Println("No boxes found")
+		return
+	}
+
+	fmt.Println("ID                                      IMAGE               STATUS")
+	fmt.Println("---------------------------------------- ------------------- ---------------")
+
+	for _, box := range response.Boxes {
+		image := box.Image
+		if strings.HasPrefix(image, "sha256:") {
+			image = strings.TrimPrefix(image, "sha256:")
+			if len(image) > 12 {
+				image = image[:12]
+			}
+		}
+		fmt.Printf("%-40s %-20s %s\n", box.ID, image, box.Status)
+	}
 }

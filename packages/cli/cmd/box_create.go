@@ -97,7 +97,7 @@ Command arguments can be specified directly in the command line or added after t
 		Example: `  gbox box create --image python:3.9 -- python3 -c 'print("Hello")'
   gbox box create --env PATH=/usr/local/bin:/usr/bin:/bin -w /app -- node server.js
   gbox box create --label project=myapp --label env=prod -- python3 server.py
-  gbox box create --volumes /host/path:/container/path:ro:rprivate alpine`,
+  gbox box create --volumes /host/path:/container/path:ro:rprivate --image python:3.9`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreate(opts, args)

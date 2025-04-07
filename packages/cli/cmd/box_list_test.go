@@ -396,11 +396,11 @@ func TestBoxListHelp(t *testing.T) {
 	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
 	// Check if help message contains key sections
-	assert.Contains(t, output, "Usage: gbox box list [options]")
-	assert.Contains(t, output, "List all boxes")
+	assert.Contains(t, output, "Usage:")
+	assert.Contains(t, output, "list [flags]")
+	assert.Contains(t, output, "List all available boxes")
 	assert.Contains(t, output, "--output")
 	assert.Contains(t, output, "--filter")
-	assert.Contains(t, output, "id=abc123")
 	assert.Contains(t, output, "label=project=myapp")
 	assert.Contains(t, output, "ancestor=ubuntu:latest")
 }

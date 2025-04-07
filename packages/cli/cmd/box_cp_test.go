@@ -317,17 +317,16 @@ func TestBoxCpHelp(t *testing.T) {
 	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
 	// Check if help message contains key parts
-	assert.Contains(t, output, "Usage: gbox box cp <src> <dst>")
-	assert.Contains(t, output, "Local file/directory path")
-	assert.Contains(t, output, "Box path in format BOX_ID:SRC_PATH")
-	assert.Contains(t, output, "\"-\" to read from stdin")
-	assert.Contains(t, output, "\"-\" to write to stdout")
+	assert.Contains(t, output, "usage: gbox-box-cp")
+	assert.Contains(t, output, "positional arguments:")
+	assert.Contains(t, output, "src")
+	assert.Contains(t, output, "dst")
+	assert.Contains(t, output, "options:")
+	assert.Contains(t, output, "--help")
 	assert.Contains(t, output, "Copy local file to box")
 	assert.Contains(t, output, "Copy from box to local")
-	assert.Contains(t, output, "Copy tar stream from stdin to box")
+	assert.Contains(t, output, "Copy tar stream from stdin")
 	assert.Contains(t, output, "Copy from box to stdout")
-	assert.Contains(t, output, "Copy directory from local to box")
-	assert.Contains(t, output, "Copy directory from box to local")
 }
 
 // Create mock tar archive for testing

@@ -18,6 +18,7 @@ set executed_tests {}
 #   box_create <- box_list
 #   box_create <- box_start <- box_stop
 #   box_create <- box_start <- box_cp
+#   box_create <- box_start <- box_exec
 #   box_create <- box_inspect
 #   box_create <- box_delete
 set test_scripts {
@@ -26,6 +27,7 @@ set test_scripts {
     box-start.exp     ;# Depends on box_create
     box-stop.exp      ;# Depends on box_create, box_start
     box-cp.exp        ;# Depends on box_create, box_start
+    box-exec.exp      ;# Depends on box_create, box_start
     box-inspect.exp   ;# Depends on box_create
     box-delete.exp    ;# Depends on box_create
 }

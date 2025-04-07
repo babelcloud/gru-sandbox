@@ -326,9 +326,10 @@ func TestBoxStartHelp(t *testing.T) {
 	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
 	// Check if help message contains key sections
-	assert.Contains(t, output, "Usage: gbox box start <id> [options]")
+	assert.Contains(t, output, "Usage:")
+	assert.Contains(t, output, "start [box-id]")
+	assert.Contains(t, output, "Start a stopped box")
 	assert.Contains(t, output, "--output")
 	assert.Contains(t, output, "json or text")
-	assert.Contains(t, output, "Start a box")
-	assert.Contains(t, output, "Start a box and output JSON")
+	assert.Contains(t, output, "gbox box start")
 }

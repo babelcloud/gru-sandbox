@@ -79,6 +79,49 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 		},
 	}
 
+	// Add user-specified volume mounts
+	for _, vol := range boxReq.Volumes {
+		// Validate source path exists
+		if _, err := os.Stat(vol.Source); err != nil {
+			logger.Error("Volume source path does not exist: %v", err)
+			resp.WriteError(http.StatusBadRequest, fmt.Errorf("volume source path %q does not exist", vol.Source))
+			return
+		}
+
+		// Convert propagation mode
+		propagation := mount.PropagationRPrivate // default
+		if vol.Propagation != "" {
+			switch vol.Propagation {
+			case "private":
+				propagation = mount.PropagationPrivate
+			case "rprivate":
+				propagation = mount.PropagationRPrivate
+			case "shared":
+				propagation = mount.PropagationShared
+			case "rshared":
+				propagation = mount.PropagationRShared
+			case "slave":
+				propagation = mount.PropagationSlave
+			case "rslave":
+				propagation = mount.PropagationRSlave
+			default:
+				logger.Error("Invalid propagation mode: %s", vol.Propagation)
+				resp.WriteError(http.StatusBadRequest, fmt.Errorf("invalid propagation mode %q", vol.Propagation))
+				return
+			}
+		}
+
+		mounts = append(mounts, mount.Mount{
+			Type:        mount.TypeBind,
+			Source:      vol.Source,
+			Target:      vol.Target,
+			ReadOnly:    vol.ReadOnly,
+			BindOptions: &mount.BindOptions{
+				Propagation: propagation,
+			},
+		})
+	}
+
 	// Create container
 	containerResp, err := h.client.ContainerCreate(
 		req.Request.Context(),

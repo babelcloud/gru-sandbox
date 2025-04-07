@@ -22,6 +22,7 @@ type BoxCreateOptions struct {
 	WorkingDir      string
 	Command         []string
 	ImagePullSecret string
+	Volumes         []string
 }
 
 type BoxCreateResponse struct {
@@ -45,6 +46,42 @@ func parseKeyValuePairs(pairs []string, pairType string) (map[string]string, err
 	return result, nil
 }
 
+// parseVolumes parses volume mount strings in the format "source:target[:ro][:propagation]"
+func parseVolumes(volumes []string) ([]models.VolumeMount, error) {
+	if len(volumes) == 0 {
+		return nil, nil
+	}
+
+	result := make([]models.VolumeMount, 0, len(volumes))
+	for _, volume := range volumes {
+		parts := strings.Split(volume, ":")
+		if len(parts) < 2 {
+			return nil, fmt.Errorf("invalid volume format: %s (must be source:target[:ro][:propagation])", volume)
+		}
+
+		mount := models.VolumeMount{
+			Source: parts[0],
+			Target: parts[1],
+		}
+
+		// Parse optional flags
+		for i := 2; i < len(parts); i++ {
+			switch parts[i] {
+			case "ro":
+				mount.ReadOnly = true
+			case "private", "rprivate", "shared", "rshared", "slave", "rslave":
+				mount.Propagation = parts[i]
+			default:
+				return nil, fmt.Errorf("invalid volume option: %s", parts[i])
+			}
+		}
+
+		result = append(result, mount)
+	}
+
+	return result, nil
+}
+
 func NewBoxCreateCommand() *cobra.Command {
 	opts := &BoxCreateOptions{}
 
@@ -59,7 +96,8 @@ setting environment variables, adding labels, and specifying a working directory
 Command arguments can be specified directly in the command line or added after the '--' separator.`,
 		Example: `  gbox box create --image python:3.9 -- python3 -c 'print("Hello")'
   gbox box create --env PATH=/usr/local/bin:/usr/bin:/bin -w /app -- node server.js
-  gbox box create --label project=myapp --label env=prod -- python3 server.py`,
+  gbox box create --label project=myapp --label env=prod -- python3 server.py
+  gbox box create --volumes /host/path:/container/path:ro:rprivate alpine`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCreate(opts, args)
@@ -73,6 +111,7 @@ Command arguments can be specified directly in the command line or added after t
 	flags.StringArrayVar(&opts.Env, "env", []string{}, "Environment variables in KEY=VALUE format")
 	flags.StringArrayVarP(&opts.Labels, "label", "l", []string{}, "Custom labels in KEY=VALUE format")
 	flags.StringVarP(&opts.WorkingDir, "work-dir", "w", "", "Working directory")
+	flags.StringArrayVarP(&opts.Volumes, "volume", "v", nil, "Bind mount a volume (source:target[:ro][:propagation])")
 
 	cmd.RegisterFlagCompletionFunc("output", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"json", "text"}, cobra.ShellCompDirectiveNoFileComp
@@ -102,6 +141,13 @@ func runCreate(opts *BoxCreateOptions, args []string) error {
 	if opts.WorkingDir != "" {
 		request.WorkingDir = opts.WorkingDir
 	}
+
+	// Parse volume mounts
+	volumes, err := parseVolumes(opts.Volumes)
+	if err != nil {
+		return err
+	}
+	request.Volumes = volumes
 
 	if len(opts.Command) > 0 {
 		request.Cmd = opts.Command[0]

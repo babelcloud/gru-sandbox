@@ -92,7 +92,7 @@ gbox cluster setup    # Setup cluster environment
 gbox cluster cleanup  # Cleanup cluster environment
 
 # Container management
-gbox box create --image python:3.9 --env "DEBUG=true" -w /app  # Create container
+gbox box create --image python:3.9 --env "DEBUG=true" -w /app -v /host/path:/app # Create container
 gbox box list                                                  # List containers
 gbox box start <box-id>                                        # Start container
 gbox box stop <box-id>                                         # Stop container
@@ -105,6 +105,42 @@ gbox mcp export                          # Export MCP configuration
 gbox mcp export --merge-to claude        # Export and merge into Claude Desktop config
 gbox mcp export --dry-run                # Preview merge result without applying changes
 ```
+
+### Volume Mounts
+
+The `gbox box create` command supports Docker-compatible volume mounts using the `-v` or `--volume` flag. This allows you to share files and directories between your host system and the sandbox containers.
+
+The volume mount syntax follows this format:
+
+```bash
+-v /host/path:/container/path[:ro][:propagation]
+```
+
+Where:
+
+- `/host/path`: Path to a file or directory on your host system
+- `/container/path`: Path where the file or directory will be mounted in the container
+- `ro` (optional): Makes the mount read-only
+- `propagation` (optional): Sets the mount propagation mode (private, rprivate, shared, rshared, slave, rslave)
+
+Examples:
+
+```bash
+# Basic bind mount
+gbox box create -v /data:/data --image python:3.9
+
+# Read-only bind mount
+gbox box create -v /data:/data:ro --image python:3.9
+
+# Multiple bind mounts
+gbox box create \
+  -v /config:/etc/myapp \
+  -v /data:/var/lib/myapp:ro \
+  -v /logs:/var/log/myapp:ro:rprivate \
+  --image python:3.9
+```
+
+Note: The host path must exist before creating the container. The container path will be created automatically if it doesn't exist.
 
 ## Development Setup
 

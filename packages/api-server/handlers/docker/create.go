@@ -81,13 +81,6 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 
 	// Add user-specified volume mounts
 	for _, vol := range boxReq.Volumes {
-		// Validate source path exists
-		if _, err := os.Stat(vol.Source); err != nil {
-			logger.Error("Volume source path does not exist: %v", err)
-			resp.WriteError(http.StatusBadRequest, fmt.Errorf("volume source path %q does not exist", vol.Source))
-			return
-		}
-
 		// Convert propagation mode
 		propagation := mount.PropagationRPrivate // default
 		if vol.Propagation != "" {

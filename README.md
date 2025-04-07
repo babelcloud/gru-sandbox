@@ -92,13 +92,13 @@ gbox cluster setup    # Setup cluster environment
 gbox cluster cleanup  # Cleanup cluster environment
 
 # Container management
-gbox box create --image python:3.9 --env "DEBUG=true" -w /app -v /host/path:/app # Create container
-gbox box list                                                  # List containers
-gbox box start <box-id>                                        # Start container
-gbox box stop <box-id>                                         # Stop container
-gbox box delete <box-id>                                       # Delete container
-gbox box exec <box-id> -- python -c "print('Hello')"           # Execute command
-gbox box inspect <box-id>                                      # Inspect container
+gbox box create --image python:3.9 --env "DEBUG=true" -w /app -v /host/path:/app   # Create container
+gbox box list                                                                      # List containers
+gbox box start <box-id>                                                            # Start container
+gbox box stop <box-id>                                                             # Stop container
+gbox box delete <box-id>                                                           # Delete container
+gbox box exec <box-id> -- python -c "print('Hello')"                               # Execute command
+gbox box inspect <box-id>                                                          # Inspect container
 
 # MCP configuration
 gbox mcp export                          # Export MCP configuration

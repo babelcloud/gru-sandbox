@@ -79,65 +79,6 @@ func handleCreateBox(h *DockerBoxHandler, req *restful.Request, resp *restful.Re
 		},
 	}
 
-	// Add user-specified mounts
-	for _, m := range boxReq.Mounts {
-		mountType := mount.TypeBind
-		switch m.Type {
-		case models.MountTypeBind:
-			mountType = mount.TypeBind
-		case models.MountTypeVolume:
-			mountType = mount.TypeVolume
-		case models.MountTypeTmpfs:
-			mountType = mount.TypeTmpfs
-		default:
-			logger.Error("Invalid mount type: %s", m.Type)
-			resp.WriteError(http.StatusBadRequest, fmt.Errorf("invalid mount type: %s", m.Type))
-			return
-		}
-
-		// Validate source path for bind mounts
-		if m.Type == models.MountTypeBind {
-			if !filepath.IsAbs(m.Source) {
-				logger.Error("Source path must be absolute: %s", m.Source)
-				resp.WriteError(http.StatusBadRequest, fmt.Errorf("source path must be absolute: %s", m.Source))
-				return
-			}
-
-			// Check if source path exists
-			if _, err := os.Stat(m.Source); err != nil {
-				logger.Error("Source path does not exist: %s", m.Source)
-				resp.WriteError(http.StatusBadRequest, fmt.Errorf("source path does not exist: %s", m.Source))
-				return
-			}
-		}
-
-		// Add mount configuration
-		mountConfig := mount.Mount{
-			Type:     mountType,
-			Source:   m.Source,
-			Target:   m.Target,
-			ReadOnly: m.ReadOnly,
-		}
-
-		// Set consistency if specified
-		if m.Consistency != "" {
-			switch m.Consistency {
-			case "default":
-				mountConfig.Consistency = mount.ConsistencyDefault
-			case "cached":
-				mountConfig.Consistency = mount.ConsistencyCached
-			case "delegated":
-				mountConfig.Consistency = mount.ConsistencyDelegated
-			default:
-				logger.Error("Invalid mount consistency: %s", m.Consistency)
-				resp.WriteError(http.StatusBadRequest, fmt.Errorf("invalid mount consistency: %s", m.Consistency))
-				return
-			}
-		}
-
-		mounts = append(mounts, mountConfig)
-	}
-
 	// Create container
 	containerResp, err := h.client.ContainerCreate(
 		req.Request.Context(),

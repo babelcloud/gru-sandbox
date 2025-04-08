@@ -14,11 +14,7 @@ while [ -h "$SOURCE" ]; do
 done
 SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BIN_DIR="$REPO_ROOT/bin"
 SCRIPT_IMPL_DIR="$REPO_ROOT/packages/cli/cmd/script"
-MAIN_GO="$REPO_ROOT/packages/cli/main.go"
-CLI_BIN_DIR="$REPO_ROOT/packages/cli/build"
-CLI_MAKEFILE="$REPO_ROOT/packages/cli/Makefile"
 
 # Source common functions
 source "$SCRIPT_DIR/common"
@@ -127,12 +123,6 @@ ensure_box_symlinks() {
         chmod +x "$go_runner_script"
     fi
     
-    # Check if main.go exists
-    if [[ ! -f "$MAIN_GO" ]]; then
-        echo "Error: Cannot find main.go at $MAIN_GO" >&2
-        exit 1
-    fi
-    
     # if $GBOX_BIN does not exist, create it
     if [[ ! -d "$GBOX_BIN" ]]; then
         mkdir -p "$GBOX_BIN"
@@ -141,12 +131,17 @@ ensure_box_symlinks() {
     # Create version command symlinks
     local version_symlink="$GBOX_BIN/gbox-version"
     local gbox_symlink="$GBOX_BIN/gbox"
+    local common_symlink="$GBOX_BIN/common"
     
     if [[ "$DEV_MODE" != "true" ]]; then
         create_symlink "$go_binary" "$version_symlink" "$gbox_symlink"
     else
         create_symlink "$go_runner_script" "$version_symlink" "$gbox_symlink"
     fi
+    
+    # Create symlink for common file
+    create_symlink "$SCRIPT_DIR/common" "$common_symlink"
+    
     symlinks_created=true
     
     # Dynamically discover box subcommands

@@ -3,7 +3,10 @@ VERSION ?= $(shell git rev-parse --short HEAD)
 
 # Distribution directory
 DIST_DIR := dist
-DIST_PACKAGE := $(DIST_DIR)/gbox-$(VERSION).tar.gz
+DIST_PACKAGES := $(DIST_DIR)/gbox-darwin-amd64-$(VERSION).tar.gz \
+                 $(DIST_DIR)/gbox-darwin-arm64-$(VERSION).tar.gz \
+                 $(DIST_DIR)/gbox-linux-amd64-$(VERSION).tar.gz \
+                 $(DIST_DIR)/gbox-linux-arm64-$(VERSION).tar.gz
 
 # Function to get git commit hash for a path
 define get_git_hash
@@ -17,11 +20,11 @@ TS_IMG_TAG := $(call get_git_hash,images/typescript)
 
 # Function to write env var to file (usage: $(call write_env,FILE,VAR,VALUE))
 define write_env
-	@echo "$(2)=$(3)" > $(1)/.env
+	echo "$(2)=$(3)" > $(1)/.env
 endef
 
 define append_env
-	@echo "$(2)=$(3)" >> $(1)/.env
+	echo "$(2)=$(3)" >> $(1)/.env
 endef
 
 # Check and enable pnpm via corepack
@@ -63,36 +66,50 @@ run-container-%: ## Run specific docker image (e.g., run-container-python)
 	@echo "Running docker container $*..."
 	@make -C images run-$*
 
-# Create distribution package
+# Create package for specific platform and architecture
+.PHONY: dist-%
+dist-%: ## Create package for specific platform and architecture (e.g., dist-darwin-amd64)
+	@PLATFORM_ARCH=$*; \
+	PLATFORM_DIR="$(DIST_DIR)/$$PLATFORM_ARCH"; \
+	rm -rf $$PLATFORM_DIR; \
+	mkdir -p $$PLATFORM_DIR/bin; \
+	mkdir -p $$PLATFORM_DIR/manifests; \
+	mkdir -p $$PLATFORM_DIR/packages/mcp-server; \
+	mkdir -p $$PLATFORM_DIR/packages/cli/build; \
+	mkdir -p $$PLATFORM_DIR/packages/cli/cmd/script; \
+	echo "Copying base files..."; \
+	cp -r manifests/. $$PLATFORM_DIR/manifests/; \
+	rsync -a --exclude='node_modules' packages/mcp-server/ $$PLATFORM_DIR/packages/mcp-server/; \
+	cp -r packages/cli/build/gbox-$$PLATFORM_ARCH $$PLATFORM_DIR/packages/cli/build/; \
+	cp -r packages/cli/cmd/script/. $$PLATFORM_DIR/packages/cli/cmd/script/; \
+	cp .env $$PLATFORM_DIR/; \
+	cp LICENSE README.md $$PLATFORM_DIR/; \
+	$(call write_env,$$PLATFORM_DIR/manifests/docker,API_SERVER_IMG_TAG,$(API_SERVER_TAG)); \
+	$(call append_env,$$PLATFORM_DIR/manifests/docker,PREFIX,""); \
+	$(call write_env,$$PLATFORM_DIR/packages/mcp-server,PY_IMG_TAG,$(PY_IMG_TAG)); \
+	$(call append_env,$$PLATFORM_DIR/packages/mcp-server,TS_IMG_TAG,$(TS_IMG_TAG)); \
+	if [ -f "packages/cli/build/gbox-$$PLATFORM_ARCH" ]; then \
+		cp packages/cli/build/gbox-$$PLATFORM_ARCH $$PLATFORM_DIR/bin/gbox; \
+		cp bin/* $$PLATFORM_DIR/bin/; \
+		(cd $$PLATFORM_DIR && tar -czf ../gbox-$$PLATFORM_ARCH-$(VERSION).tar.gz .env *); \
+		(cd $(DIST_DIR) && sha256sum gbox-$$PLATFORM_ARCH-$(VERSION).tar.gz > gbox-$$PLATFORM_ARCH-$(VERSION).tar.gz.sha256); \
+		echo "Package created: $(DIST_DIR)/gbox-$$PLATFORM_ARCH-$(VERSION).tar.gz"; \
+	else \
+		echo "Error: Binary for $$PLATFORM_ARCH not found"; \
+		exit 1; \
+	fi
+
+# Create all distribution packages
 .PHONY: dist
-dist: build ## Create distribution package
-	@echo "Creating distribution package version $(VERSION)..."
+dist: build ## Create all distribution packages
+	@echo "Creating all distribution packages..."
 	@rm -rf $(DIST_DIR)
 	@mkdir -p $(DIST_DIR)
-
-	# Create directory structure
-	@mkdir -p $(DIST_DIR)/bin
-	@mkdir -p $(DIST_DIR)/manifests
-	@mkdir -p $(DIST_DIR)/packages/mcp-server
-	@mkdir -p $(DIST_DIR)/packages/cli/build
-
-	# Copy files maintaining directory structure
-	@cp -r bin/* $(DIST_DIR)/bin/
-	@cp -r manifests/* $(DIST_DIR)/manifests/
-	@rsync -av --exclude='node_modules' packages/mcp-server/ $(DIST_DIR)/packages/mcp-server/
-	@cp -r packages/cli/build/* $(DIST_DIR)/packages/cli/build/
-	
-	@cp LICENSE README.md $(DIST_DIR)/
-
-	# Generate .env files
-	$(call write_env,$(DIST_DIR)/manifests/docker,API_SERVER_IMG_TAG,$(API_SERVER_TAG))
-	$(call write_env,$(DIST_DIR)/packages/mcp-server,PY_IMG_TAG,$(PY_IMG_TAG))
-	$(call append_env,$(DIST_DIR)/packages/mcp-server,TS_IMG_TAG,$(TS_IMG_TAG))
-
-	# Create tar.gz package
-	@cd $(DIST_DIR) && tar -czf gbox-$(VERSION).tar.gz *
-	@cd $(DIST_DIR) && sha256sum gbox-$(VERSION).tar.gz > gbox-$(VERSION).tar.gz.sha256
-	@echo "Distribution package created: $(DIST_PACKAGE)"
+	@for platform_arch in darwin-amd64 darwin-arm64 linux-amd64 linux-arm64; do \
+		$(MAKE) dist-$$platform_arch; \
+	done
+	@echo "All distribution packages created:"
+	@ls -1 $(DIST_PACKAGES) 2>/dev/null || echo "No packages were created"
 
 # Build and push docker images
 .PHONY: docker-push

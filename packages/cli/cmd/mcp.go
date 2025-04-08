@@ -6,18 +6,9 @@ import (
 
 func NewMcpCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:                "mcp",
-		Short:              getCommandDescription("mcp"),
-		DisableFlagParsing: true,
-		DisableAutoGenTag:  true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return executeScript("mcp", args)
-		},
+		Use:   "mcp",
+		Short: "Manage MCP configuration operations",
 	}
-
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		showHelp("all")
-	})
 
 	cmd.AddCommand(
 		NewMcpExportCommand(),

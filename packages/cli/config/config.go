@@ -14,10 +14,12 @@ func init() {
 
 	// Set default values
 	v.SetDefault("api.endpoint", "http://localhost:28080")
+	v.SetDefault("project.root", "")
 
 	// Environment variables
 	v.AutomaticEnv()
 	v.BindEnv("api.endpoint", "API_ENDPOINT")
+	v.BindEnv("project.root", "PROJECT_ROOT")
 
 	// Config file
 	v.SetConfigName("config")
@@ -48,4 +50,9 @@ func init() {
 // GetAPIURL returns the API server URL
 func GetAPIURL() string {
 	return v.GetString("api.endpoint")
+}
+
+// GetProjectRoot returns the project root directory
+func GetProjectRoot() string {
+	return v.GetString("project.root")
 }

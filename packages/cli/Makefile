@@ -23,7 +23,7 @@ LDFLAGS := -ldflags "-X $(MODULE_PREFIX)/packages/cli/internal/version.Version=$
 # Supported platforms
 PLATFORMS := linux-amd64 linux-arm64 darwin-amd64 darwin-arm64
 
-.PHONY: all clean help binary binary-all install e2e-setup e2e e2e-env-check e2e-cleanup e2e-%
+.PHONY: all clean help binary binary-all install e2e-setup e2e e2e-env-check e2e-cleanup e2e-% run test
 
 # Default target
 all: help ## Show this help message (default target)
@@ -78,6 +78,15 @@ binary: ## Build binary for the current platform (GOOS/GOARCH)
 	@mkdir -p $(BUILD_DIR)
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_FILE)
 	@echo "Binary built: $(BUILD_DIR)/$(BINARY_NAME)"
+
+# Run the application with project root as environment variable
+# Usage: make gorun ARGS="mcp export --help"
+run: ## Run the application with PROJECT_ROOT environment variable (Usage: make gorun ARGS="cmd args...")
+	@PROJECT_ROOT=$$(git rev-parse --show-toplevel) \
+	go run main.go $(ARGS)
+
+test: ## Run tests
+	go test ./cmd -v
 
 # Build binaries for all supported platforms
 binary-all: ## Build binaries for all supported platforms

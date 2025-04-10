@@ -29,24 +29,38 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Get changed files
-        id: changed-files
+      - name: Get changed files in target directory
+        id: changed-files-dir
         uses: tj-actions/changed-files@v46
         with:
           files: |
             ${{ matrix.dir }}/**
 
-      - name: Check directory changes
+      - name: Get changed files in workflow and build config
+        id: changed-files-config
+        uses: tj-actions/changed-files@v46
+        with:
+          files: |
+            .github/workflows/build-gbox-images.yml
+            .github/actions/build-gbox-image/**
+
+      - name: Check directory or config changes
         id: check-changes
         run: |
-          if [ "${{ steps.changed-files.outputs.any_changed }}" = "true" ]; then
+          if [ "${{ steps.changed-files-dir.outputs.any_changed }}" = "true" ]; then
             # Get the short commit hash for this directory
             DIR_COMMIT=$(git log --pretty=tformat:"%h" -n1 -- ${{ matrix.dir }})
             echo "Directory ${{ matrix.dir }} has changes, commit: $DIR_COMMIT"
             echo "commit=$DIR_COMMIT" >> $GITHUB_OUTPUT
             exit 0
+          elif [ "${{ steps.changed-files-config.outputs.any_changed }}" = "true" ]; then
+            # Get the short commit hash for workflow/config changes
+            CONFIG_COMMIT=$(git log --pretty=tformat:"%h" -n1 -- .github/workflows/build-gbox-images.yml .github/actions/build-gbox-image)
+            echo "Build configuration has changes, commit: $CONFIG_COMMIT"
+            echo "commit=$CONFIG_COMMIT" >> $GITHUB_OUTPUT
+            exit 0
           fi
-          echo "No changes in ${{ matrix.dir }}"
+          echo "No changes in ${{ matrix.dir }} or build configuration"
           exit 0
 
       - name: Build and push image

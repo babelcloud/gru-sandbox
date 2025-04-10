@@ -7,29 +7,26 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/babelcloud/gru-sandbox/packages/cli/config"
 	"github.com/babelcloud/gru-sandbox/packages/cli/internal/version"
 	"github.com/spf13/cobra"
 )
 
 var (
-	// Command alias mapping
 	aliasMap = map[string]string{
 		"setup":   "cluster setup",
 		"cleanup": "cluster cleanup",
 		"export":  "mcp export",
 	}
 
-	// Script directory (relative to packages/cli)
-	scriptDir = filepath.Clean("../../bin")
+	scriptDir string
 
-	// rootCmd represents the base command when called without any subcommands
 	rootCmd = &cobra.Command{
-		Use:   "gru",
+		Use:   "gbox",
 		Short: "Gru CLI Tool",
 		Long: `Gru CLI is a command-line tool for managing and operating box, cluster, and mcp resources.
 It provides a set of commands to create, manage, and operate these resources.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// If version flag is set, print the version and exit
 			if cmd.Flag("version").Changed {
 				info := version.ClientInfo()
 				fmt.Printf("GBOX version %s, build %s\n", info["Version"], info["GitCommit"])
@@ -40,28 +37,44 @@ It provides a set of commands to create, manage, and operate these resources.`,
 	}
 )
 
-// Execute runs the root command and handles any errors
 func Execute() error {
 	return rootCmd.Execute()
 }
 
 func init() {
-	// Add global version flag
-	rootCmd.PersistentFlags().BoolP("version", "v", false, "Print version information and exit")
+	exePath, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting executable path: %v\n", err)
+		os.Exit(1)
+	}
 
-	// Add alias commands
+	_, isGoRun := os.LookupEnv("CLI_DEV_MODE")
+
+	if isGoRun {
+		projectRoot := filepath.Clean(getProjectRoot())
+		scriptDir = filepath.Join(projectRoot, "packages/cli/cmd/script")
+	} else {
+		realExePath, err := filepath.EvalSymlinks(exePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error resolving symlink: %v\n", err)
+			os.Exit(1)
+		}
+		exeDir := filepath.Dir(realExePath)
+		scriptDir = filepath.Join(exeDir, "cmd", "script")
+	}
+
+	rootCmd.Flags().BoolP("version", "v", false, "Print version information and exit")
+
 	for alias, cmd := range aliasMap {
 		createAliasCommand(alias, cmd)
 	}
 
-	// Add main commands
 	rootCmd.AddCommand(NewBoxCommand())
 	rootCmd.AddCommand(NewClusterCommand())
 	rootCmd.AddCommand(NewMcpCommand())
 	rootCmd.AddCommand(NewVersionCommand())
 }
 
-// createAliasCommand creates a new command that acts as an alias to another command
 func createAliasCommand(alias, targetCmd string) {
 	parts := strings.Split(targetCmd, " ")
 	aliasCmd := &cobra.Command{
@@ -76,26 +89,35 @@ func createAliasCommand(alias, targetCmd string) {
 	rootCmd.AddCommand(aliasCmd)
 }
 
-// executeScript runs an external script with the given arguments
 func executeScript(cmdName string, args []string) error {
 	scriptPath := filepath.Join(scriptDir, fmt.Sprintf("gbox-%s", cmdName))
 
-	// Check if script exists
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
 		return fmt.Errorf("Script not found: %s", scriptPath)
 	}
 
-	// Prepare command
 	cmd := exec.Command(scriptPath)
 	if len(args) > 0 {
 		cmd = exec.Command(scriptPath, args...)
 	}
 
-	// Set standard input/output
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	// Execute command
 	return cmd.Run()
+}
+
+func getProjectRoot() string {
+	projectRoot := config.GetProjectRoot()
+	if projectRoot != "" {
+		return projectRoot
+	}
+
+	currentDir, err := os.Getwd()
+	if err == nil {
+		return currentDir
+	}
+
+	return "."
 }

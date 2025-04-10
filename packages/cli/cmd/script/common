@@ -25,7 +25,7 @@ debug_log() {
 
 # Get repo root directory
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="$REPO_ROOT/.env"
+ENV_FILE="$REPO_ROOT/../../../.env"
 
 # Load configurations from .env file if it exists
 # Usage: load_dotenv [env_file_path]

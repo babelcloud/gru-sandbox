@@ -43,7 +43,7 @@ export_config() {
     fi
 
     # Get the absolute path to the mcp-server dist directory
-    local mcp_server_dir="$SCRIPT_DIR/../packages/mcp-server"
+    local mcp_server_dir="$SCRIPT_DIR/../../../../packages/mcp-server"
     local server_script="$mcp_server_dir/dist/index.js"
     local claude_config="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
     local cursor_config="$HOME/.cursor/mcp.json"

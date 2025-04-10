@@ -7,7 +7,7 @@ MODULE_PREFIX := github.com/babelcloud/gru-sandbox
 # Version information variables
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+COMMIT_ID := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # Platform specific variables
 PLATFORMS ?= linux/amd64,linux/arm64
@@ -22,7 +22,7 @@ GOARCH ?= $(shell go env GOARCH)
 # LDFLAGS for embedding version information
 LDFLAGS := -ldflags "-X $(MODULE_PREFIX)/packages/api-server/internal/version.Version=$(VERSION) \
                      -X $(MODULE_PREFIX)/packages/api-server/internal/version.BuildTime=$(BUILD_TIME) \
-                     -X $(MODULE_PREFIX)/packages/api-server/internal/version.Commit=$(COMMIT)"
+                     -X $(MODULE_PREFIX)/packages/api-server/internal/version.CommitID=$(COMMIT_ID)"
 
 # Show help
 .PHONY: help
@@ -58,7 +58,7 @@ binary-all: ## Build binaries for all platforms
 docker-build: ## Build docker image locally
 	docker build \
 	  --build-arg VERSION=$(VERSION) \
-	  --build-arg COMMIT=$(COMMIT) \
+	  --build-arg COMMIT_ID=$(COMMIT_ID) \
 	  --build-arg BUILD_TIME=$(BUILD_TIME) \
 	  -t ${IMG} .
 
@@ -79,7 +79,7 @@ docker-buildx: ## Build multi-architecture docker image
 	docker buildx build --platform $(PLATFORMS) \
 		-t ${IMG} \
 		--build-arg VERSION=$(VERSION) \
-		--build-arg COMMIT=$(COMMIT) \
+		--build-arg COMMIT_ID=$(COMMIT_ID) \
 		--build-arg BUILD_TIME=$(BUILD_TIME) \
 		--push \
 		--builder "$$BUILDER" \

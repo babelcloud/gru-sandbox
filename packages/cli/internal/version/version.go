@@ -17,8 +17,8 @@ var (
 	Version = "dev"
 	// BuildTime is the time when the binary was built
 	BuildTime = "unknown"
-	// Commit is the git commit hash
-	Commit = "unknown"
+	// CommitID is the git commit hash
+	CommitID = "unknown"
 )
 
 // formatBuildTime returns a nicely formatted build time
@@ -41,7 +41,7 @@ func ClientInfo() map[string]string {
 		"Version":       Version,
 		"APIVersion":    "v1",
 		"GoVersion":     runtime.Version(),
-		"GitCommit":     Commit,
+		"GitCommit":     CommitID,
 		"BuildTime":     BuildTime,
 		"FormattedTime": formatBuildTime(),
 		"OS":            runtime.GOOS,

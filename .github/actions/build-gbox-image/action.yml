@@ -53,7 +53,6 @@ runs:
       run: |
         echo "IMAGE_NAME=babelcloud/${{ inputs.image_name }}" >> $GITHUB_ENV
         echo "COMMIT_ID=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-        echo "COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
     - name: Get version from git tags
       shell: bash
@@ -108,7 +107,6 @@ runs:
         build-args: |
           CACHEBUST=${{ env.CACHEBUST }}
           COMMIT_ID=${{ env.COMMIT_ID }}
-          COMMIT=${{ env.COMMIT }}
           VERSION=${{ env.VERSION }}
           BUILD_TIME=${{ env.BUILD_TIME }}
         cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}

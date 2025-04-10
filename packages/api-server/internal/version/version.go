@@ -8,7 +8,7 @@ import (
 var (
 	Version   = "dev"
 	BuildTime = "unknown"
-	Commit    = "unknown"
+	CommitID  = "unknown"
 )
 
 func formatBuildTime() string {
@@ -29,7 +29,7 @@ func ServerInfo() map[string]string {
 		"Version":       Version,
 		"APIVersion":    "v1",
 		"GoVersion":     runtime.Version(),
-		"GitCommit":     Commit,
+		"GitCommit":     CommitID,
 		"BuildTime":     BuildTime,
 		"FormattedTime": formatBuildTime(),
 		"OS":            runtime.GOOS,

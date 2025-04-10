@@ -7,7 +7,7 @@ MODULE_PREFIX := github.com/babelcloud/gru-sandbox
 BINARY_NAME := gbox
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+COMMIT_ID := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DIR := .
 MAIN_FILE := main.go
 
@@ -18,7 +18,7 @@ GOARCH ?= $(shell go env GOARCH)
 # LDFLAGS for embedding version information
 LDFLAGS := -ldflags "-X $(MODULE_PREFIX)/packages/cli/internal/version.Version=$(VERSION) \
                      -X $(MODULE_PREFIX)/packages/cli/internal/version.BuildTime=$(BUILD_TIME) \
-                     -X $(MODULE_PREFIX)/packages/cli/internal/version.Commit=$(COMMIT)"
+                     -X $(MODULE_PREFIX)/packages/cli/internal/version.CommitID=$(COMMIT_ID)"
 
 # Supported platforms
 PLATFORMS := linux-amd64 linux-arm64 darwin-amd64 darwin-arm64

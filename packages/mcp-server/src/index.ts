@@ -15,8 +15,12 @@ import {
   handleRunBash,
   handleReadFile,
   runPythonParams,
-  runBashParams,
   readFileParams,
+  handleBrowserOpenUrl,
+  browserOpenUrlParams,
+  BROWSER_OPEN_URL_TOOL,
+  BROWSER_OPEN_URL_DESCRIPTION,
+  runBashParams,
 } from "./tools/index.js";
 import type { LoggingMessageNotification } from "@modelcontextprotocol/sdk/types.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
@@ -54,12 +58,37 @@ const log: LogFn = async (
 };
 
 // Register box resource
-mcpServer.resource("box", boxTemplate(log), handleBoxResource(log));
+//mcpServer.resource("box", boxTemplate(log), handleBoxResource(log));
 
+
+const GBOX_MANUAL = "gbox-manual";
+const GBOX_MANUAL_DESCRIPTION = "A manual for the gbox command line tool.";
+const GBOX_MANUAL_CONTENT = `
+# GBox Manual
+
+## Overview
+Gbox is a set of tools that allows you to complete various tasks. All the tools are executed in a sandboxed environment. Gbox is developed by Gru AI.
+
+## Usage
+### run-python
+If you need to execute a standalone python script, you can use the run-python tool. 
+
+### run-bash
+If you need to execute a standalone bash script, you can use the run-bash tool. 
+
+### read-file
+If you need to read a file from the sandbox, you can use the read-file tool. 
+
+### browser-open-url
+If you need to view a web page/PDF/etc, you can use the browser-open-url tool. 
+
+### list-boxes
+If you need to execute tools in different boxes, you can use the list-boxes tool to list all the boxes and pick the one you want.
+`
 // Register run-python prompt
 mcpServer.prompt(
-  RUN_PYTHON_TOOL,
-  RUN_PYTHON_DESCRIPTION,
+  GBOX_MANUAL,
+  GBOX_MANUAL_DESCRIPTION,
   (_: RequestHandlerExtra) => {
     return {
       messages: [
@@ -67,11 +96,7 @@ mcpServer.prompt(
           role: "user",
           content: {
             type: "text",
-            text: `When running Python code in a sandbox, if you don't provide a boxId, the system will try to reuse an existing box with matching image. 
-              The system will first try to use a running box, then a stopped box (which will be started), and finally create a new one if needed. 
-              Note that without boxId, multiple calls may use different boxes even if they exist. 
-              If you need to ensure multiple calls use the same box, you must provide a boxId. 
-              You can use the 'list-boxes' tool to see available boxes.`,
+            text: GBOX_MANUAL_CONTENT
           },
         },
       ],
@@ -113,6 +138,13 @@ mcpServer.tool(
   RUN_BASH_DESCRIPTION,
   runBashParams,
   handleRunBash(log)
+);
+
+mcpServer.tool(
+  BROWSER_OPEN_URL_TOOL,
+  BROWSER_OPEN_URL_DESCRIPTION,
+  browserOpenUrlParams,
+  handleBrowserOpenUrl(log)
 );
 
 // Start server

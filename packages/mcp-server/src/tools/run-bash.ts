@@ -3,6 +3,7 @@ import { config } from "../config.js";
 import { GBox } from "../sdk/index.js";
 import { MCPLogger } from "../mcp-logger.js";
 import { z } from "zod";
+import { LogFn } from "../types.js";
 
 export const RUN_BASH_TOOL = "run-bash";
 export const RUN_BASH_DESCRIPTION = `Run Bash commands in a sandbox. 
@@ -23,46 +24,52 @@ export const runBashParams = {
       `),
 };
 
-export const handleRunBash = withLogging(
-  async (log, { boxId, code }, { signal, sessionId }) => {
-    const logger = new MCPLogger(log);
-    const gbox = new GBox({
-      apiUrl: config.apiServer.url,
-      logger,
-    });
+const runBashParamsShape = z.object(runBashParams);
 
-    logger.info(
-      `Executing Bash command in box ${boxId || "new box"} ${
-        sessionId ? `for session: ${sessionId}` : ""
-      }`
-    );
+export async function executeBashCommand(
+  log: LogFn,
+  { boxId, code }: z.infer<typeof runBashParamsShape>,
+  { stdoutLineLimit = 100, stderrLineLimit = 100, signal, sessionId }: { stdoutLineLimit?: number; stderrLineLimit?: number; signal?: AbortSignal; sessionId?: string }
+) {
+  const logger = new MCPLogger(log);
+  const gbox = new GBox({
+    apiUrl: config.apiServer.url,
+    logger,
+  });
 
-    // Get or create box
-    const id = await gbox.box.getOrCreateBox({
-      boxId,
-      image: config.images.bash,
-      sessionId,
-      signal,
-    });
+  logger.info(
+    `Executing Bash command in box ${boxId || "new box"} ${
+      sessionId ? `for session: ${sessionId}` : ""
+    }`
+  );
 
-    // Run command
-    const result = await gbox.box.runInBox(
-      id,
-      ["/bin/bash"],
-      code,
-      100, // stdoutLineLimit
-      100, // stderrLineLimit
-      { signal, sessionId }
-    );
+  // Get or create box
+  const id = await gbox.box.getOrCreateBox({
+    boxId,
+    image: config.images.bash,
+    sessionId,
+    signal,
+  });
 
-    log({ level: "info", data: "Bash command executed successfully" });
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(result, null, 2),
-        },
-      ],
-    };
-  }
-);
+  // Run command
+  const result = await gbox.box.runInBox(
+    id,
+    ["/bin/bash"],
+    code,
+    stdoutLineLimit,
+    stderrLineLimit,
+    { signal, sessionId }
+  );
+
+  log({ level: "info", data: "Bash command executed successfully" });
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(result, null, 2),
+      },
+    ],
+  };
+}
+
+export const handleRunBash = withLogging(executeBashCommand);

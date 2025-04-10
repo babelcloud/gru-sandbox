@@ -8,7 +8,7 @@ BINARY_NAME := gbox
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-BUILD_DIR := build
+BUILD_DIR := .
 MAIN_FILE := main.go
 
 # Default platform (based on current system)
@@ -68,21 +68,21 @@ e2e: e2e-env-check ## Run tests for all commands
 
 # Clean build directory
 clean: ## Clean the build directory
-	@echo "Cleaning build directory..."
-	@rm -rf $(BUILD_DIR)
+	@echo "Cleaning build artifacts..."
+	@rm -f $(BINARY_NAME)*
 	@echo "Cleaning completed"
 
 # Build binary for a single platform
 binary: ## Build binary for the current platform (GOOS/GOARCH)
 	@echo "Building $(BINARY_NAME) binary ($(GOOS)/$(GOARCH))..."
-	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_FILE)
-	@echo "Binary built: $(BUILD_DIR)/$(BINARY_NAME)"
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(LDFLAGS) -o $(BINARY_NAME) $(MAIN_FILE)
+	@echo "Binary built: $(BINARY_NAME)"
 
 # Run the application with project root as environment variable
 # Usage: make gorun ARGS="mcp export --help"
 run: ## Run the application with PROJECT_ROOT environment variable (Usage: make gorun ARGS="cmd args...")
 	@PROJECT_ROOT=$$(git rev-parse --show-toplevel) \
+	GORUN=true \
 	go run main.go $(ARGS)
 
 test: ## Run tests
@@ -91,11 +91,10 @@ test: ## Run tests
 # Build binaries for all supported platforms
 binary-all: ## Build binaries for all supported platforms
 	@echo "Building binaries for all supported platforms..."
-	@mkdir -p $(BUILD_DIR)
 	@for platform in $(PLATFORMS); do \
 		os=$$(echo $$platform | cut -d- -f1); \
 		arch=$$(echo $$platform | cut -d- -f2); \
-		outfile="$(BUILD_DIR)/$(BINARY_NAME)-$$platform"; \
+		outfile="$(BINARY_NAME)-$$platform"; \
 		echo "Building $$outfile..."; \
 		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build $(LDFLAGS) -o $$outfile $(MAIN_FILE); \
 	done

@@ -49,26 +49,30 @@ func getPackagesRootPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get executable path: %w", err)
 	}
-
-	standardSubPath := filepath.Join("packages", "cli", "build")
-
-	if !strings.Contains(execPath, standardSubPath) {
-		return "", fmt.Errorf("unexpected binary location: %s; expected to contain %q", execPath, standardSubPath)
+	realExecPath, err := filepath.EvalSymlinks(execPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get real executable path: %w", err)
 	}
 
-	packagesIndex := strings.Index(execPath, standardSubPath)
+	standardSubPath := filepath.Join("packages", "cli")
+
+	if !strings.Contains(realExecPath, standardSubPath) {
+		return "", fmt.Errorf("unexpected binary location: %s; expected to contain %q", realExecPath, standardSubPath)
+	}
+
+	packagesIndex := strings.Index(realExecPath, standardSubPath)
 	if packagesIndex == -1 {
-		return "", fmt.Errorf("could not find %q in path: %s", standardSubPath, execPath)
+		return "", fmt.Errorf("could not find %q in path: %s", standardSubPath, realExecPath)
 	}
 
-	packagesDir := execPath[:packagesIndex]
+	packagesDir := realExecPath[:packagesIndex]
 	packagesDir = filepath.Clean(filepath.Join(packagesDir, "packages"))
 
 	if dirExists(filepath.Join(packagesDir, "mcp-server")) {
 		return packagesDir, nil
 	}
 
-	return "", fmt.Errorf("could not determine project root from binary location: %s", execPath)
+	return "", fmt.Errorf("could not determine project root from binary location: %s", realExecPath)
 }
 
 func dirExists(path string) bool {

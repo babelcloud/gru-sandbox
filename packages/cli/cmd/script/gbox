@@ -13,7 +13,8 @@ while [ -h "$SOURCE" ]; do
     [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+CLI_ROOT="$(cd "$SCRIPT_DIR/../../" && pwd)"  # 从 script 到 cmd，再到 cli
+REPO_ROOT="$(cd "$CLI_ROOT/../.." && pwd)"  # 从 cli 到 packages，再到根目录
 SCRIPT_IMPL_DIR="$REPO_ROOT/packages/cli/cmd/script"
 
 # Source common functions
@@ -62,7 +63,7 @@ ensure_box_symlinks() {
     fi
 
     local symlinks_created=false
-    local go_runner_script="$REPO_ROOT/packages/cli/bin/gbox"
+    local go_runner_script="$CLI_ROOT/bin/gbox"
     
     # Detect current platform
     local os=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -95,10 +96,10 @@ ensure_box_symlinks() {
     fi
     
     # Set path to the platform-specific binary
-    local go_binary="$REPO_ROOT/packages/cli/build/gbox-${os}-${arch}${binary_suffix}"
+    local go_binary="$CLI_ROOT/build/gbox-${os}-${arch}${binary_suffix}"
     
     # Also check for the default binary as fallback
-    local default_binary="$REPO_ROOT/packages/cli/build/gbox"
+    local default_binary="$CLI_ROOT/build/gbox"
     
     # Check if we're in production mode (DEV_MODE=false)
     if [[ "$DEV_MODE" != "true" ]]; then
@@ -108,12 +109,14 @@ ensure_box_symlinks() {
                 echo "Platform-specific binary not found, using default binary instead."
                 go_binary="$default_binary"
             else
-                echo "Warning: Neither platform-specific ($go_binary) nor default binary found. Ensure 'make build' was run." >&2
+                echo "Warning: Neither platform-specific ($go_binary) nor default binary found. Please run 'cd $CLI_ROOT && make build' first." >&2
             fi
         fi
         
-        debug_log "Using binary: $go_binary"
-        chmod +x "$go_binary" # Ensure it's executable
+        if [[ -f "$go_binary" ]]; then
+            debug_log "Using binary: $go_binary"
+            chmod +x "$go_binary" # Ensure it's executable
+        fi
     else
         # In development mode, use the script
         if [[ ! -f "$go_runner_script" ]]; then
@@ -148,9 +151,9 @@ ensure_box_symlinks() {
     local box_subcommands=()
     
     # Check Bash script files to discover subcommands
-    local SCRIPT_DIR="$REPO_ROOT/packages/cli/cmd/script"
-    if [[ -d "$SCRIPT_DIR" ]]; then
-        for script_file in "$SCRIPT_DIR"/gbox-box-*; do
+    local IMPL_DIR="$REPO_ROOT/packages/cli/cmd/script"
+    if [[ -d "$IMPL_DIR" ]]; then
+        for script_file in "$IMPL_DIR"/gbox-box-*; do
             if [[ -f "$script_file" ]]; then
                 # Extract subcommand from filename (gbox-box-list -> list)
                 local file_name=$(basename "$script_file")

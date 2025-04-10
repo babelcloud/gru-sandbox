@@ -53,6 +53,13 @@ runs:
       run: |
         echo "IMAGE_NAME=babelcloud/${{ inputs.image_name }}" >> $GITHUB_ENV
         echo "COMMIT_ID=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+        echo "COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
+    - name: Get version from git tags
+      shell: bash
+      run: |
+        VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+        echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
     - name: Resolve image tag with rev
       shell: bash
@@ -79,6 +86,10 @@ runs:
       shell: bash
       run: echo "CACHEBUST=$(echo -n ${{ github.token }} | md5sum | awk '{print $1}')" >> $GITHUB_ENV
 
+    - name: Set build time
+      shell: bash
+      run: echo "BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+
     - name: Set cache scope
       shell: bash
       run: |
@@ -97,6 +108,9 @@ runs:
         build-args: |
           CACHEBUST=${{ env.CACHEBUST }}
           COMMIT_ID=${{ env.COMMIT_ID }}
+          COMMIT=${{ env.COMMIT }}
+          VERSION=${{ env.VERSION }}
+          BUILD_TIME=${{ env.BUILD_TIME }}
         cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
         cache-to: type=gha,scope=${{ env.CACHE_SCOPE }},mode=max
         target: ${{ inputs.target }}

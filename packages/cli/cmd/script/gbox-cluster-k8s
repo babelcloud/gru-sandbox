@@ -7,7 +7,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common"
 
-MANIFEST_DIR="$SCRIPT_DIR/../manifests"
+MANIFEST_DIR="$SCRIPT_DIR/../../../../manifests"
 
 # Setup command
 setup() {

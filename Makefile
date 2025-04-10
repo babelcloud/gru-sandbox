@@ -75,22 +75,21 @@ dist-%: ## Create package for specific platform and architecture (e.g., dist-dar
 	mkdir -p $$PLATFORM_DIR/bin; \
 	mkdir -p $$PLATFORM_DIR/manifests; \
 	mkdir -p $$PLATFORM_DIR/packages/mcp-server; \
-	mkdir -p $$PLATFORM_DIR/packages/cli/build; \
+	mkdir -p $$PLATFORM_DIR/packages/cli; \
 	mkdir -p $$PLATFORM_DIR/packages/cli/cmd/script; \
-	echo "Copying base files..."; \
 	cp -r manifests/. $$PLATFORM_DIR/manifests/; \
 	rsync -a --exclude='node_modules' packages/mcp-server/ $$PLATFORM_DIR/packages/mcp-server/; \
-	cp -r packages/cli/build/gbox-$$PLATFORM_ARCH $$PLATFORM_DIR/packages/cli/build/; \
+	cp packages/cli/gbox-$$PLATFORM_ARCH $$PLATFORM_DIR/packages/cli/gbox; \
 	cp -r packages/cli/cmd/script/. $$PLATFORM_DIR/packages/cli/cmd/script/; \
-	cp .env $$PLATFORM_DIR/; \
+	cp .env $$PLATFORM_DIR/ 2>/dev/null || true; \
 	cp LICENSE README.md $$PLATFORM_DIR/; \
 	$(call write_env,$$PLATFORM_DIR/manifests/docker,API_SERVER_IMG_TAG,$(API_SERVER_TAG)); \
 	$(call append_env,$$PLATFORM_DIR/manifests/docker,PREFIX,""); \
 	$(call write_env,$$PLATFORM_DIR/packages/mcp-server,PY_IMG_TAG,$(PY_IMG_TAG)); \
 	$(call append_env,$$PLATFORM_DIR/packages/mcp-server,TS_IMG_TAG,$(TS_IMG_TAG)); \
-	if [ -f "packages/cli/build/gbox-$$PLATFORM_ARCH" ]; then \
-		cp packages/cli/build/gbox-$$PLATFORM_ARCH $$PLATFORM_DIR/bin/gbox; \
-		cp bin/* $$PLATFORM_DIR/bin/; \
+	if [ -f "packages/cli/gbox-$$PLATFORM_ARCH" ]; then \
+		ln -sf ../packages/cli/gbox $$PLATFORM_DIR/bin/gbox; \
+		cp bin/* $$PLATFORM_DIR/bin/ 2>/dev/null || true; \
 		(cd $$PLATFORM_DIR && tar -czf ../gbox-$$PLATFORM_ARCH-$(VERSION).tar.gz .env *); \
 		(cd $(DIST_DIR) && sha256sum gbox-$$PLATFORM_ARCH-$(VERSION).tar.gz > gbox-$$PLATFORM_ARCH-$(VERSION).tar.gz.sha256); \
 		echo "Package created: $(DIST_DIR)/gbox-$$PLATFORM_ARCH-$(VERSION).tar.gz"; \

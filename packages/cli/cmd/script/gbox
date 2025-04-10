@@ -13,8 +13,8 @@ while [ -h "$SOURCE" ]; do
     [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 SCRIPT_DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-CLI_ROOT="$(cd "$SCRIPT_DIR/../../" && pwd)"  # 从 script 到 cmd，再到 cli
-REPO_ROOT="$(cd "$CLI_ROOT/../.." && pwd)"  # 从 cli 到 packages，再到根目录
+CLI_ROOT="$(cd "$SCRIPT_DIR/../../" && pwd)"
+REPO_ROOT="$(cd "$CLI_ROOT/../.." && pwd)"
 SCRIPT_IMPL_DIR="$REPO_ROOT/packages/cli/cmd/script"
 
 # Source common functions

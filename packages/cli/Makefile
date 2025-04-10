@@ -82,7 +82,7 @@ binary: ## Build binary for the current platform (GOOS/GOARCH)
 # Usage: make gorun ARGS="mcp export --help"
 run: ## Run the application with PROJECT_ROOT environment variable (Usage: make gorun ARGS="cmd args...")
 	@PROJECT_ROOT=$$(git rev-parse --show-toplevel) \
-	GORUN=true \
+	CLI_DEV_MODE=true \
 	go run main.go $(ARGS)
 
 test: ## Run tests

@@ -48,7 +48,7 @@ func init() {
 		os.Exit(1)
 	}
 
-	_, isGoRun := os.LookupEnv("GORUN")
+	_, isGoRun := os.LookupEnv("CLI_DEV_MODE")
 
 	if isGoRun {
 		projectRoot := filepath.Clean(getProjectRoot())
@@ -108,20 +108,16 @@ func executeScript(cmdName string, args []string) error {
 	return cmd.Run()
 }
 
-// 获取项目根目录，优先使用配置文件中的设置
 func getProjectRoot() string {
-	// 使用config包中的GetProjectRoot函数
 	projectRoot := config.GetProjectRoot()
 	if projectRoot != "" {
 		return projectRoot
 	}
 
-	// 如果配置中没有设置，尝试从当前目录向上查找
 	currentDir, err := os.Getwd()
 	if err == nil {
 		return currentDir
 	}
 
-	// 最后的回退方案
 	return "."
 }

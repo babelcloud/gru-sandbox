@@ -111,7 +111,7 @@ Command arguments can be specified directly in the command line or added after t
 	flags.StringArrayVar(&opts.Env, "env", []string{}, "Environment variables in KEY=VALUE format")
 	flags.StringArrayVarP(&opts.Labels, "label", "l", []string{}, "Custom labels in KEY=VALUE format")
 	flags.StringVarP(&opts.WorkingDir, "work-dir", "w", "", "Working directory")
-	flags.StringArrayVarP(&opts.Volumes, "volume", "m", nil, "Bind mount a volume (source:target[:ro][:propagation])")
+	flags.StringArrayVarP(&opts.Volumes, "volume", "v", nil, "Bind mount a volume (source:target[:ro][:propagation])")
 
 	cmd.RegisterFlagCompletionFunc("output", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"json", "text"}, cobra.ShellCompDirectiveNoFileComp

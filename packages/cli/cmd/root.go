@@ -63,7 +63,7 @@ func init() {
 		scriptDir = filepath.Join(exeDir, "cmd", "script")
 	}
 
-	rootCmd.PersistentFlags().BoolP("version", "v", false, "Print version information and exit")
+	rootCmd.Flags().BoolP("version", "v", false, "Print version information and exit")
 
 	for alias, cmd := range aliasMap {
 		createAliasCommand(alias, cmd)

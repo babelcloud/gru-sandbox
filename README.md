@@ -1,10 +1,36 @@
-# gru-sandbox
+# gbox
 
-Gru-sandbox(gbox) is an open source project that provides a self-hostable sandbox for MCP integration or other AI agent usecases.
+**gbox** is an open source project that provides a self-hostable sandbox for MCP integration or other AI agent usecases. The sandbox can be used as a computer for agent. It includes all necessary tools that agents needs for daily tasks, such as terminal, browser and file editor. See "Features" section for details,
 
-As MCP is getting more and more popular, we find there is no easy way to enable MCP client such as Claude Desktop/Cursor to execute commands locally and securely. This project is based on the technology behind [gru.ai](https://gru.ai) and we wrap it into a system command and MCP server to make it easy to use.
+As MCP is getting more and more popular, we find there is no easy way to enable MCP client such as Claude Desktop/Cursor to run tasks locally and securely. This project is based on the technology behind [gru.ai](https://gru.ai) and we wrap it into a system command and MCP server to make it easy to use.
 
 For advanced scenarios, we also kept the ability to run sandboxes in k8s cluster locally or remotely.
+
+## Features
+1. Terminal
+   - Execute any linux command
+   - Execute python scripts directly
+   - Share session across invokes [under-development]
+2. File
+   - Mount host machine folders into sandbox
+   - Access sandbox files through http links
+   - Read file content in multi-modal
+   - Write/re-write files [under-development]
+   - Edit files [under-development]
+   - Search files [under-development]
+3. Browser
+   - Open any url, return content in multi-modal
+   - Download from any url [under-development]
+   - Operate browser by instructions [under-development]
+   - Human take over [under-development]
+4. HTTP Server
+   - Start http service on any folder on demand [under-development]
+5. SDKs
+   - Python SDK
+   - Typescript SDK [under-development]
+6. MCP
+   - Standard MCP support
+   - Integrate Claude Desktop & Cursor
 
 ## Use Cases
 
@@ -28,11 +54,11 @@ Analyze and compare Nvidia/Tesla market cap:
 ![Image](https://i.imghippo.com/files/FE2710WR.png)
 https://claude.ai/share/70c335b7-9fff-4ee7-8459-e6b7462d8994
 
-### 4. Processing Local Files (coming soon)
+### 4. Processing Local Files
 
-```
-Please compress all photos in shared folder and make sure each of them is smaller than 2MB.
-```
+Find images in download folder and compress into zip.
+![image](https://i.imghippo.com/files/wcKb4481gMk.jpeg)
+https://claude.ai/share/f8c4c617-9b32-4062-a8e2-2ab33ef46f42
 
 ### 5. Execute Arbitrary Tasks
 
@@ -130,7 +156,7 @@ Examples:
 gbox box create -v /data:/data --image python:3.9
 
 # Read-only bind mount
-gbox box create -v /data:/data:ro --image python:3.9
+gbox box create -v /data:/data:ro
 
 # Multiple bind mounts
 gbox box create \

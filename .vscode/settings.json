@@ -5,5 +5,8 @@
         "KUBECFG",
         "kubeconfig",
         "modelcontextprotocol"
+    ],
+    "python.analysis.extraPaths": [
+        "./packages/sdk/python"
     ]
 }

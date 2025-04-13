@@ -1,0 +1,42 @@
+[flake8]
+# Maximum line length
+max-line-length = 100
+# Excluded directories and files
+exclude =
+    .git,
+    __pycache__,
+    build,
+    dist,
+    .eggs,
+    *.egg,
+    .venv,
+    venv,
+    .tox,
+    .pytest_cache,
+    htmlcov,
+    gbox.egg-info
+
+# Ignored errors
+ignore =
+    # Trailing whitespace
+    W291,
+    # No newline at end of file
+    W292,
+    # Line too long
+    E501,
+    # Multiline string should use textwrap.dedent()
+    E131,
+    # Import order
+    E402
+
+# Selected errors and warnings
+select = E,W,F,N
+
+# Maximum complexity
+max-complexity = 10
+
+# Statistics
+statistics = True
+
+# Output format
+format = %(path)s:%(row)d:%(col)d: %(code)s %(text)s 

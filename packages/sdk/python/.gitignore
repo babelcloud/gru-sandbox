@@ -1,0 +1,24 @@
+build
+dist
+*.egg-info
+*.egg/
+*.pyc
+*.swp
+
+.tox
+.coverage
+html/*
+
+# Compiled Documentation
+_build/
+README.rst
+
+# setuptools_scm
+_version.py
+
+env/
+venv/
+.idea/
+*.iml
+
+*demo.py

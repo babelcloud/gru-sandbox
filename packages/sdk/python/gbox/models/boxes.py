@@ -8,9 +8,6 @@ import tarfile  # <-- Add tarfile import
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 if TYPE_CHECKING:
-    from ..api.box_service import (  # Ensure BoxService is available for type hint if needed
-        BoxService,
-    )
     from ..client import GBoxClient  # Avoid circular import for type hints
 
 

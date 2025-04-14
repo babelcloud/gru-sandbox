@@ -71,17 +71,30 @@ class Client:
             explanation = response.text
 
         status_code = response.status_code
-        self._log("warning", f"Request failed: {status_code} {message} {explanation or ''}")
 
         if status_code == 404:
+            self._log(
+                "warning", f"Request failed (NotFound): {status_code} {message} {explanation or ''}"
+            )
             raise NotFound(message, status_code=status_code, explanation=explanation)
         elif status_code == 409:
+            self._log(
+                "warning", f"Request failed (Conflict): {status_code} {message} {explanation or ''}"
+            )
             raise ConflictError(message, status_code=status_code, explanation=explanation)
         elif 400 <= status_code < 500:
             # General client error
+            self._log(
+                "warning",
+                f"Request failed (Client Error): {status_code} {message} {explanation or ''}",
+            )
             raise APIError(message, status_code=status_code, explanation=explanation)
         elif 500 <= status_code < 600:
             # General server error
+            self._log(
+                "warning",
+                f"Request failed (Server Error): {status_code} {message} {explanation or ''}",
+            )
             raise APIError(message, status_code=status_code, explanation=explanation)
         # If no exception is raised, the status code is considered OK.
 
@@ -162,7 +175,7 @@ class Client:
             )
 
             self._log(
-                "debug" if response.ok else "warning",
+                "info" if response.ok else "warning",
                 f"Response: {response.status_code} {response.reason} ({response.url})",
             )
 

@@ -1,9 +1,8 @@
-import os
 import time
 
 import pytest
 
-from gbox import APIError, Box, GBoxClient
+from gbox import Box
 
 # --- Test Constants ---
 TEST_IMAGE = "alpine:latest"  # Should match conftest.py
@@ -67,7 +66,6 @@ def test_box_run_with_user(test_box: Box):
     # Note: The user must exist within the container image (alpine has root)
     # We might need a different image or setup to test non-root users.
     user_to_test = "root"  # Or a non-root user if available, e.g., "guest" if added
-    command = ["whoami"]
     print(f"\nTesting run command as user '{user_to_test}' in box: {test_box.short_id}")
 
     test_box.reload()
@@ -90,7 +88,6 @@ def test_box_run_with_user(test_box: Box):
 def test_box_run_with_workdir(test_box: Box):
     """Tests running a command in a specific working directory."""
     workdir = "/tmp"
-    command = ["pwd"]
     print(f"\nTesting run command with workdir '{workdir}' in box: {test_box.short_id}")
 
     test_box.reload()
@@ -114,7 +111,6 @@ def test_box_run_with_env(test_box: Box):
     """Tests running a command with specific environment variables."""
     env_vars = {"MY_VAR": "hello_env", "OTHER_VAR": "test123"}
     # Command to print a specific env var
-    command = ["sh", "-c", "echo \$MY_VAR"]
     print(f"\nTesting run command with env {env_vars} in box: {test_box.short_id}")
 
     test_box.reload()

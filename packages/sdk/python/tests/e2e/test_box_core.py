@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from gbox import APIError, Box, GBoxClient, NotFound
+from gbox import APIError, Box, GBoxClient
 
 # --- Test Constants ---
 TEST_IMAGE = "alpine:latest"  # Should match conftest.py
@@ -34,7 +34,7 @@ def test_list_boxes_initial(gbox: GBoxClient):
 def test_create_box(gbox: GBoxClient):
     """Test creating a simple box and verify it appears in the list."""
     created_box: Box = None
-    initial_count = len(gbox.boxes.list())
+    len(gbox.boxes.list())
     try:
         created_box = gbox.boxes.create(  # Use the renamed fixture 'gbox'
             image=TEST_IMAGE, labels={"creator": "pytest_e2e", "test": "create_simple"}
@@ -121,7 +121,7 @@ def test_get_box(gbox: GBoxClient, test_box: Box):
 def test_get_nonexistent_box(gbox: GBoxClient):
     """Test attempting to retrieve a box that does not exist."""
     non_existent_id = "nonexistentboxid12345"
-    with pytest.raises(APIError) as excinfo:
+    with pytest.raises(APIError):
         gbox.boxes.get(non_existent_id)  # Use the renamed fixture 'gbox'
     print("NotFound exception raised as expected.")
 

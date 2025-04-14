@@ -6,8 +6,7 @@ This module provides the FileManager class for high-level file operations.
 
 from __future__ import annotations
 
-import os
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Union
 
 from ..exceptions import APIError, NotFound
 from ..models.files import File
@@ -119,7 +118,7 @@ class FileManager:
         # Extract file information from the response
         # The response structure may include a fileList with information about shared files
         if not share_response or "fileList" not in share_response or not share_response["fileList"]:
-            raise FileNotFoundError(f"File sharing succeeded but no file information was returned")
+            raise FileNotFoundError("File sharing succeeded but no file information was returned")
 
         # For simplicity, assume the first (or only) file in the fileList is the one we want
         file_info = share_response["fileList"][0]

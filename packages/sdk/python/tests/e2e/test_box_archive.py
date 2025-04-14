@@ -1,14 +1,12 @@
-import io
 import json
 import os
 import tarfile
 import tempfile
 import time
-from pathlib import Path
 
 import pytest
 
-from gbox import APIError, Box, GBoxClient, NotFound
+from gbox import APIError, Box
 
 # --- Test Constants ---
 TEST_IMAGE = "alpine:latest"  # Should match conftest.py
@@ -265,7 +263,7 @@ def test_put_get_head_archive_local_path(test_box: Box):
             excinfo.value.status_code == 500
         ), "Expected APIError 500 for get_archive on non-existent remote file (temporary check)"
         print(
-            f"Successfully caught APIError 500 for get_archive with local_path on non-existent remote file."
+            "Successfully caught APIError 500 for get_archive with local_path on non-existent remote file."
         )
         assert not os.path.exists(
             local_dl_path_non_existent

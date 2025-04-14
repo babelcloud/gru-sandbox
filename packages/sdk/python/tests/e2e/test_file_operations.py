@@ -1,13 +1,8 @@
-import io
-import json
-import os
-import tempfile
 import time
-from pathlib import Path
 
 import pytest
 
-from gbox import APIError, Box, File, GBoxClient, NotFound
+from gbox import APIError, Box, GBoxClient, NotFound
 
 # --- Test Constants ---
 TEST_IMAGE = "alpine:latest"  # Should match conftest.py
@@ -77,7 +72,7 @@ def test_file_exists_and_get(gbox: GBoxClient):
     test_path = "/mydata/output.txt"  # This path should exist in the server
 
     # Create a unique test file if needed
-    unique_path = f"/mydata/test-file-{int(time.time())}.txt"
+    f"/mydata/test-file-{int(time.time())}.txt"
 
     # Check file existence
     exists = gbox.files.exists(test_path)
@@ -100,14 +95,14 @@ def test_file_exists_and_get(gbox: GBoxClient):
     random_name = f"nonexistent-{int(time.time())}.txt"
     non_existent_path = f"/non/existent/{random_name}"
     exists = gbox.files.exists(non_existent_path)
-    assert exists == False, f"File {non_existent_path} should not exist"
+    assert exists is False, f"File {non_existent_path} should not exist"
 
     # Try to get non-existent file
     try:
         gbox.files.get(non_existent_path)
         pytest.fail(f"Expected NotFound error for {non_existent_path}")
     except NotFound:
-        print(f"NotFound raised for non-existent file as expected")
+        print("NotFound raised for non-existent file as expected")
 
 
 def test_file_read(gbox: GBoxClient):

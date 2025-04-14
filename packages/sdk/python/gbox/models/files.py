@@ -7,12 +7,10 @@ to file operations in the GBox API.
 
 from __future__ import annotations  # For type hinting GBoxClient
 
-import io
 import os
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
-    from ..api.file_service import FileService
     from ..client import GBoxClient  # Avoid circular import for type hints
 
 

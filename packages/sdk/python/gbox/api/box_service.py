@@ -5,7 +5,7 @@ This module provides direct mappings to the Box-related API endpoints in the GBo
 All methods return the raw server response data without any transformation.
 """
 
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union
 
 from ..config import GBoxConfig
 from .client import Client

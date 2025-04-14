@@ -1,6 +1,6 @@
 # tests/managers/test_box_manager.py
 import unittest
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 from gbox.api.box_service import BoxService
 
@@ -102,7 +102,7 @@ class TestBoxManager(unittest.TestCase):
         mock_box_instance = Mock(spec=Box, id=box_id)
         MockBoxModel.return_value = mock_box_instance  # Use local MockBoxModel
 
-        box = self.box_manager.get(box_id)
+        self.box_manager.get(box_id)
 
         self.mock_box_service.get.assert_called_once_with(box_id)
         MockBoxModel.assert_called_once_with(  # Use local MockBoxModel
@@ -167,7 +167,7 @@ class TestBoxManager(unittest.TestCase):
         mock_box_instance = Mock(spec=Box, id=created_box_id)
         MockBoxModel.return_value = mock_box_instance  # Use local MockBoxModel
 
-        box = self.box_manager.create(image=image, **create_kwargs)
+        self.box_manager.create(image=image, **create_kwargs)
 
         self.mock_box_service.create.assert_called_once_with(image=image, **create_kwargs)
         MockBoxModel.assert_called_once_with(  # Use local MockBoxModel

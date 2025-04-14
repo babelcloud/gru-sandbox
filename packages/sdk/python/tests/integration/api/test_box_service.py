@@ -2,9 +2,6 @@
 import unittest
 from unittest.mock import Mock
 
-import pytest
-import requests
-
 from gbox.api.box_service import BoxService
 from gbox.api.client import Client as ApiClient  # For type hinting/mocking spec
 from gbox.config import GBoxConfig  # For type hinting/mocking spec

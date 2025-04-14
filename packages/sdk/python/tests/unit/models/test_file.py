@@ -1,11 +1,8 @@
-import io
-import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from gbox import File, GBoxClient
-from gbox.exceptions import APIError, NotFound
 
 
 class TestFileModel:
@@ -37,19 +34,19 @@ class TestFileModel:
         assert file.mod_time == "2023-01-01T12:00:00Z"
         assert file.type == "file"
         assert file.mime == "text/plain"
-        assert file.is_directory == False
+        assert file.is_directory is False
 
         # Test with minimal attributes
         file_min = File(client=mock_client, path="/path/to/minimal.txt")
         assert file_min.path == "/path/to/minimal.txt"
         assert file_min.name == "minimal.txt"  # Should be extracted from path
         assert file_min.size is None
-        assert file_min.is_directory == False  # Default when type is not set
+        assert file_min.is_directory is False  # Default when type is not set
 
         # Test directory
         dir_attrs = {"type": "directory"}
         dir_file = File(client=mock_client, path="/path/to/dir", attrs=dir_attrs)
-        assert dir_file.is_directory == True
+        assert dir_file.is_directory is True
 
     def test_reload_method(self):
         """Test reload method fetches updated attributes."""

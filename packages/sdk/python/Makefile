@@ -1,11 +1,11 @@
-.PHONY: clean clean-test clean-pyc clean-build docs help format lint test test-all coverage start install-dev-tools test-e2e
+.PHONY: clean clean-test clean-pyc clean-build docs help format lint test test-all coverage start install-dev-tools test-e2e fix-lint
 .DEFAULT_GOAL := help
 
 help: ## Show help message
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' Makefile | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-install-dev-tools: ## Install development tools (black, isort, flake8, mypy)
-	pip install black isort flake8 mypy pytest pytest-cov
+install-dev-tools: ## Install development tools (black, isort, ruff, mypy)
+	pip install black isort ruff mypy pytest pytest-cov
 
 start: install-dev-tools ## Install all required dependencies and development tools
 	pip install -r requirements.txt
@@ -37,10 +37,13 @@ format: install-dev-tools ## Format code using black and isort
 	isort gbox tests
 
 lint: install-dev-tools ## Check style
-	flake8 gbox tests
+	ruff check gbox tests
 	black --check gbox tests
 	isort --check-only gbox tests
 	mypy gbox
+
+fix-lint: install-dev-tools ## Fix lint issues automatically using ruff
+	ruff check --fix gbox tests --unsafe-fixes
 
 test: ## Run tests
 	pytest

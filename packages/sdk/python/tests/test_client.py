@@ -1,6 +1,6 @@
 # tests/test_client.py
 import unittest
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 from gbox.api.box_service import BoxService as ApiBoxService
 from gbox.api.client import Client as ApiClient

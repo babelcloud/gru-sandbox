@@ -23,7 +23,7 @@ dev = [
     "pytest-cov>=4.0.0",
     "black>=21.5b2",
     "mypy>=0.812",
-    "flake8>=4.0.0",
+    "ruff>=0.1.0",
     "isort>=5.10.0",
 ]
 
@@ -57,6 +57,35 @@ exclude = '''
   | gbox\.egg-info
 )/
 '''
+
+[tool.ruff]
+line-length = 100
+target-version = "py37"
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    ".eggs",
+    "*.egg",
+    ".venv",
+    "venv",
+    ".tox",
+    ".pytest_cache",
+    "htmlcov",
+    "gbox.egg-info",
+]
+select = ["E", "W", "F", "N"]
+ignore = [
+    "E501",  # Line too long
+    "E402",  # Import order
+    "W291",  # Trailing whitespace
+    "W292",  # No newline at end of file
+    "N803",  
+    "N818",  
+]
+[tool.ruff.mccabe]
+max-complexity = 10
 
 [tool.isort]
 profile = "black"

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
+	"github.com/babelcloud/gbox/packages/api-server/pkg/box"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,7 +40,7 @@ func TestNewBoxCreateCommand(t *testing.T) {
 		defer r.Body.Close()
 
 		// Parse request JSON
-		var req models.BoxCreateRequest
+		var req model.BoxCreateParams
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
@@ -108,7 +108,7 @@ func TestNewBoxCreateCommandWithLabelsAndWorkDir(t *testing.T) {
 		assert.NoError(t, err)
 		defer r.Body.Close()
 
-		var req models.BoxCreateRequest
+		var req model.BoxCreateParams
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 
@@ -302,7 +302,7 @@ func TestNewBoxCreateCommandWithMultipleOptions(t *testing.T) {
 		defer r.Body.Close()
 
 		// Parse request JSON
-		var req models.BoxCreateRequest
+		var req model.BoxCreateParams
 		err = json.Unmarshal(body, &req)
 		assert.NoError(t, err)
 

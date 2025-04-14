@@ -1,10 +1,10 @@
 package cmd
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -12,9 +12,10 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
-	"github.com/babelcloud/gru-sandbox/packages/cli/config"
+	"github.com/babelcloud/gbox/packages/cli/config"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -130,7 +131,10 @@ func runExec(opts *BoxExecOptions) error {
 	}
 
 	// Check if stdin is available and interactive mode is enabled
-	stdinAvailable := !term.IsTerminal(int(os.Stdin.Fd())) && opts.Interactive
+	stdinAvailable := opts.Interactive // Enable stdin if -i flag is set
+	if !stdinAvailable && !term.IsTerminal(int(os.Stdin.Fd())) {
+		stdinAvailable = true // Also enable stdin if there's pipe input
+	}
 
 	// Get terminal size if in TTY mode
 	var termSize *TerminalSize
@@ -148,10 +152,14 @@ func runExec(opts *BoxExecOptions) error {
 	request := BoxExecRequest{
 		Cmd:    []string{opts.Command[0]},
 		Args:   opts.Command[1:],
-		Stdin:  stdinAvailable || opts.Tty, // Always enable stdin in TTY mode
+		Stdin:  stdinAvailable, // Use the corrected stdinAvailable logic
 		Stdout: true,
 		Stderr: true,
 		Tty:    opts.Tty,
+	}
+
+	if opts.Tty {
+		request.Stdin = true // Ensure stdin is true if TTY is requested
 	}
 
 	if termSize != nil {
@@ -280,43 +288,88 @@ func handleRawStream(conn io.ReadWriteCloser) error {
 }
 
 // handleMultiplexedStream handles multiplexed stream in non-TTY mode
-func handleMultiplexedStream(conn io.ReadWriter, stdinAvailable bool) error {
+// Accepts io.ReadWriteCloser as that's what resp.Body gives us
+func handleMultiplexedStream(conn io.ReadWriteCloser, stdinAvailable bool) error {
+	var wg sync.WaitGroup
+	doneChan := make(chan struct{}) // Channel to signal stdin goroutine to exit
+
 	// Start goroutine for handling stdin if available
 	if stdinAvailable {
+		wg.Add(1)
 		go func() {
-			stdin := bufio.NewReader(os.Stdin)
-			for {
-				data := make([]byte, 1024)
-				n, err := stdin.Read(data)
-				if err != nil {
-					if err != io.EOF {
-						fmt.Fprintf(os.Stderr, "Error reading from stdin: %v\n", err)
-					}
-					return
+			defer wg.Done()
+			defer func() {
+				// Try to close the write side... (signal EOF)
+				if tcpConn, ok := conn.(*net.TCPConn); ok {
+					tcpConn.CloseWrite()
+				} else {
+					conn.Close() // Fallback
 				}
+			}()
 
-				_, err = conn.Write(data[:n])
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Error writing to connection: %v\n", err)
-					return
+			buffer := make([]byte, 1024)
+			for {
+				// Use select to read from stdin or wait for done signal
+				stdinReadChan := make(chan struct {
+					n   int
+					err error
+				}, 1)
+
+				// Goroutine to perform the potentially blocking read
+				go func() {
+					n, err := os.Stdin.Read(buffer)
+					stdinReadChan <- struct {
+						n   int
+						err error
+					}{n, err}
+				}()
+
+				select {
+				case <-doneChan: // If main loop signals done
+					// fmt.Fprintln(os.Stderr, "DEBUG: stdin goroutine received done signal")
+					return // Exit goroutine
+				case readResult := <-stdinReadChan: // If stdin read completes
+					n := readResult.n
+					err := readResult.err
+					if n > 0 {
+						if _, writeErr := conn.Write(buffer[:n]); writeErr != nil {
+							fmt.Fprintf(os.Stderr, "Error writing to connection: %v\n", writeErr)
+							return // Exit goroutine on write error
+						}
+					}
+					if err != nil {
+						if err != io.EOF {
+							fmt.Fprintf(os.Stderr, "Error reading from stdin: %v\n", err)
+						}
+						// fmt.Fprintf(os.Stderr, "DEBUG: Exiting stdin goroutine due to err: %v\n", err)
+						return // Exit goroutine on error or EOF
+					}
+					// Optional: Add a timeout to prevent deadlock if stdin somehow hangs unexpectedly
+					// case <-time.After(10 * time.Second):
+					//     fmt.Fprintln(os.Stderr, "DEBUG: stdin read timed out")
+					//     return
 				}
 			}
 		}()
 	}
 
-	// Read multiplexed stream
+	// Read multiplexed stream from connection
+	var readErr error
 	buf := make([]byte, 8)
 	for {
-		// Read header (8 bytes)
 		n, err := io.ReadFull(conn, buf)
 		if err != nil {
-			if err == io.EOF {
-				return nil
+			isClosedConnErr := errors.Is(err, net.ErrClosed) || strings.Contains(err.Error(), "use of closed network connection")
+			if err == io.EOF || isClosedConnErr {
+				readErr = nil
+			} else {
+				readErr = fmt.Errorf("failed to read header: %v", err)
 			}
-			return fmt.Errorf("failed to read header: %v", err)
+			break // Exit loop
 		}
 		if n != 8 {
-			return fmt.Errorf("short read: got %d bytes, expected 8", n)
+			readErr = fmt.Errorf("short read on header: got %d bytes, expected 8", n)
+			break
 		}
 
 		// Parse header
@@ -324,41 +377,46 @@ func handleMultiplexedStream(conn io.ReadWriter, stdinAvailable bool) error {
 		size := binary.BigEndian.Uint32(buf[4:])
 
 		// Read payload
+		if size > 1*1024*1024 {
+			readErr = fmt.Errorf("unreasonable payload size received: %d", size)
+			break
+		}
+		if size == 0 {
+			continue
+		}
 		payload := make([]byte, size)
-		n, err = io.ReadFull(conn, payload)
-		if err != nil {
-			return fmt.Errorf("failed to read payload: %v", err)
+		payloadN, payloadErr := io.ReadFull(conn, payload)
+		if payloadErr != nil {
+			isClosedConnErr := errors.Is(payloadErr, net.ErrClosed) || strings.Contains(payloadErr.Error(), "use of closed network connection")
+			if payloadErr == io.EOF || isClosedConnErr {
+				readErr = nil
+			} else {
+				readErr = fmt.Errorf("failed to read payload: %v", payloadErr)
+			}
+			break
 		}
-		if uint32(n) != size {
-			return fmt.Errorf("short read: got %d bytes, expected %d", n, size)
+		if uint32(payloadN) != size {
+			readErr = fmt.Errorf("short read on payload: got %d bytes, expected %d", payloadN, size)
+			break
 		}
-
-		// Write to appropriate output
 		switch streamType {
-		case 1: // stdout
-			os.Stdout.Write(payload)
-		case 2: // stderr
-			os.Stderr.Write(payload)
+		case 1:
+			os.Stdout.Write(payload[:payloadN])
+		case 2:
+			os.Stderr.Write(payload[:payloadN])
 		default:
 			fmt.Fprintf(os.Stderr, "Unknown stream type: %d\n", streamType)
 		}
 	}
-}
 
-// hijackConn attempts to hijack the HTTP connection to a raw TCP connection
-func hijackConn(resp *http.Response) (net.Conn, error) {
-	// Check if the connection can be hijacked
-	hj, ok := resp.Body.(interface {
-		Hijack() (net.Conn, *bufio.ReadWriter, error)
-	})
-	if !ok {
-		return nil, fmt.Errorf("connection does not support hijacking")
-	}
+	// Signal stdin goroutine to exit *before* waiting
+	// fmt.Fprintln(os.Stderr, "DEBUG: Closing doneChan")
+	close(doneChan)
 
-	conn, _, err := hj.Hijack()
-	if err != nil {
-		return nil, fmt.Errorf("failed to hijack connection: %v", err)
-	}
+	// Wait for the stdin goroutine to finish
+	// fmt.Fprintln(os.Stderr, "DEBUG: Waiting for stdin goroutine (wg.Wait())")
+	wg.Wait()
+	// fmt.Fprintln(os.Stderr, "DEBUG: Stdin goroutine finished")
 
-	return conn, nil
+	return readErr
 }

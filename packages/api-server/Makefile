@@ -2,12 +2,15 @@
 IMG ?= ghcr.io/babelcloud/gbox-api-server:latest
 
 # Common prefix for Go packages
-MODULE_PREFIX := github.com/babelcloud/gru-sandbox
+MODULE_PREFIX := github.com/babelcloud/gbox
 
 # Version information variables
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 COMMIT_ID := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+# Version package path
+VERSION_PKG := $(MODULE_PREFIX)/packages/api-server/internal/misc/service
 
 # Platform specific variables
 PLATFORMS ?= linux/amd64,linux/arm64
@@ -20,9 +23,9 @@ GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
 # LDFLAGS for embedding version information
-LDFLAGS := -ldflags "-X $(MODULE_PREFIX)/packages/api-server/internal/version.Version=$(VERSION) \
-                     -X $(MODULE_PREFIX)/packages/api-server/internal/version.BuildTime=$(BUILD_TIME) \
-                     -X $(MODULE_PREFIX)/packages/api-server/internal/version.CommitID=$(COMMIT_ID)"
+LDFLAGS := -ldflags "-X $(VERSION_PKG).Version=$(VERSION) \
+                     -X $(VERSION_PKG).BuildTime=$(BUILD_TIME) \
+                     -X $(VERSION_PKG).CommitID=$(COMMIT_ID)"
 
 # Show help
 .PHONY: help
@@ -32,14 +35,14 @@ help: ## Show this help message
 # Run the API server in development mode
 .PHONY: dev
 dev: ## Run the API server in development mode
-	DEBUG=true go run $(LDFLAGS) main.go
+	@DEBUG=true go run $(LDFLAGS) ./cmd/app/main.go
 
 # Build binary for current platform
 .PHONY: binary
 binary: ## Build binary for current platform
 	@echo "Building binary for $(GOOS)/$(GOARCH)..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) main.go
+	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/app/main.go
 	@echo "Binary built: $(BUILD_DIR)/$(BINARY_NAME)"
 
 # Build binaries for all platforms
@@ -47,10 +50,12 @@ binary: ## Build binary for current platform
 binary-all: ## Build binaries for all platforms
 	@echo "Building binaries for all platforms..."
 	@mkdir -p $(BUILD_DIR)
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 main.go
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 main.go
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 main.go
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 main.go
+	@for platform in linux darwin; do \
+		for arch in amd64 arm64; do \
+			echo "Building for $$platform/$$arch..."; \
+			CGO_ENABLED=0 GOOS=$$platform GOARCH=$$arch go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-$$platform-$$arch ./cmd/app/main.go; \
+		done; \
+	done
 	@echo "Binaries built in $(BUILD_DIR)"
 
 # Build the docker image locally

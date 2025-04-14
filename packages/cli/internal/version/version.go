@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/babelcloud/gru-sandbox/packages/cli/config"
+	"github.com/babelcloud/gbox/packages/cli/config"
 )
 
 // These variables will be set at build time via -ldflags

@@ -14,7 +14,7 @@ import (
 )
 
 // Test data
-const mockBoxStopSuccessResponse = `{"message":"Box stopped successfully"}`
+const mockBoxStopSuccessResponse = `{"success":true,"message":"Box stopped successfully"}`
 
 // TestBoxStopSuccess tests successfully stopping a box
 func TestBoxStopSuccess(t *testing.T) {
@@ -129,8 +129,7 @@ func TestBoxStopWithJsonOutput(t *testing.T) {
 	fmt.Fprintf(oldStdout, "Captured output: %s\n", output)
 
 	// Check if output is original JSON
-	expectedJSON := `{"status":"success","message":"Box stopped successfully"}`
-	assert.JSONEq(t, expectedJSON, strings.TrimSpace(output))
+	assert.JSONEq(t, mockBoxStopSuccessResponse, strings.TrimSpace(output))
 }
 
 // TestBoxStopNotFound tests the case when box is not found

@@ -5,7 +5,8 @@ FROM golang:1.23.7-alpine3.21 AS builder
 ARG VERSION=dev
 ARG COMMIT_ID=unknown
 ARG BUILD_TIME=unknown
-ARG MODULE_PREFIX=github.com/babelcloud/gru-sandbox
+ARG MODULE_PREFIX=github.com/babelcloud/gbox
+ARG VERSION_PKG=${MODULE_PREFIX}/packages/api-server/internal/misc/service
 
 # Set working directory
 WORKDIR /app
@@ -21,10 +22,10 @@ COPY . .
 
 # Build the application with version information
 RUN CGO_ENABLED=0 GOOS=linux go build \
-    -ldflags "-X ${MODULE_PREFIX}/packages/api-server/internal/version.Version=${VERSION} \
-              -X ${MODULE_PREFIX}/packages/api-server/internal/version.BuildTime=${BUILD_TIME} \
-              -X ${MODULE_PREFIX}/packages/api-server/internal/version.CommitID=${COMMIT_ID}" \
-    -o api-server
+    -ldflags "-X ${VERSION_PKG}.Version=${VERSION} \
+    -X ${VERSION_PKG}.BuildTime=${BUILD_TIME} \
+    -X ${VERSION_PKG}.CommitID=${COMMIT_ID}" \
+    -o api-server ./cmd/app/main.go
 
 # Final stage
 FROM alpine:3.21

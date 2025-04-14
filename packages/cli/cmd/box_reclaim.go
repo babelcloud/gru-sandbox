@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/babelcloud/gru-sandbox/packages/cli/config"
+	"github.com/babelcloud/gbox/packages/cli/config"
 	"github.com/spf13/cobra"
 )
 
@@ -17,31 +17,27 @@ type BoxReclaimOptions struct {
 	Force        bool
 }
 
+// BoxReclaimResponse matches the structure returned by the API
 type BoxReclaimResponse struct {
-	Status       string `json:"status"`
-	Message      string `json:"message"`
-	StoppedCount int    `json:"stoppedCount"`
-	DeletedCount int    `json:"deletedCount"`
+	StoppedCount int      `json:"stopped_count"`
+	DeletedCount int      `json:"deleted_count"`
+	StoppedIDs   []string `json:"stopped_ids,omitempty"`
+	DeletedIDs   []string `json:"deleted_ids,omitempty"`
+	// Removed Status and Message as they are not part of the actual API response for this endpoint
 }
 
 func NewBoxReclaimCommand() *cobra.Command {
 	opts := &BoxReclaimOptions{}
 
 	cmd := &cobra.Command{
-		Use:   "reclaim [box-id]",
-		Short: "Reclaim a box resources",
-		Long:  "Reclaim a box's resources by force if it's in a stuck state",
-		Example: `  gbox box reclaim 550e8400-e29b-41d4-a716-446655440000              # Reclaim box resources
-  gbox box reclaim 550e8400-e29b-41d4-a716-446655440000 --force      # Force reclaim box resources
-  gbox box reclaim 550e8400-e29b-41d4-a716-446655440000 --output json  # Output result in JSON format
-  gbox box reclaim                                      # Reclaim resources for all eligible boxes`,
-		Args: cobra.MaximumNArgs(1),
+		Use:   "reclaim",
+		Short: "Reclaim inactive boxes",
+		Long:  "Reclaim resources for all inactive boxes based on configured idle time.",
+		Example: `  gbox box reclaim              # Reclaim resources for all eligible boxes
+  gbox box reclaim --output json  # Output result in JSON format`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			boxID := ""
-			if len(args) > 0 {
-				boxID = args[0]
-			}
-			return runReclaim(boxID, opts)
+			return runReclaim(opts)
 		},
 	}
 
@@ -56,8 +52,8 @@ func NewBoxReclaimCommand() *cobra.Command {
 	return cmd
 }
 
-func runReclaim(boxID string, opts *BoxReclaimOptions) error {
-	apiURL := buildReclaimAPIURL(boxID, opts.Force)
+func runReclaim(opts *BoxReclaimOptions) error {
+	apiURL := buildReclaimAPIURL(opts.Force)
 
 	if os.Getenv("DEBUG") == "true" {
 		fmt.Fprintf(os.Stderr, "Request URL: %s\n", apiURL)
@@ -87,46 +83,31 @@ func runReclaim(boxID string, opts *BoxReclaimOptions) error {
 		fmt.Fprintf(os.Stderr, "Response content: %s\n", string(body))
 	}
 
-	return handleReclaimResponse(resp.StatusCode, body, boxID, opts.OutputFormat)
+	return handleReclaimResponse(resp.StatusCode, body, opts.OutputFormat)
 }
 
-func buildReclaimAPIURL(boxID string, force bool) string {
+func buildReclaimAPIURL(force bool) string {
 	apiBase := config.GetAPIURL()
-	var apiURL string
+	apiURL := fmt.Sprintf("%s/api/v1/boxes/reclaim", strings.TrimSuffix(apiBase, "/"))
 
-	if boxID == "" {
-		// If no box ID specified, perform global reclaim
-		apiURL = fmt.Sprintf("%s/api/v1/boxes/reclaim", strings.TrimSuffix(apiBase, "/"))
-	} else {
-		// If box ID specified, reclaim only that specific box
-		apiURL = fmt.Sprintf("%s/api/v1/boxes/%s/reclaim", strings.TrimSuffix(apiBase, "/"), boxID)
-	}
-
-	// Add force parameter
 	if force {
-		if strings.Contains(apiURL, "?") {
-			apiURL += "&force=true"
-		} else {
-			apiURL += "?force=true"
-		}
+		apiURL += "?force=true"
 	}
 
 	return apiURL
 }
 
-func handleReclaimResponse(statusCode int, body []byte, boxID, outputFormat string) error {
+func handleReclaimResponse(statusCode int, body []byte, outputFormat string) error {
 	switch statusCode {
 	case 200:
 		if outputFormat == "json" {
-			// Output JSON directly
 			fmt.Println(string(body))
 		} else {
-			// Output in text format
 			var response BoxReclaimResponse
 			if err := json.Unmarshal(body, &response); err != nil {
 				fmt.Println("Box resources successfully reclaimed")
 			} else {
-				fmt.Println(response.Message)
+				fmt.Println("Box resources successfully reclaimed")
 				if response.StoppedCount > 0 {
 					fmt.Printf("Stopped %d boxes\n", response.StoppedCount)
 				}
@@ -136,11 +117,7 @@ func handleReclaimResponse(statusCode int, body []byte, boxID, outputFormat stri
 			}
 		}
 	case 404:
-		if boxID != "" {
-			fmt.Printf("Box not found: %s\n", boxID)
-		} else {
-			fmt.Println("No boxes found to reclaim")
-		}
+		fmt.Println("No inactive boxes found to reclaim or API endpoint not found.")
 	case 400:
 		fmt.Printf("Error: Invalid request: %s\n", string(body))
 	default:

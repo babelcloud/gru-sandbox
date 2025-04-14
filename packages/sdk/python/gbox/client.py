@@ -3,9 +3,11 @@ from typing import Any, Dict, Optional
 
 from .api.box_service import BoxService as ApiBoxService
 from .api.client import Client as ApiClient  # Low-level HTTP client
+from .api.file_service import FileService as ApiFileService
 from .config import GBoxConfig
 from .exceptions import APIError  # Import base APIError
 from .managers.boxes import BoxManager
+from .managers.files import FileManager
 
 # Optional: Function to initialize from environment or common configs
 # def from_env(): ...
@@ -38,11 +40,11 @@ class GBoxClient:
 
         # Initialize low-level services
         self.box_service = ApiBoxService(client=self.api_client, config=self.config)
-        # Add other services here (e.g., self.file_service) if you have them
+        self.file_service = ApiFileService(client=self.api_client, config=self.config)
 
         # Initialize high-level managers
         self.boxes = BoxManager(client=self)
-        # Add other managers here (e.g., self.files)
+        self.files = FileManager(client=self)
 
     def version(self) -> Dict[str, Any]:
         """
@@ -52,7 +54,6 @@ class GBoxClient:
         # Assumes the low-level client has a method for this, or add a dedicated method.
         # This example assumes a simple GET request.
         try:
-            # 使用正确的API路径
             return self.api_client.get("/api/v1/version")
         except Exception as e:
             # Catch potential exceptions from api_client.get and wrap them

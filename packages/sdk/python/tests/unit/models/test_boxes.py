@@ -184,34 +184,6 @@ class TestBox(unittest.TestCase):
         self.assertIs(cm.exception, error)
         self.mock_client.box_service.run.assert_called_once_with(self.box_id, command=command)
 
-    def test_exec_run(self):
-        """Test the exec_run method (non-interactive)."""
-        command = ["ls", "-l"]
-        expected_response = {"exitCode": 0, "stdout": "total 0\n", "stderr": ""}
-        self.mock_client.box_service.exec.return_value = expected_response
-
-        exit_code, stdout, stderr = self.box.exec_run(command, interactive=False, tty=False)
-
-        self.mock_client.box_service.exec.assert_called_once_with(
-            self.box_id, command=command, interactive=False, tty=False
-        )
-        self.assertEqual(exit_code, 0)
-        self.assertEqual(stdout, "total 0\n")
-        self.assertEqual(stderr, "")
-        # 注意：交互式/tty=True 的情况可能需要更复杂的模拟（例如，模拟流）
-
-    def test_exec_run_api_error(self):
-        """Test exec_run method when API call fails."""
-        command = ["ls"]
-        error = APIError("Failed to exec command", status_code=500)
-        self.mock_client.box_service.exec.side_effect = error
-        with self.assertRaises(APIError) as cm:
-            self.box.exec_run(command)
-        self.assertIs(cm.exception, error)
-        self.mock_client.box_service.exec.assert_called_once_with(
-            self.box_id, command=command, interactive=False, tty=False
-        )
-
     def test_reclaim(self):
         """Test the reclaim method."""
         expected_response = {"message": "reclaimed", "resources": {}}
@@ -283,17 +255,14 @@ class TestBox(unittest.TestCase):
         mock_stats = {"Content-Type": "application/x-tar", "X-GBox-Size": "2048"}
         mock_tar_data = b"tar data bytes"
 
-        # 配置 head_archive 和 get_archive 的模拟调用
         self.mock_client.box_service.head_archive.return_value = mock_stats
         self.mock_client.box_service.get_archive.return_value = mock_tar_data
 
         tar_stream, stats = self.box.get_archive(path)
 
-        # 验证模拟调用
         self.mock_client.box_service.head_archive.assert_called_once_with(self.box_id, path=path)
         self.mock_client.box_service.get_archive.assert_called_once_with(self.box_id, path=path)
 
-        # 验证返回类型和内容
         self.assertIsInstance(tar_stream, io.BytesIO)
         self.assertEqual(tar_stream.read(), mock_tar_data)
         self.assertEqual(stats, mock_stats)
@@ -344,15 +313,13 @@ class TestBox(unittest.TestCase):
         """Test put_archive with a file-like object."""
         path = "/uploads"
         tar_data = b"tar data from file"
-        # 使用 MagicMock 来模拟文件对象的 read 方法
+
         mock_file = MagicMock(spec=io.BufferedReader)
         mock_file.read.return_value = tar_data
 
         self.box.put_archive(path, mock_file)
 
-        # 验证 read 被调用
         mock_file.read.assert_called_once()
-        # 验证 extract_archive 被正确调用
         self.mock_client.box_service.extract_archive.assert_called_once_with(
             self.box_id, path=path, archive_data=tar_data
         )

@@ -121,33 +121,9 @@ class Box:
         # self.attrs.update(response.get("box", {}))
         return exit_code, stdout, stderr
 
-    def exec_run(
-        self, command: List[str], interactive: bool = False, tty: bool = False
-    ) -> Tuple[int, Optional[str], Optional[str]]:
-        """
-        Executes a command in the Box.
-
-        Args:
-            command: The command and its arguments.
-            interactive: Enable interactive mode (stdin).
-            tty: Allocate a TTY.
-
-        Returns:
-            A tuple containing (exit_code, stdout_str, stderr_str).
-            stdout/stderr might be None if not captured or empty.
-            NOTE: If interactive/tty=True, the return might be different (e.g., a stream/socket).
-                  This implementation assumes non-interactive return based on BoxService.
-        Raises:
-            APIError: If the API call fails.
-        """
-        # Warning: If interactive=True, API might behave differently (streaming)
-        response = self._client.box_service.exec(
-            self.id, command=command, interactive=interactive, tty=tty
-        )
-        exit_code = response.get("exitCode", -1)
-        stdout = response.get("stdout")
-        stderr = response.get("stderr")
-        return exit_code, stdout, stderr
+    # FIXME: This is not implemented yet
+    def exec_run() -> Tuple[int, Optional[str], Optional[str]]:
+        return
 
     def reclaim(self, force: bool = False) -> Dict[str, Any]:
         """

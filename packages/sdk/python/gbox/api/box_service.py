@@ -257,30 +257,9 @@ class BoxService:
         response = self.client.post(f"/api/v1/boxes/{box_id}/run", data=data)
         return response
 
-    def exec(
-        self, box_id: str, command: List[str], interactive: bool = False, tty: bool = False
-    ) -> Dict[str, Any]:
-        """
-        Execute a command in the Box.
-        Maps to POST /api/v1/boxes/{id}/exec endpoint.
-
-        Args:
-            box_id: ID of the Box
-            command: Command to execute
-            interactive: Whether to enable interactive mode
-            tty: Whether to allocate a TTY
-
-        Returns:
-            Raw API response with the following structure:
-            {
-                "exitCode": 0,
-                "stdout": "command output",
-                "stderr": "error output"
-            }
-        """
-        data = {"cmd": command, "stdin": interactive, "stdout": True, "stderr": True, "tty": tty}
-        response = self.client.post(f"/api/v1/boxes/{box_id}/exec", data=data)
-        return response
+    # FIXME: This is not implemented yet
+    def exec() -> Any:
+        return
 
     def reclaim(self, box_id: Optional[str] = None, force: bool = False) -> Dict[str, Any]:
         """

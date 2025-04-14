@@ -50,9 +50,6 @@ test-e2e: ## Run end-to-end tests
 	@echo "Running Python SDK e2e tests..."
 	pytest -v -s tests/e2e/
 
-test-all: ## Run tests on all Python versions
-	tox
-
 coverage: test ## Check code coverage
 	pytest --cov=gbox
 	coverage report -m

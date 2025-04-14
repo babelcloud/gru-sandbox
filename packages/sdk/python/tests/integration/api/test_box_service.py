@@ -207,48 +207,6 @@ class TestBoxService(unittest.TestCase):
         )
         self.assertEqual(response, expected_response)
 
-    def test_exec_non_interactive(self):
-        """Test exec command non-interactively."""
-        command = ["ls", "-l"]
-        expected_data = {
-            "cmd": command,
-            "stdin": False,
-            "stdout": True,
-            "stderr": True,
-            "tty": False,
-        }  # Match implementation
-        expected_response = {"exitCode": 0, "stdout": "total 0\n"}
-        self.mock_api_client.post.return_value = expected_response
-
-        response = self.box_service.exec(self.box_id, command=command, interactive=False, tty=False)
-
-        self.mock_api_client.post.assert_called_once_with(
-            f"/api/v1/boxes/{self.box_id}/exec", data=expected_data
-        )
-        self.assertEqual(response, expected_response)
-
-    def test_exec_interactive_tty(self):
-        """Test exec command interactively with TTY."""
-        command = ["/bin/sh"]
-        expected_data = {
-            "cmd": command,
-            "stdin": True,
-            "stdout": True,
-            "stderr": True,
-            "tty": True,
-        }  # Match implementation
-        # Interactive exec might return different data or handle differently (e.g., streaming)
-        # For this unit test, we assume it returns a dictionary similar to non-interactive
-        expected_response = {"message": "Exec session started"}
-        self.mock_api_client.post.return_value = expected_response
-
-        response = self.box_service.exec(self.box_id, command=command, interactive=True, tty=True)
-
-        self.mock_api_client.post.assert_called_once_with(
-            f"/api/v1/boxes/{self.box_id}/exec", data=expected_data
-        )
-        self.assertEqual(response, expected_response)
-
     def test_reclaim_specific_box_no_force(self):
         """Test reclaim for a specific box without force."""
         expected_data = {"force": False}  # boxId is in the path

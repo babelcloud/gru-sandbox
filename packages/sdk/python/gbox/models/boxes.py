@@ -348,6 +348,67 @@ class Box:
         # Call the underlying API method to extract the archive (either provided or generated)
         self._client.box_service.extract_archive(self.id, path=path, archive_data=archive_bytes)
 
+    def copy(self, source: str, target: str) -> None:
+        """
+        Copies files or directories between the local filesystem and the Box.
+
+        Uses a URI-like format to specify source and target locations:
+        - 'box:/path/in/box' indicates a path inside the Box.
+        - '/local/path' or 'relative/local/path' indicates a path on the local filesystem.
+
+        Examples:
+        - Upload local file 'myfile.txt' to '/uploads/' inside the Box:
+            `box.copy('myfile.txt', 'box:/uploads/')`
+        - Download '/data/report.txt' from the Box to the local current directory:
+            `box.copy('box:/data/report.txt', 'report.txt')`
+        - Download '/data/report.txt' from the Box to local '/tmp/report.txt':
+            `box.copy('box:/data/report.txt', '/tmp/report.txt')`
+
+        Args:
+            source: The source path (e.g., 'local_file.txt', 'box:/remote/path').
+            target: The target path (e.g., 'box:/remote/dir/', 'local_file.txt').
+
+        Raises:
+            ValueError: If the source and target combination is invalid (e.g., both local or both remote).
+            FileNotFoundError: If a local source file specified for upload does not exist.
+            IsADirectoryError: If a local source path for upload points to a directory.
+            APIError: If an API call during upload or download fails.
+            NotFound: If a remote source path for download does not exist.
+            tarfile.TarError: If downloading to a local path encounters tar processing issues.
+            Exception: For other potential errors during file I/O or API interaction.
+        """
+        source_is_box = source.startswith("box:")
+        target_is_box = target.startswith("box:")
+
+        if source_is_box and not target_is_box:
+            # Download from Box to Local
+            box_path = source[len("box:") :]
+            local_path = target
+            if not box_path:
+                raise ValueError("Source path in Box cannot be empty.")
+            # Use get_archive with local_path to download directly
+            self.get_archive(path=box_path, local_path=local_path)
+            # get_archive handles file existence checks (NotFound) and extraction
+
+        elif not source_is_box and target_is_box:
+            # Upload from Local to Box
+            local_path = source
+            box_path = target[len("box:") :]
+            if not box_path or box_path == "/":
+                raise ValueError(
+                    "Target path in Box must be a directory (e.g., 'box:/uploads/'), not root or empty."
+                )
+            # Use put_archive with local file path
+            self.put_archive(path=box_path, data=local_path)
+            # put_archive handles local file checks (FileNotFound, IsADirectory)
+
+        elif source_is_box and target_is_box:
+            raise ValueError(
+                "Cannot copy directly between two Box paths. Use box.run() or download then upload."
+            )
+        else:  # Not source_is_box and not target_is_box
+            raise ValueError("Cannot copy between two local paths using this method.")
+
     def __eq__(self, other):
         return isinstance(other, Box) and self.id == other.id
 

@@ -290,6 +290,156 @@ def test_put_get_head_archive_local_path(test_box: Box):
         print(f"Warning: Exception during cleanup inside the box: {e}")
 
 
+def test_copy_method(test_box: Box):
+    """
+    Tests the unified Box.copy() method for uploads and downloads.
+    """
+    print(f"Testing copy method on box: {test_box.short_id}")
+    ensure_box_running(test_box)
+
+    upload_dir_in_box = "/tmp/copy_method_tests"
+    local_file_content = f"Hello from copy test! Timestamp: {time.time()}"
+
+    # Ensure the base directory exists for uploads/downloads inside the box
+    create_test_file_in_box(
+        test_box, f"{upload_dir_in_box}/.keep", ""
+    )  # Create dummy file to ensure dir exists
+
+    local_tmp_file_path = None
+    local_tmp_dir_path = None
+
+    try:
+        # --- 1. Test Upload (Local -> Box) ---
+        print("--- 1. Testing copy (upload: local -> box) ---")
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix="_copy_up.txt") as tmp_file:
+            tmp_file.write(local_file_content)
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+            local_tmp_file_path = tmp_file.name
+            local_filename_basename = os.path.basename(local_tmp_file_path)
+
+        print(f"Created temporary local file: {local_tmp_file_path}")
+        target_box_path = f"box:{upload_dir_in_box}"
+        expected_file_in_box = f"{upload_dir_in_box}/{local_filename_basename}"
+        print(
+            f"Uploading {local_tmp_file_path} to {target_box_path} (expected in box: {expected_file_in_box})"
+        )
+
+        test_box.copy(source=local_tmp_file_path, target=target_box_path)
+        print("copy (upload) call successful.")
+
+        # Verify using box.run
+        print(f"Verifying content of {expected_file_in_box} inside the box...")
+        exit_code, stdout, stderr = test_box.run(command=["cat", expected_file_in_box])
+        if exit_code not in (0, -1):
+            pytest.fail(
+                f"Failed to cat uploaded file {expected_file_in_box}. Exit code: {exit_code}, Stdout: {stdout}, Stderr: {stderr}"
+            )
+        assert (
+            stdout.strip() == local_file_content
+        ), f"Content mismatch. Expected: '{local_file_content}', Got: '{stdout.strip()}'"
+        print("File content verified successfully inside the box after copy (upload).")
+
+        # --- 2. Test Download (Box -> Local) ---
+        print("--- 2. Testing copy (download: box -> local) ---")
+        local_tmp_dir = tempfile.TemporaryDirectory()
+        local_tmp_dir_path = local_tmp_dir.name  # Store path for potential cleanup info
+        download_target_local_path = os.path.join(local_tmp_dir_path, "downloaded_via_copy.txt")
+        source_box_path = f"box:{expected_file_in_box}"
+
+        print(f"Downloading {source_box_path} to {download_target_local_path}")
+        test_box.copy(source=source_box_path, target=download_target_local_path)
+        print("copy (download) call successful.")
+
+        # Verify local file content
+        assert os.path.exists(
+            download_target_local_path
+        ), f"Local download file {download_target_local_path} not found."
+        with open(download_target_local_path, "r") as f:
+            downloaded_content = f.read()
+        assert (
+            downloaded_content == local_file_content
+        ), f"Downloaded content mismatch. Expected: '{local_file_content}', Got: '{downloaded_content}'"
+        print("Downloaded file content verified locally after copy (download).")
+
+        # Clean up temp dir explicitly here for clarity
+        local_tmp_dir.cleanup()
+        local_tmp_dir = None
+        local_tmp_dir_path = None
+
+        # --- 3. Test Error Cases ---
+        print("--- 3. Testing copy error cases ---")
+
+        # a) Local to Local
+        with pytest.raises(ValueError, match="Cannot copy between two local paths"):
+            print("Testing copy (local -> local)")
+            test_box.copy(source=local_tmp_file_path, target="another_local_file.txt")
+
+        # b) Box to Box
+        with pytest.raises(ValueError, match="Cannot copy directly between two Box paths"):
+            print("Testing copy (box -> box)")
+            test_box.copy(source=f"box:{expected_file_in_box}", target="box:/another/path")
+
+        # c) Upload non-existent local file
+        with pytest.raises(FileNotFoundError):
+            print("Testing copy (upload non-existent local file)")
+            test_box.copy(source="/no/such/local/file.xyz", target=target_box_path)
+
+        # d) Download non-existent box file
+        with pytest.raises(APIError) as excinfo:
+            print("Testing copy (download non-existent box file)")
+            test_box.copy(source="box:/no/such/remote/file.abc", target="local_download_fail.txt")
+        # TODO: Change this check to `isinstance(excinfo.value, NotFound)` when API returns 404
+        assert (
+            excinfo.value.status_code == 500
+        ), "Expected APIError 500 for non-existent file (temporary check)"
+
+        # e) Upload local directory (should fail)
+        with tempfile.TemporaryDirectory() as tmp_dir_for_upload:
+            with pytest.raises(IsADirectoryError):
+                print("Testing copy (upload local directory)")
+                test_box.copy(source=tmp_dir_for_upload, target=target_box_path)
+
+        # f) Download box directory to local file (should fail)
+        with tempfile.TemporaryDirectory() as tmp_dir_for_download:
+            local_dl_path_for_dir = os.path.join(tmp_dir_for_download, "should_fail_dir.txt")
+            # Downloading a directory ('upload_dir_in_box') to a file path ('local_dl_path_for_dir')
+            # This fails inside get_archive's tar processing when local_path is set.
+            with pytest.raises(tarfile.TarError):
+                print("Testing copy (download box directory to local file)")
+                test_box.copy(source=f"box:{upload_dir_in_box}", target=local_dl_path_for_dir)
+
+        print("All copy error cases tested successfully.")
+
+    except Exception as e:
+        pytest.fail(f"An unexpected error occurred during copy tests: {e}")
+    finally:
+        # Clean up the temporary local file
+        if local_tmp_file_path and os.path.exists(local_tmp_file_path):
+            os.remove(local_tmp_file_path)
+            print(f"Cleaned up temporary local file: {local_tmp_file_path}")
+        # Clean up temporary local directory if it wasn't cleaned up by its context manager (e.g., due to error)
+        if local_tmp_dir_path and os.path.exists(local_tmp_dir_path):
+            # Be cautious cleaning directories manually if not using TemporaryDirectory context
+            # For this test setup, relying on the context manager or TemporaryDirectory object cleanup is safer.
+            print(
+                f"Note: Temporary directory {local_tmp_dir_path} might need manual cleanup if test failed mid-download."
+            )
+
+        # Clean up inside the box
+        try:
+            print(f"Cleaning up test directory {upload_dir_in_box} inside the box...")
+            exit_code, _, stderr = test_box.run(command=["rm", "-rf", upload_dir_in_box])
+            if exit_code != 0:
+                print(
+                    f"Warning: Failed to remove test directory {upload_dir_in_box} in box. Exit Code: {exit_code}, Stderr: {stderr}"
+                )
+            else:
+                print("Test directory in box removed successfully.")
+        except Exception as e:
+            print(f"Warning: Exception during cleanup inside the box: {e}")
+
+
 # Add tests for put_archive edge cases (e.g., empty file, permissions, invalid paths) if needed.
 # Add tests for get_archive on directories (without local_path).
 

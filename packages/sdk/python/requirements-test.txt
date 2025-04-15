@@ -1,6 +1,0 @@
-pytest>=7.0.0
-# Assuming gbox is installed in editable mode or available in PYTHONPATH
-pytest-mock>=3.8.0
-
-# If not, add '-e .' or the relative path to the sdk package here
-# Example: -e ../../. 

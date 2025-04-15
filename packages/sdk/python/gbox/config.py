@@ -36,7 +36,7 @@ class GBoxConfig:
 
     def __init__(
         self,
-        api_url: str = "http://localhost:8080",
+        api_url: str = "http://localhost:28080",
         logger: Optional[Logger] = None,
         debug_mode: bool = False,
     ):
@@ -48,6 +48,6 @@ class GBoxConfig:
             logger: Optional logger object
             debug_mode: Whether to enable debug mode
         """
-        self.api_url = (api_url or "http://localhost:8080").rstrip("/")
+        self.api_url = (api_url or "http://localhost:28080").rstrip("/")
         self.logger = logger
         self.debug_mode = debug_mode

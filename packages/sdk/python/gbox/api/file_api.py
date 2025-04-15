@@ -1,5 +1,5 @@
 """
-GBox File API Service Module
+GBox File API Module
 
 This module provides direct mappings to the File-related API endpoints in the GBox API server.
 All methods return the raw server response data or headers.
@@ -12,16 +12,16 @@ from ..config import GBoxConfig
 from .client import Client
 
 
-class FileService:
+class FileApi:
     """
-    File service, provides low-level operations for file resources in the shared directory.
+    File API, provides low-level operations for file resources in the shared directory.
 
     Each method directly corresponds to an API endpoint in the server.
     """
 
     def __init__(self, client: Client, config: GBoxConfig):
         """
-        Initialize File service
+        Initialize File API
 
         Args:
             client: HTTP client

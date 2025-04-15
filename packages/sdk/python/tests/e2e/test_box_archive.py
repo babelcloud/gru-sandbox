@@ -39,7 +39,7 @@ def create_test_file_in_box(box: Box, file_path: str, content: str):
         mkdir_cmd = ["mkdir", "-p", parent_dir]
         print(f"Running command in box {box.short_id}: {' '.join(mkdir_cmd)}")
         exit_code, _, stderr = box.run(command=mkdir_cmd)
-        # BoxService.run might return -1 for exit code in certain scenarios (e.g., non-blocking exec),
+        # BoxApi.run might return -1 for exit code in certain scenarios (e.g., non-blocking exec),
         # especially if the connection closes before the command fully finishes and reports status.
         # Treat 0 (success) and -1 (potentially successful but unknown exit code) as acceptable for setup commands.
         if exit_code not in (0, -1):

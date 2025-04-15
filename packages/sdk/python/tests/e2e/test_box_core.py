@@ -45,7 +45,7 @@ def test_create_box(gbox: GBoxClient):
         assert len(created_box.id) > 10  # Basic sanity check
         assert created_box.short_id is not None
         assert created_box.labels.get("creator") == "pytest_e2e"
-        assert created_box.attrs.get("image") == TEST_IMAGE
+        assert created_box.attrs.image == TEST_IMAGE
         print(f"Box created successfully: {created_box.short_id}")
 
         # Verify it appears in the list
@@ -80,10 +80,9 @@ def test_create_box_with_options(gbox: GBoxClient):
         assert created_box.id is not None
         assert len(created_box.id) > 10  # Basic sanity check
         assert created_box.short_id is not None
-        # Assert the labels that were actually set
         assert created_box.labels.get("env") == test_labels["env"]
         assert created_box.labels.get("purpose") == test_labels["purpose"]
-        assert created_box.attrs.get("image") == TEST_IMAGE
+        assert created_box.attrs.image == TEST_IMAGE
         print(f"Box created successfully: {created_box.short_id}")
 
         # Verify it appears in the list
@@ -92,6 +91,11 @@ def test_create_box_with_options(gbox: GBoxClient):
         found = any(b.id == created_box.id for b in boxes)
         assert found, f"Newly created box {created_box.short_id} not found in list"
         print("Box found in list.")
+
+        # Verify the box was created but stopped (since cmd was provided)
+        assert (
+            created_box.status == "stopped"
+        ), f"Expected box to be stopped, but status is {created_box.status}"
 
     finally:
         # Cleanup

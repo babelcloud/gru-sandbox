@@ -2,7 +2,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from gbox.api.box_service import BoxService as ApiBoxService
+from gbox.api.box_api import BoxApi as ApiBoxApi
 from gbox.api.client import Client as ApiClient
 from gbox.client import GBoxClient
 
@@ -16,10 +16,10 @@ class TestGBoxClient(unittest.TestCase):
 
     # Use patch to replace classes with Mocks during tests
     @patch("gbox.client.BoxManager")
-    @patch("gbox.client.ApiBoxService")
+    @patch("gbox.client.ApiBoxApi")
     @patch("gbox.client.ApiClient")
     @patch("gbox.client.GBoxConfig")
-    def test_init(self, MockGBoxConfig, MockApiClient, MockApiBoxService, MockBoxManager):
+    def test_init(self, MockGBoxConfig, MockApiClient, MockApiBoxApi, MockBoxManager):
         """Test GBoxClient initialization."""
         # Arrange
         mock_config_instance = Mock(spec=GBoxConfig)
@@ -29,8 +29,8 @@ class TestGBoxClient(unittest.TestCase):
         mock_api_client_instance = Mock(spec=ApiClient)
         MockApiClient.return_value = mock_api_client_instance
 
-        mock_api_box_service_instance = Mock(spec=ApiBoxService)
-        MockApiBoxService.return_value = mock_api_box_service_instance
+        mock_api_box_api_instance = Mock(spec=ApiBoxApi)
+        MockApiBoxApi.return_value = mock_api_box_api_instance
 
         mock_box_manager_instance = Mock(spec=BoxManager)
         MockBoxManager.return_value = mock_box_manager_instance
@@ -50,23 +50,21 @@ class TestGBoxClient(unittest.TestCase):
         )
         self.assertEqual(client.api_client, mock_api_client_instance)
 
-        # Verify ApiBoxService was instantiated correctly
-        MockApiBoxService.assert_called_once_with(
+        # Verify ApiBoxApi was instantiated correctly
+        MockApiBoxApi.assert_called_once_with(
             client=mock_api_client_instance, config=mock_config_instance
         )
-        self.assertEqual(client.box_service, mock_api_box_service_instance)
+        self.assertEqual(client.box_api, mock_api_box_api_instance)
 
         # Verify BoxManager was instantiated correctly
         MockBoxManager.assert_called_once_with(client=client)
         self.assertEqual(client.boxes, mock_box_manager_instance)
 
     @patch("gbox.client.BoxManager")
-    @patch("gbox.client.ApiBoxService")
+    @patch("gbox.client.ApiBoxApi")
     @patch("gbox.client.ApiClient")
     @patch("gbox.client.GBoxConfig")
-    def test_init_with_config(
-        self, MockGBoxConfig, MockApiClient, MockApiBoxService, MockBoxManager
-    ):
+    def test_init_with_config(self, MockGBoxConfig, MockApiClient, MockApiBoxApi, MockBoxManager):
         """Test GBoxClient initialization with a provided config."""
         # Arrange
         provided_config = Mock(spec=GBoxConfig)
@@ -88,8 +86,8 @@ class TestGBoxClient(unittest.TestCase):
             timeout=60,  # Default timeout when not specified
             logger=provided_config.logger,
         )
-        # Verify ApiBoxService used the provided config
-        MockApiBoxService.assert_called_once_with(
+        # Verify ApiBoxApi used the provided config
+        MockApiBoxApi.assert_called_once_with(
             client=mock_api_client_instance, config=provided_config
         )
         # Verify BoxManager was instantiated correctly
@@ -97,12 +95,10 @@ class TestGBoxClient(unittest.TestCase):
 
     # Patch dependencies for the version method tests
     @patch("gbox.client.BoxManager")
-    @patch("gbox.client.ApiBoxService")
+    @patch("gbox.client.ApiBoxApi")
     @patch("gbox.client.ApiClient")
     @patch("gbox.client.GBoxConfig")
-    def test_version_success(
-        self, MockGBoxConfig, MockApiClient, MockApiBoxService, MockBoxManager
-    ):
+    def test_version_success(self, MockGBoxConfig, MockApiClient, MockApiBoxApi, MockBoxManager):
         """Test the version() method successfully retrieving version info."""
         # Arrange
         mock_api_client_instance = Mock(spec=ApiClient)
@@ -120,12 +116,10 @@ class TestGBoxClient(unittest.TestCase):
         self.assertEqual(version_info, expected_version_info)
 
     @patch("gbox.client.BoxManager")
-    @patch("gbox.client.ApiBoxService")
+    @patch("gbox.client.ApiBoxApi")
     @patch("gbox.client.ApiClient")
     @patch("gbox.client.GBoxConfig")
-    def test_version_api_error(
-        self, MockGBoxConfig, MockApiClient, MockApiBoxService, MockBoxManager
-    ):
+    def test_version_api_error(self, MockGBoxConfig, MockApiClient, MockApiBoxApi, MockBoxManager):
         """Test the version() method when the API client raises APIError."""
         # Arrange
         mock_api_client_instance = Mock(spec=ApiClient)
@@ -144,11 +138,11 @@ class TestGBoxClient(unittest.TestCase):
         mock_api_client_instance.get.assert_called_once_with("/api/v1/version")
 
     @patch("gbox.client.BoxManager")
-    @patch("gbox.client.ApiBoxService")
+    @patch("gbox.client.ApiBoxApi")
     @patch("gbox.client.ApiClient")
     @patch("gbox.client.GBoxConfig")
     def test_version_other_error(
-        self, MockGBoxConfig, MockApiClient, MockApiBoxService, MockBoxManager
+        self, MockGBoxConfig, MockApiClient, MockApiBoxApi, MockBoxManager
     ):
         """Test the version() method when the API client raises a non-APIError."""
         # Arrange

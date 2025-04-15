@@ -1,9 +1,9 @@
 # gbox/client.py
 from typing import Any, Dict, Optional
 
-from .api.box_service import BoxService as ApiBoxService
+from .api.box_api import BoxApi as ApiBoxApi
 from .api.client import Client as ApiClient  # Low-level HTTP client
-from .api.file_service import FileService as ApiFileService
+from .api.file_api import FileApi as ApiFileApi
 from .config import GBoxConfig
 from .exceptions import APIError  # Import base APIError
 from .managers.boxes import BoxManager
@@ -39,8 +39,8 @@ class GBoxClient:
         self.api_client = ApiClient(base_url=base_url, timeout=timeout, logger=self.config.logger)
 
         # Initialize low-level services
-        self.box_service = ApiBoxService(client=self.api_client, config=self.config)
-        self.file_service = ApiFileService(client=self.api_client, config=self.config)
+        self.box_api = ApiBoxApi(client=self.api_client, config=self.config)
+        self.file_api = ApiFileApi(client=self.api_client, config=self.config)
 
         # Initialize high-level managers
         self.boxes = BoxManager(client=self)

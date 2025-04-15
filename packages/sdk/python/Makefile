@@ -8,8 +8,7 @@ install-dev-tools: ## Install development tools (black, isort, ruff, mypy)
 	pip install black isort ruff mypy pytest pytest-cov
 
 start: install-dev-tools ## Install all required dependencies and development tools
-	pip install -r requirements.txt
-	pip install -e .
+	pip install -e ".[dev]"
 
 clean: clean-build clean-pyc clean-test ## Remove all build, test, coverage and Python artifacts
 

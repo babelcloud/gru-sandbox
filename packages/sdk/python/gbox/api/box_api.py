@@ -1,5 +1,5 @@
 """
-GBox Box API Service Module
+GBox Box API Module
 
 This module provides direct mappings to the Box-related API endpoints in the GBox API server.
 All methods return the raw server response data without any transformation.
@@ -11,9 +11,9 @@ from ..config import GBoxConfig
 from .client import Client
 
 
-class BoxService:
+class BoxApi:
     """
-    Box service, provides low-level operations for Box resources.
+    Box API, provides low-level operations for Box resources.
 
     Each method directly corresponds to an API endpoint in the server and returns
     the raw server response data.
@@ -21,7 +21,7 @@ class BoxService:
 
     def __init__(self, client: Client, config: GBoxConfig):
         """
-        Initialize Box service
+        Initialize Box API
 
         Args:
             client: HTTP client

@@ -5,50 +5,45 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-# 假设 GBoxClient 和 Box 类在 gbox 包中
-# 根据你的项目结构调整导入路径
-# TODO: Ensure correct import paths based on actual structure
-# This might require adjusting the path or ensuring tests run from the correct root
-from gbox.client import GBoxClient  # 需要这个类来模拟
+from gbox.client import GBoxClient
 from gbox.exceptions import APIError, NotFound  # Import exceptions
-from gbox.models.boxes import Box
+from gbox.models.boxes import Box, BoxBase
 
-# from gbox.api.box_service import BoxService # 如果需要显式模拟 BoxService
+# from gbox.api.box_api import BoxApi
 
 
 class TestBox(unittest.TestCase):
 
     def setUp(self):
         """Set up for test methods."""
-        # 创建 GBoxClient 的模拟实例
         self.mock_client = Mock(spec=GBoxClient)
-        # 创建 BoxService 的模拟实例并将其附加到 mock_client
-        self.mock_client.box_service = Mock()  # spec=BoxService 如果 BoxService 定义了方法
+        self.mock_client.box_api = Mock()
 
-        # 示例 Box 数据
         self.box_id = "box-12345678-abcd"
         self.box_attrs = {
             "id": self.box_id,
-            "name": "test-box",
             "status": "stopped",
-            "labels": {"env": "testing"},
+            "labels": {"env": "testing", "name": "test-box"},
             "image": "ubuntu:latest",
         }
-        # 创建 Box 实例进行测试
-        self.box = Box(self.mock_client, self.box_id, self.box_attrs)
+        box_data = BoxBase(**self.box_attrs)
+        self.box = Box(self.mock_client, box_data)
 
-        self.box_simple_id = Box(self.mock_client, "box123", {})
+        simple_box_data = BoxBase(id="box123", status="running", image="simple:image")
+        self.box_simple_id = Box(self.mock_client, simple_box_data)
 
     def test_init(self):
         """Test Box initialization."""
         self.assertEqual(self.box.id, self.box_id)
-        self.assertEqual(self.box.attrs, self.box_attrs)
+        self.assertEqual(self.box.attrs.id, self.box_attrs["id"])
+        self.assertEqual(self.box.attrs.status, self.box_attrs["status"])
+        self.assertEqual(self.box.attrs.labels, self.box_attrs["labels"])
+        self.assertEqual(self.box.attrs.image, self.box_attrs["image"])
         self.assertEqual(self.box._client, self.mock_client)
 
     def test_short_id(self):
         """Test the short_id property."""
         self.assertEqual(self.box.short_id, "box-12345678")
-        # 测试没有'-'的情况
         self.assertEqual(self.box_simple_id.short_id, "box123")
 
     def test_short_id_no_hyphen(self):
@@ -58,119 +53,155 @@ class TestBox(unittest.TestCase):
     def test_name(self):
         """Test the name property."""
         self.assertEqual(self.box.name, "test-box")
-        box_no_name = Box(self.mock_client, "box-noname", {})
+        box_no_name_data = BoxBase(id="box-noname", status="stopped", image="img")
+        box_no_name = Box(self.mock_client, box_no_name_data)
         self.assertIsNone(box_no_name.name)
 
     def test_status(self):
         """Test the status property."""
         self.assertEqual(self.box.status, "stopped")
-        box_no_status = Box(self.mock_client, "box-nostatus", {})
-        self.assertIsNone(box_no_status.status)
+        box_unknown_status_data = BoxBase(id="box-nostatus", status="unknown", image="img")
+        box_unknown_status = Box(self.mock_client, box_unknown_status_data)
+        self.assertEqual(box_unknown_status.status, "unknown")
 
     def test_labels(self):
         """Test the labels property."""
-        self.assertEqual(self.box.labels, {"env": "testing"})
-        box_no_labels = Box(self.mock_client, "box-nolabels", {})
+        self.assertEqual(self.box.labels, {"env": "testing", "name": "test-box"})
+        box_no_labels_data = BoxBase(id="box-nolabels", status="stopped", image="img")
+        box_no_labels = Box(self.mock_client, box_no_labels_data)
         self.assertEqual(box_no_labels.labels, {})
 
     def test_reload(self):
         """Test the reload method."""
-        new_attrs = {"id": self.box_id, "status": "running", "name": "reloaded-box"}
-        # 配置 mock_box_service.get 在被调用时返回新的属性
-        self.mock_client.box_service.get.return_value = new_attrs
+        new_attrs_dict = {
+            "id": self.box_id,
+            "status": "running",
+            "image": "reloaded:image",
+            "labels": {"name": "reloaded-box"},
+        }
+        self.mock_client.box_api.get.return_value = new_attrs_dict
 
-        # 调用 reload
         self.box.reload()
 
-        # 验证 box_service.get 被正确调用
-        self.mock_client.box_service.get.assert_called_once_with(self.box_id)
-        # 验证 box 的属性已更新
-        self.assertEqual(self.box.attrs, new_attrs)
-        self.assertEqual(self.box.status, "running")  # 属性也应更新
+        self.mock_client.box_api.get.assert_called_once_with(self.box_id)
+        self.assertIsInstance(self.box.attrs, BoxBase)
+        self.assertEqual(self.box.attrs.status, "running")
+        self.assertEqual(self.box.attrs.image, "reloaded:image")
+        self.assertEqual(self.box.name, "reloaded-box")
 
     def test_reload_api_error(self):
         """Test reload method when API call fails."""
         error = APIError("Failed to get", status_code=500)
-        self.mock_client.box_service.get.side_effect = error
+        self.mock_client.box_api.get.side_effect = error
         with self.assertRaises(APIError) as cm:
             self.box.reload()
         self.assertIs(cm.exception, error)
-        self.mock_client.box_service.get.assert_called_once_with(self.box_id)
+        self.mock_client.box_api.get.assert_called_once_with(self.box_id)
 
     def test_start(self):
         """Test the start method."""
+        start_response = {"success": True, "message": "Box started"}
+        reload_attrs = {
+            "id": self.box_id,
+            "status": "running",
+            "image": "ubuntu:latest",
+            "labels": self.box_attrs["labels"],
+        }
+        self.mock_client.box_api.start.return_value = start_response
+        self.mock_client.box_api.get.return_value = reload_attrs
+
         self.box.start()
-        # 验证 box_service.start 被正确调用
-        self.mock_client.box_service.start.assert_called_once_with(self.box_id)
-        # 注意：我们不在这里测试状态是否真的变为 'running'，
-        # 因为这依赖于 reload() 或 API 的实际行为。我们只测试是否调用了正确的服务方法。
+        self.mock_client.box_api.start.assert_called_once_with(self.box_id)
+        self.mock_client.box_api.get.assert_called_once_with(self.box_id)
+        self.assertEqual(self.box.status, "running")
 
     def test_start_api_error(self):
         """Test start method when API call fails."""
         error = APIError("Failed to start", status_code=503)
-        self.mock_client.box_service.start.side_effect = error
+        self.mock_client.box_api.start.side_effect = error
         with self.assertRaises(APIError) as cm:
             self.box.start()
         self.assertIs(cm.exception, error)
-        self.mock_client.box_service.start.assert_called_once_with(self.box_id)
+        self.mock_client.box_api.start.assert_called_once_with(self.box_id)
+        self.mock_client.box_api.get.assert_not_called()
 
     def test_stop(self):
         """Test the stop method."""
+        stop_response = {"success": True, "message": "Box stopped"}
+        reload_attrs = {
+            "id": self.box_id,
+            "status": "stopped",
+            "image": "ubuntu:latest",
+            "labels": self.box_attrs["labels"],
+        }
+        self.mock_client.box_api.stop.return_value = stop_response
+        self.mock_client.box_api.get.return_value = reload_attrs
+
         self.box.stop()
-        # 验证 box_service.stop 被正确调用
-        self.mock_client.box_service.stop.assert_called_once_with(self.box_id)
+        self.mock_client.box_api.stop.assert_called_once_with(self.box_id)
+        self.mock_client.box_api.get.assert_called_once_with(self.box_id)
+        self.assertEqual(self.box.status, "stopped")
 
     def test_stop_api_error(self):
         """Test stop method when API call fails."""
         error = APIError("Failed to stop", status_code=503)
-        self.mock_client.box_service.stop.side_effect = error
+        self.mock_client.box_api.stop.side_effect = error
         with self.assertRaises(APIError) as cm:
             self.box.stop()
         self.assertIs(cm.exception, error)
-        self.mock_client.box_service.stop.assert_called_once_with(self.box_id)
+        self.mock_client.box_api.stop.assert_called_once_with(self.box_id)
 
     def test_delete(self):
         """Test the delete method."""
+        delete_response = {"message": "Box deleted"}
+        self.mock_client.box_api.delete.return_value = delete_response
+
         self.box.delete()
-        # 验证 box_service.delete 被正确调用，默认 force=False
-        self.mock_client.box_service.delete.assert_called_once_with(self.box_id, force=False)
+        self.mock_client.box_api.delete.assert_called_once_with(self.box_id, force=False)
 
     def test_delete_api_error(self):
         """Test delete method when API call fails."""
         error = APIError("Failed to delete", status_code=500)
-        self.mock_client.box_service.delete.side_effect = error
+        self.mock_client.box_api.delete.side_effect = error
         with self.assertRaises(APIError) as cm:
             self.box.delete()
         self.assertIs(cm.exception, error)
-        self.mock_client.box_service.delete.assert_called_once_with(self.box_id, force=False)
+        self.mock_client.box_api.delete.assert_called_once_with(self.box_id, force=False)
 
     def test_delete_force(self):
         """Test the delete method with force=True."""
-        self.box.delete(force=True)
-        # 验证 box_service.delete 被正确调用，force=True
-        self.mock_client.box_service.delete.assert_called_once_with(self.box_id, force=True)
+        # Mock the API response to be a valid dictionary for BoxDeleteResponse
+        delete_response_dict = {"message": "Box deleted forcibly"}
+        self.mock_client.box_api.delete.return_value = delete_response_dict
 
-    @patch("logging.getLogger")  # 模拟 logging
+        self.box.delete(force=True)
+
+        self.mock_client.box_api.delete.assert_called_once_with(self.box_id, force=True)
+        # Add check: no exception should be raised if validation passes
+
+    @patch("logging.getLogger")
     def test_run(self, mock_get_logger):
         """Test the run method."""
-        # 配置模拟日志记录器
         mock_logger = Mock()
         mock_get_logger.return_value = mock_logger
 
         command = ["echo", "hello"]
-        expected_response = {"exitCode": 0, "stdout": "hello\n", "stderr": ""}
-        # 配置 box_service.run 的返回值
-        self.mock_client.box_service.run.return_value = expected_response
+        run_response_box_attrs = self.box_attrs.copy()
+        run_response_box_attrs["status"] = "exited"
+        expected_response = {
+            "box": run_response_box_attrs,
+            "exitCode": 0,
+            "stdout": "hello\n",
+            "stderr": "",
+        }
+        self.mock_client.box_api.run.return_value = expected_response
 
         exit_code, stdout, stderr = self.box.run(command)
 
-        # 验证 box_service.run 被正确调用
-        self.mock_client.box_service.run.assert_called_once_with(self.box_id, command=command)
-        # 验证返回值是否正确
+        self.mock_client.box_api.run.assert_called_once_with(self.box_id, command=command)
         self.assertEqual(exit_code, 0)
         self.assertEqual(stdout, "hello\n")
         self.assertEqual(stderr, "")
-        # 验证日志记录是否被调用（可选）
         mock_logger.debug.assert_called()
 
     @patch("logging.getLogger")
@@ -178,76 +209,91 @@ class TestBox(unittest.TestCase):
         """Test run method when API call fails."""
         command = ["echo", "fail"]
         error = APIError("Failed to run command", status_code=500)
-        self.mock_client.box_service.run.side_effect = error
+        self.mock_client.box_api.run.side_effect = error
         with self.assertRaises(APIError) as cm:
             self.box.run(command)
         self.assertIs(cm.exception, error)
-        self.mock_client.box_service.run.assert_called_once_with(self.box_id, command=command)
+        self.mock_client.box_api.run.assert_called_once_with(self.box_id, command=command)
 
     def test_reclaim(self):
         """Test the reclaim method."""
-        expected_response = {"message": "reclaimed", "resources": {}}
-        self.mock_client.box_service.reclaim.return_value = expected_response
+        expected_response_dict = {
+            "message": "reclaimed",
+            "stoppedIds": [],
+            "deletedIds": [],
+            "stoppedCount": 0,
+            "deletedCount": 0,
+        }
+        self.mock_client.box_api.reclaim.return_value = expected_response_dict
 
-        response = self.box.reclaim()
+        response_model = self.box.reclaim()
 
-        self.mock_client.box_service.reclaim.assert_called_once_with(
-            box_id=self.box_id, force=False
-        )
-        self.assertEqual(response, expected_response)
+        self.mock_client.box_api.reclaim.assert_called_once_with(box_id=self.box_id, force=False)
+        self.assertEqual(response_model.message, expected_response_dict["message"])
+        self.assertEqual(response_model.stopped_ids, expected_response_dict["stoppedIds"])
+        self.assertEqual(response_model.deleted_ids, expected_response_dict["deletedIds"])
+        self.assertEqual(response_model.stopped_count, expected_response_dict["stoppedCount"])
+        self.assertEqual(response_model.deleted_count, expected_response_dict["deletedCount"])
 
     def test_reclaim_api_error(self):
         """Test reclaim method when API call fails."""
         error = APIError("Failed to reclaim", status_code=500)
-        self.mock_client.box_service.reclaim.side_effect = error
+        self.mock_client.box_api.reclaim.side_effect = error
         with self.assertRaises(APIError) as cm:
             self.box.reclaim()
         self.assertIs(cm.exception, error)
-        self.mock_client.box_service.reclaim.assert_called_once_with(
-            box_id=self.box_id, force=False
-        )
+        self.mock_client.box_api.reclaim.assert_called_once_with(box_id=self.box_id, force=False)
 
     def test_reclaim_force(self):
         """Test the reclaim method with force=True."""
-        expected_response = {"message": "force reclaimed", "resources": {}}
-        self.mock_client.box_service.reclaim.return_value = expected_response
+        expected_response_dict = {
+            "message": "force reclaimed",
+            "stoppedIds": ["box-stopped"],
+            "deletedIds": ["box-deleted"],
+            "stoppedCount": 1,
+            "deletedCount": 1,
+        }
+        self.mock_client.box_api.reclaim.return_value = expected_response_dict
 
-        response = self.box.reclaim(force=True)
+        response_model = self.box.reclaim(force=True)
 
-        self.mock_client.box_service.reclaim.assert_called_once_with(box_id=self.box_id, force=True)
-        self.assertEqual(response, expected_response)
+        self.mock_client.box_api.reclaim.assert_called_once_with(box_id=self.box_id, force=True)
+        self.assertEqual(response_model.message, expected_response_dict["message"])
+        self.assertEqual(response_model.stopped_ids, expected_response_dict["stoppedIds"])
+        self.assertEqual(response_model.deleted_ids, expected_response_dict["deletedIds"])
+        self.assertEqual(response_model.stopped_count, expected_response_dict["stoppedCount"])
+        self.assertEqual(response_model.deleted_count, expected_response_dict["deletedCount"])
 
     def test_head_archive(self):
         """Test the head_archive method."""
         path = "/data/file.txt"
         expected_headers = {"Content-Length": "1024", "X-GBox-Mode": "0644"}
-        self.mock_client.box_service.head_archive.return_value = expected_headers
+        self.mock_client.box_api.head_archive.return_value = expected_headers
 
         headers = self.box.head_archive(path)
 
-        self.mock_client.box_service.head_archive.assert_called_once_with(self.box_id, path=path)
+        self.mock_client.box_api.head_archive.assert_called_once_with(self.box_id, path=path)
         self.assertEqual(headers, expected_headers)
 
     def test_head_archive_api_error(self):
         """Test head_archive method when API call fails with a generic error."""
         path = "/data/file.txt"
         error = APIError("HEAD failed", status_code=500)
-        self.mock_client.box_service.head_archive.side_effect = error
+        self.mock_client.box_api.head_archive.side_effect = error
         with self.assertRaises(APIError) as cm:
             self.box.head_archive(path)
         self.assertIs(cm.exception, error)
-        self.mock_client.box_service.head_archive.assert_called_once_with(self.box_id, path=path)
+        self.mock_client.box_api.head_archive.assert_called_once_with(self.box_id, path=path)
 
     def test_head_archive_not_found(self):
         """Test head_archive method when the path is not found."""
         path = "/data/not_found.txt"
-        # Assume NotFound is raised directly, or adjust if it's an APIError(404)
         error = NotFound("Path not found")
-        self.mock_client.box_service.head_archive.side_effect = error
+        self.mock_client.box_api.head_archive.side_effect = error
         with self.assertRaises(NotFound) as cm:
             self.box.head_archive(path)
         self.assertIs(cm.exception, error)
-        self.mock_client.box_service.head_archive.assert_called_once_with(self.box_id, path=path)
+        self.mock_client.box_api.head_archive.assert_called_once_with(self.box_id, path=path)
 
     def test_get_archive(self):
         """Test the get_archive method."""
@@ -255,31 +301,31 @@ class TestBox(unittest.TestCase):
         mock_stats = {"Content-Type": "application/x-tar", "X-GBox-Size": "2048"}
         mock_tar_data = b"tar data bytes"
 
-        self.mock_client.box_service.head_archive.return_value = mock_stats
-        self.mock_client.box_service.get_archive.return_value = mock_tar_data
+        self.mock_client.box_api.head_archive.return_value = mock_stats
+        # Mock get_archive to return bytes directly, not a tuple
+        self.mock_client.box_api.get_archive.return_value = mock_tar_data
 
-        tar_stream, stats = self.box.get_archive(path)
+        content_stream, stats = self.box.get_archive(path)
 
-        self.mock_client.box_service.head_archive.assert_called_once_with(self.box_id, path=path)
-        self.mock_client.box_service.get_archive.assert_called_once_with(self.box_id, path=path)
+        self.mock_client.box_api.head_archive.assert_called_once_with(self.box_id, path=path)
+        self.mock_client.box_api.get_archive.assert_called_once_with(self.box_id, path=path)
 
-        self.assertIsInstance(tar_stream, io.BytesIO)
-        self.assertEqual(tar_stream.read(), mock_tar_data)
+        self.assertIsInstance(content_stream, io.BytesIO)
+        self.assertEqual(content_stream.read(), mock_tar_data)
         self.assertEqual(stats, mock_stats)
 
     def test_get_archive_head_fails(self):
         """Test get_archive when the initial head_archive call fails."""
         path = "/data"
         error = APIError("HEAD failed first", status_code=500)
-        self.mock_client.box_service.head_archive.side_effect = error
+        self.mock_client.box_api.head_archive.side_effect = error
 
         with self.assertRaises(APIError) as cm:
             self.box.get_archive(path)
 
         self.assertIs(cm.exception, error)
-        self.mock_client.box_service.head_archive.assert_called_once_with(self.box_id, path=path)
-        # Ensure get_archive itself was not called
-        self.mock_client.box_service.get_archive.assert_not_called()
+        self.mock_client.box_api.head_archive.assert_called_once_with(self.box_id, path=path)
+        self.mock_client.box_api.get_archive.assert_not_called()
 
     def test_get_archive_get_fails(self):
         """Test get_archive when the get_archive API call fails."""
@@ -287,15 +333,15 @@ class TestBox(unittest.TestCase):
         mock_stats = {"Content-Type": "application/x-tar"}
         error = APIError("GET archive failed", status_code=500)
 
-        self.mock_client.box_service.head_archive.return_value = mock_stats
-        self.mock_client.box_service.get_archive.side_effect = error
+        self.mock_client.box_api.head_archive.return_value = mock_stats
+        self.mock_client.box_api.get_archive.side_effect = error
 
         with self.assertRaises(APIError) as cm:
             self.box.get_archive(path)
 
         self.assertIs(cm.exception, error)
-        self.mock_client.box_service.head_archive.assert_called_once_with(self.box_id, path=path)
-        self.mock_client.box_service.get_archive.assert_called_once_with(self.box_id, path=path)
+        self.mock_client.box_api.head_archive.assert_called_once_with(self.box_id, path=path)
+        self.mock_client.box_api.get_archive.assert_called_once_with(self.box_id, path=path)
 
     def test_put_archive_bytes(self):
         """Test put_archive with bytes data."""
@@ -304,8 +350,7 @@ class TestBox(unittest.TestCase):
 
         self.box.put_archive(path, tar_data)
 
-        # 验证 extract_archive 被正确调用
-        self.mock_client.box_service.extract_archive.assert_called_once_with(
+        self.mock_client.box_api.extract_archive.assert_called_once_with(
             self.box_id, path=path, archive_data=tar_data
         )
 
@@ -320,23 +365,19 @@ class TestBox(unittest.TestCase):
         self.box.put_archive(path, mock_file)
 
         mock_file.read.assert_called_once()
-        self.mock_client.box_service.extract_archive.assert_called_once_with(
+        self.mock_client.box_api.extract_archive.assert_called_once_with(
             self.box_id, path=path, archive_data=tar_data
         )
 
     def test_put_archive_invalid_type(self):
         """Test put_archive raises TypeError for invalid data types."""
         with pytest.raises(TypeError):
-            self.box.put_archive("/data", data=12345)  # Invalid type
+            self.box.put_archive("/data", data=12345)
 
-        # Test case for string that is NOT a valid path (should raise FileNotFoundError)
         with pytest.raises(FileNotFoundError):
             self.box.put_archive("/data", data="this is a string, not a path")
 
     def test_put_archive_directory_path(self):
-        # This test case is not provided in the original file or the code block
-        # It's assumed to exist based on the test_put_archive_invalid_type method
-        # If this test case is needed, it should be implemented here
         pass
 
     def test_put_archive_api_error(self):
@@ -344,37 +385,47 @@ class TestBox(unittest.TestCase):
         path = "/uploads"
         tar_data = b"tar data"
         error = APIError("Extract failed", status_code=500)
-        self.mock_client.box_service.extract_archive.side_effect = error
+        self.mock_client.box_api.extract_archive.side_effect = error
 
         with self.assertRaises(APIError) as cm:
             self.box.put_archive(path, tar_data)
 
         self.assertIs(cm.exception, error)
-        self.mock_client.box_service.extract_archive.assert_called_once_with(
+        self.mock_client.box_api.extract_archive.assert_called_once_with(
             self.box_id, path=path, archive_data=tar_data
         )
 
     def test_eq(self):
         """Test equality comparison."""
-        box1 = Box(self.mock_client, "box-same-id", {})
-        box2 = Box(self.mock_client, "box-same-id", {"status": "running"})
-        box3 = Box(self.mock_client, "box-different-id", {})
-        not_a_box = "box-same-id"
+        same_id_attrs = self.box_attrs.copy()
+        same_id_attrs["status"] = "running"
+        same_id_data = BoxBase(**same_id_attrs)
+        same_box = Box(self.mock_client, same_id_data)
 
-        self.assertEqual(box1, box2)  # 只比较 ID
-        self.assertNotEqual(box1, box3)
-        self.assertNotEqual(box1, not_a_box)
+        diff_id_attrs = self.box_attrs.copy()
+        diff_id_attrs["id"] = "box-different-id"
+        diff_id_data = BoxBase(**diff_id_attrs)
+        diff_box = Box(self.mock_client, diff_id_data)
+
+        self.assertEqual(self.box, same_box)
+        self.assertNotEqual(self.box, diff_box)
+        self.assertNotEqual(self.box, "not a box")
 
     def test_hash(self):
         """Test hashing."""
-        box1 = Box(self.mock_client, "box-hash-id", {})
-        box2 = Box(self.mock_client, "box-hash-id", {"status": "running"})
-        self.assertEqual(hash(box1), hash(box2))  # Hash 基于 ID
-        self.assertEqual(hash(box1), hash("box-hash-id"))  # 确认 hash 逻辑
+        same_id_attrs = self.box_attrs.copy()
+        same_id_attrs["status"] = "running"
+        same_id_data = BoxBase(**same_id_attrs)
+        same_box = Box(self.mock_client, same_id_data)
+
+        self.assertEqual(hash(self.box), hash(same_box))
+        self.assertEqual(hash(self.box), hash(self.box.id))
 
     def test_repr(self):
-        """Test the representation string."""
-        self.assertEqual(repr(self.box), "<Box: box-12345678>")
+        """Test the string representation."""
+        # Update expected repr to match the actual format
+        expected_repr = f"<Box: {self.box.short_id} ({self.box.status})>"  # Removed 'status='
+        self.assertEqual(repr(self.box), expected_repr)
 
 
 if __name__ == "__main__":

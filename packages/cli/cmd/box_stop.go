@@ -1,13 +1,14 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 
-	"github.com/babelcloud/gru-sandbox/packages/cli/config"
+	"github.com/babelcloud/gbox/packages/cli/config"
 	"github.com/spf13/cobra"
 )
 
@@ -74,15 +75,37 @@ func runStop(boxID string, opts *BoxStopOptions) error {
 	return handleStopResponse(resp.StatusCode, body, boxID, opts.OutputFormat)
 }
 
+// Define a local struct to unmarshal the response
+type stopResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}
+
 func handleStopResponse(statusCode int, body []byte, boxID, outputFormat string) error {
 	switch statusCode {
-	case 200:
-		if outputFormat == "json" {
-			fmt.Println(`{"status":"success","message":"Box stopped successfully"}`)
-		} else {
-			fmt.Println("Box stopped successfully")
+	case http.StatusOK: // Use http.StatusOK constant
+		// Attempt to parse the response body
+		var response stopResponse
+		if err := json.Unmarshal(body, &response); err != nil {
+			// Handle JSON parsing error - maybe print raw body or generic message?
+			if outputFormat == "json" {
+				// If JSON output requested but parsing failed, print the raw body anyway?
+				fmt.Println(string(body))
+			} else {
+				fmt.Fprintf(os.Stderr, "Error parsing server response: %v\nFalling back to generic message.\n", err)
+				fmt.Println("Box stop command successful (could not parse server message)")
+			}
+			return nil // Or return err?
 		}
-	case 404:
+
+		if outputFormat == "json" {
+			// Print the original JSON body for JSON output
+			fmt.Println(string(body))
+		} else {
+			// Use the message from the parsed response for text output
+			fmt.Println(response.Message)
+		}
+	case http.StatusNotFound: // Use http.StatusNotFound constant
 		fmt.Printf("Box not found: %s\n", boxID)
 	default:
 		errorMsg := fmt.Sprintf("Error: Failed to stop box (HTTP %d)", statusCode)

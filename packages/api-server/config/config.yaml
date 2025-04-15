@@ -2,16 +2,17 @@
 server:
   port: 28080
 
-# Application configuration
-gbox:
+# File service configuration
+file:
   # Base directories
   home: "${HOME}/.gbox" # Base directory for all application data
-  share: "${gbox.home}/share" # Directory for shared files
-  host_share: "${gbox.share}" # Directory for shared files on host
+  share: "${file.home}/share" # Directory for shared files
+  host_share: "${file.share}" # Directory for shared files on host
 
 # Cluster configuration
 cluster:
   mode: docker # Possible values: docker, k8s
+  namespace: gbox-boxes
 
   # Docker specific settings
   docker:

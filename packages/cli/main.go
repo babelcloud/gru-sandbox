@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/babelcloud/gru-sandbox/packages/cli/cmd"
+	"github.com/babelcloud/gbox/packages/cli/cmd"
 )
 
 var binaryPattern = regexp.MustCompile(`^gbox-(darwin|linux|windows)-(amd64|arm64|386)$`)

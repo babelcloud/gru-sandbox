@@ -1,9 +1,9 @@
-module github.com/babelcloud/gru-sandbox/packages/cli
+module github.com/babelcloud/gbox/packages/cli
 
 go 1.23.7
 
 require (
-	github.com/babelcloud/gru-sandbox/packages/api-server v0.0.0
+	github.com/babelcloud/gbox/packages/api-server v0.0.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
@@ -40,4 +40,4 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 )
 
-replace github.com/babelcloud/gru-sandbox/packages/api-server => ../api-server
+replace github.com/babelcloud/gbox/packages/api-server => ../api-server

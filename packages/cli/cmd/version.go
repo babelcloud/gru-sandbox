@@ -6,7 +6,7 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/babelcloud/gru-sandbox/packages/cli/internal/version"
+	"github.com/babelcloud/gbox/packages/cli/internal/version"
 	"github.com/spf13/cobra"
 )
 

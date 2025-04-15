@@ -1,7 +1,7 @@
 # Makefile for gbox CLI
 
 # Common prefix for Go packages
-MODULE_PREFIX := github.com/babelcloud/gru-sandbox
+MODULE_PREFIX := github.com/babelcloud/gbox
 
 # Variable definitions
 BINARY_NAME := gbox
@@ -79,11 +79,12 @@ binary: ## Build binary for the current platform (GOOS/GOARCH)
 	@echo "Binary built: $(BINARY_NAME)"
 
 # Run the application with project root as environment variable
-# Usage: make gorun ARGS="mcp export --help"
-run: ## Run the application with PROJECT_ROOT environment variable (Usage: make gorun ARGS="cmd args...")
+# Usage: make run box list
+.PHONY: run
+run: ## Run the application with PROJECT_ROOT environment variable (Usage: make run cmd args...)
 	@PROJECT_ROOT=$$(git rev-parse --show-toplevel) \
 	CLI_DEV_MODE=true \
-	go run main.go $(ARGS)
+	go run main.go $(filter-out $@,$(MAKECMDGOALS))
 
 test: ## Run tests
 	go test ./cmd -v
@@ -107,3 +108,7 @@ e2e-cleanup: ## Clean up e2e test environment and stop test API server
 	 SERVICE_PORT=28081 \
 	 docker compose -f ../../manifests/docker/docker-compose.yml down
 	@echo "E2E test environment cleaned up"
+
+# Add this to prevent make from trying to build the arguments
+%:
+	@:

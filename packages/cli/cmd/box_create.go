@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/babelcloud/gru-sandbox/packages/api-server/models"
-	"github.com/babelcloud/gru-sandbox/packages/cli/config"
+	"github.com/babelcloud/gbox/packages/api-server/pkg/box"
+	"github.com/babelcloud/gbox/packages/cli/config"
 	"github.com/spf13/cobra"
 )
 
@@ -47,19 +47,19 @@ func parseKeyValuePairs(pairs []string, pairType string) (map[string]string, err
 }
 
 // parseVolumes parses volume mount strings in the format "source:target[:ro][:propagation]"
-func parseVolumes(volumes []string) ([]models.VolumeMount, error) {
+func parseVolumes(volumes []string) ([]model.VolumeMount, error) {
 	if len(volumes) == 0 {
 		return nil, nil
 	}
 
-	result := make([]models.VolumeMount, 0, len(volumes))
+	result := make([]model.VolumeMount, 0, len(volumes))
 	for _, volume := range volumes {
 		parts := strings.Split(volume, ":")
 		if len(parts) < 2 {
 			return nil, fmt.Errorf("invalid volume format: %s (must be source:target[:ro][:propagation])", volume)
 		}
 
-		mount := models.VolumeMount{
+		mount := model.VolumeMount{
 			Source: parts[0],
 			Target: parts[1],
 		}
@@ -121,7 +121,7 @@ Command arguments can be specified directly in the command line or added after t
 }
 
 func runCreate(opts *BoxCreateOptions, args []string) error {
-	request := models.BoxCreateRequest{}
+	request := model.BoxCreateParams{}
 
 	request.Image = opts.Image
 	request.ImagePullSecret = opts.ImagePullSecret

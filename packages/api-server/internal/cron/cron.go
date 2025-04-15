@@ -1,30 +1,38 @@
 package cron
 
 import (
-	"net/http"
+	"context"
+	"time"
 
-	"github.com/emicklei/go-restful/v3"
 	"github.com/robfig/cron/v3"
 
-	"github.com/babelcloud/gru-sandbox/packages/api-server/internal/log"
-	"github.com/babelcloud/gru-sandbox/packages/api-server/types"
+	boxservice "github.com/babelcloud/gbox/packages/api-server/internal/box/service"
+	fileservice "github.com/babelcloud/gbox/packages/api-server/internal/file/service"
+	"github.com/babelcloud/gbox/packages/api-server/pkg/logger"
+)
+
+const (
+	// Timeout for box reclamation
+	boxReclaimTimeout = 5 * time.Minute
+	// Timeout for file reclamation
+	fileReclaimTimeout = 10 * time.Minute
 )
 
 // Manager manages cron jobs
 type Manager struct {
 	cron        *cron.Cron
-	logger      *log.Logger
-	boxHandler  types.BoxHandler
-	fileHandler types.FileHandler
+	logger      *logger.Logger
+	boxService  boxservice.BoxService
+	fileService *fileservice.FileService
 }
 
 // NewManager creates a new cron manager
-func NewManager(logger *log.Logger, boxHandler types.BoxHandler, fileHandler types.FileHandler) *Manager {
+func NewManager(logger *logger.Logger, boxService boxservice.BoxService, fileService *fileservice.FileService) *Manager {
 	return &Manager{
 		cron:        cron.New(cron.WithLogger(cron.DefaultLogger)),
 		logger:      logger,
-		boxHandler:  boxHandler,
-		fileHandler: fileHandler,
+		boxService:  boxService,
+		fileService: fileService,
 	}
 }
 
@@ -55,35 +63,31 @@ func (m *Manager) Stop() {
 // reclaimBoxes runs the box reclamation job
 func (m *Manager) reclaimBoxes() {
 	m.logger.Info("Running scheduled box reclamation")
-	req := restful.NewRequest(&http.Request{})
-	resp := restful.NewResponse(&discardResponseWriter{})
-	m.boxHandler.ReclaimBoxes(req, resp)
+	ctx, cancel := context.WithTimeout(context.Background(), boxReclaimTimeout)
+	defer cancel()
+
+	_, err := m.boxService.Reclaim(ctx)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			m.logger.Error("Box reclamation timed out after %v", boxReclaimTimeout)
+		} else {
+			m.logger.Error("Failed to reclaim boxes: %v", err)
+		}
+	}
 }
 
 // reclaimFiles runs the file reclamation job
 func (m *Manager) reclaimFiles() {
 	m.logger.Info("Running scheduled file reclamation")
-	req := restful.NewRequest(&http.Request{})
-	resp := restful.NewResponse(&discardResponseWriter{})
-	m.fileHandler.ReclaimFiles(req, resp)
-}
+	ctx, cancel := context.WithTimeout(context.Background(), fileReclaimTimeout)
+	defer cancel()
 
-// discardResponseWriter implements http.ResponseWriter but discards all writes
-type discardResponseWriter struct {
-	header http.Header
-}
-
-func (w *discardResponseWriter) Header() http.Header {
-	if w.header == nil {
-		w.header = make(http.Header)
+	_, err := m.fileService.ReclaimFiles(ctx)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			m.logger.Error("File reclamation timed out after %v", fileReclaimTimeout)
+		} else {
+			m.logger.Error("Failed to reclaim files: %v", err)
+		}
 	}
-	return w.header
-}
-
-func (w *discardResponseWriter) Write(b []byte) (int, error) {
-	return len(b), nil
-}
-
-func (w *discardResponseWriter) WriteHeader(statusCode int) {
-	// We don't need to do anything with the status code
 }

@@ -167,12 +167,12 @@ def send_stdin(sock):
     """Send stdin data to the server"""
     try:
         while True:
-            if select.select([sys.stdin], [], [], 0.1)[0]:
-                data = sys.stdin.buffer.read(BUFFER_SIZE)
-                if not data:
-                    sock.shutdown(socket.SHUT_WR)
-                    break
-                sock.send(data)
+            # Read line by line
+            line = sys.stdin.readline()
+            if not line:
+                sock.shutdown(socket.SHUT_WR)
+                break
+            sock.send(line.encode())
     except Exception as e:
         print(f"Error sending stdin: {e}", file=sys.stderr)
 
@@ -221,7 +221,9 @@ def main():
     args = parse_args()
 
     # Check if stdin is available and interactive mode is enabled
-    stdin_available = not os.isatty(0) and args.interactive
+    stdin_available = args.interactive  # Enable stdin if -i flag is set
+    if not stdin_available and not os.isatty(0):
+        stdin_available = True  # Also enable stdin if there's pipe input
 
     # Get terminal size if in TTY mode
     term_size = None

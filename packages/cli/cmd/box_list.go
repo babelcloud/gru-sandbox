@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/babelcloud/gru-sandbox/packages/cli/config"
+	"github.com/babelcloud/gbox/packages/cli/config"
 	"github.com/spf13/cobra"
 )
 

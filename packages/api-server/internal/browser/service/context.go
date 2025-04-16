@@ -26,7 +26,7 @@ func (s *BrowserService) findManagedContext(contextID string) (*ManagedContext, 
 }
 
 // CreateContext creates a new browser context within a ManagedBrowser.
-func (s *BrowserService) CreateContext(boxID string, params browser.CreateContextParams) (*browser.CreateContextResult, error) {
+func (s *BrowserService) CreateContext(boxID string, params model.CreateContextParams) (*model.CreateContextResult, error) {
 	mb, err := s.getOrCreateManagedBrowser(boxID)
 	if err != nil {
 		return nil, err

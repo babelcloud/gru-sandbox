@@ -136,3 +136,58 @@ func (s *BrowserService) ClosePage(boxID, contextID, pageID string) error {
 	}
 	return nil
 }
+
+// getCurrentPages gets the state of all currently open pages within a managed context.
+func (s *BrowserService) getCurrentPages(mc *ManagedContext) []model.Page { // Renamed function and return type
+	// Ensure mc is not nil before proceeding
+	if mc == nil {
+		// Consider logging this case if it shouldn't happen
+		return []model.Page{}
+	}
+
+	mc.mu.RLock() // Read-lock the context's page map
+	defer mc.mu.RUnlock()
+
+	// Determine the active page ID safely
+	activePageID := ""
+	if mc.ActivePage != nil { // Assuming ActivePage field exists on managedContext
+		activePageID = mc.ActivePage.ID
+	}
+
+	pages := make([]model.Page, 0, len(mc.Pages))
+
+	for pageID, mp := range mc.Pages { // Iterate using ID as well for logging clarity
+		// Ensure the managed page and its Playwright instance are valid and open
+		if mp != nil && mp.Instance != nil && !mp.Instance.IsClosed() {
+			pwPage := mp.Instance
+
+			title, err := pwPage.Title()
+			if err != nil {
+				fmt.Printf("WARN: Failed to get title for page %s: %v. Using empty title.\n", pageID, err)
+				title = "" // Use default value on error
+			}
+
+			url := pwPage.URL()
+			// URL() in playwright-go v0.4.0+ doesn't return an error, but checking defensively
+			// if url == "" {
+			//    fmt.Printf("WARN: Got empty URL for page %s\n", pageID)
+			// }
+
+			isActive := mp.ID == activePageID
+
+			pages = append(pages, model.Page{
+				Title:   title,
+				URL:     url,
+				Favicon: "", // Placeholder - Getting favicon requires extra JS evaluation
+				State: model.PageState{
+					Loading: false, // Placeholder - Reliably getting loading state is complex
+					Active:  isActive,
+				},
+			})
+		} else {
+			// Optional: Log if a page in the map is nil or closed unexpectedly
+			fmt.Printf("DEBUG: Skipping nil or closed page entry with ID %s in context %s\n", pageID, mc.ID)
+		}
+	}
+	return pages
+}

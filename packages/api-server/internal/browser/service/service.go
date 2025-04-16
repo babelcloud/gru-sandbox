@@ -20,13 +20,14 @@ var (
 
 // --- Managed Resource Structs ---
 
-// Forward declare ManagedContext
+// ManagedContext holds details about a browser context.
 type ManagedContext struct {
 	ID            string // UUID
 	Instance      playwright.BrowserContext
 	ParentBrowser *ManagedBrowser         // Reference back to parent browser
 	Pages         map[string]*ManagedPage // pageID -> ManagedPage
-	mu            sync.RWMutex            // Mutex for Pages map
+	ActivePage    *ManagedPage            // Currently active/focused page in this context (can be nil)
+	mu            sync.RWMutex            // Mutex for Pages map and ActivePage field
 }
 
 // ManagedPage holds details about a page managed by the service.

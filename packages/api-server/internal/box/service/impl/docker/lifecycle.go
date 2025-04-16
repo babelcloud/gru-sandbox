@@ -48,7 +48,7 @@ func (s *Service) Create(ctx context.Context, params *model.BoxCreateParams) (*m
 
 	// Generate box ID
 	boxID := id.GenerateBoxID()
-	containerName := fmt.Sprintf("gbox-%s", boxID)
+	containerName := containerName(boxID)
 
 	// Prepare labels
 	labels := PrepareLabels(boxID, params)

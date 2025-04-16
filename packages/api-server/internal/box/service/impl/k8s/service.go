@@ -22,9 +22,9 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/babelcloud/gbox/packages/api-server/config"
-	"github.com/babelcloud/gbox/packages/api-server/pkg/box"
 	"github.com/babelcloud/gbox/packages/api-server/internal/box/service"
 	"github.com/babelcloud/gbox/packages/api-server/internal/tracker"
+	model "github.com/babelcloud/gbox/packages/api-server/pkg/box"
 	"github.com/babelcloud/gbox/packages/api-server/pkg/id"
 	"github.com/babelcloud/gbox/packages/api-server/pkg/logger"
 )
@@ -622,6 +622,53 @@ func (s *Service) HeadArchive(ctx context.Context, id string, req *model.BoxArch
 		Mode: uint32(mode),
 		Size: parseInt64(parts[1]),
 	}, nil
+}
+
+// GetExternalPort retrieves the host port mapping for a specific internal port of a box.
+// It assumes a Kubernetes Service of type NodePort exists with the same name as the box ID.
+func (s *Service) GetExternalPort(ctx context.Context, id string, internalPort int) (int, error) {
+	if id == "" {
+		return 0, fmt.Errorf("box ID is required")
+	}
+	s.accessTracker.Update(id)
+	s.logger.Debug("Getting external port for box %s, internal port %d", id, internalPort)
+
+	// Get the Kubernetes Service associated with the box ID.
+	// Assumption: Service name matches the box ID (which is the deployment name).
+	serviceResult, err := s.client.CoreV1().Services(tenantNamespace).Get(ctx, id, metav1.GetOptions{}) // Renamed to avoid conflict
+	if err != nil {
+		if errors.IsNotFound(err) {
+			s.logger.Warn("Kubernetes Service not found for box %s: %v", id, err)
+			// Use the error defined in the service package for consistency
+			return 0, fmt.Errorf("service not found for box %s: %w", id, service.ErrBoxNotFound)
+		}
+		s.logger.Error("Failed to get Kubernetes Service for box %s: %v", id, err)
+		return 0, fmt.Errorf("failed to get service for box %s: %w", id, err)
+	}
+
+	// Check if the service type allows external access via NodePort.
+	if serviceResult.Spec.Type != corev1.ServiceTypeNodePort && serviceResult.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		s.logger.Warn("Service %s is not of type NodePort or LoadBalancer, cannot get external port directly", id)
+		return 0, fmt.Errorf("service %s is type %s, not NodePort or LoadBalancer", id, serviceResult.Spec.Type)
+	}
+
+	// Find the NodePort corresponding to the internal port.
+	for _, port := range serviceResult.Spec.Ports {
+		// We match against the service's port (`port.Port`) which should map to the container's `internalPort`.
+		// The targetPort might be different if specified explicitly in the service definition.
+		if port.Port == int32(internalPort) {
+			if port.NodePort == 0 {
+				// This case might happen for LoadBalancer type before external IP/port is assigned or if NodePort is not explicitly enabled/available.
+				s.logger.Warn("NodePort is not assigned for service %s, port %d", id, internalPort)
+				return 0, fmt.Errorf("nodePort not assigned for service %s, port %d", id, internalPort)
+			}
+			s.logger.Debug("Found NodePort %d for internal port %d on service %s", port.NodePort, internalPort, id)
+			return int(port.NodePort), nil
+		}
+	}
+
+	s.logger.Warn("Internal port %d not found in service %s", internalPort, id)
+	return 0, fmt.Errorf("internal port %d not found in service %s", internalPort, id)
 }
 
 // Helper functions

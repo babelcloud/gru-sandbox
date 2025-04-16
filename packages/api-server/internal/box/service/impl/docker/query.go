@@ -3,12 +3,14 @@ package docker
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/go-connections/nat"
 
-	"github.com/babelcloud/gbox/packages/api-server/pkg/box"
+	model "github.com/babelcloud/gbox/packages/api-server/pkg/box"
 )
 
 const (
@@ -75,4 +77,46 @@ func (s *Service) List(ctx context.Context, params *model.BoxListParams) (*model
 		Boxes: boxes,
 		Count: len(boxes),
 	}, nil
+}
+
+// GetExternalPort implements Service.GetExternalPort
+func (s *Service) GetExternalPort(ctx context.Context, id string, internalPort int) (int, error) {
+	// Use the new helper function to get container details
+	containerJSON, err := s.inspectContainerByID(ctx, id)
+	if err != nil {
+		// inspectContainerByID already uses handleContainerError
+		return 0, err
+	}
+
+	if containerJSON.NetworkSettings == nil || containerJSON.NetworkSettings.Ports == nil {
+		return 0, fmt.Errorf("no network settings or ports found for box %s", id)
+	}
+
+	// Construct the nat.Port object (defaulting to tcp)
+	internalNatPort, err := nat.NewPort("tcp", strconv.Itoa(internalPort))
+	if err != nil {
+		// This error occurs if the port string is invalid, which shouldn't happen with strconv.Itoa
+		return 0, fmt.Errorf("invalid internal port %d: %w", internalPort, err)
+	}
+
+	// Look up the port binding in the map
+	portBindings, ok := containerJSON.NetworkSettings.Ports[internalNatPort]
+	if !ok || len(portBindings) == 0 {
+		// Port not found or not published
+		// Check if the port *was* exposed but just not published
+		if _, exposed := containerJSON.Config.ExposedPorts[internalNatPort]; exposed {
+			return 0, fmt.Errorf("internal port %d is exposed but not published for box %s", internalPort, id)
+		}
+		return 0, fmt.Errorf("internal port %d not exposed or mapped for box %s", internalPort, id)
+	}
+
+	// Use the first available binding.
+	hostPortStr := portBindings[0].HostPort
+	hostPort, err := strconv.Atoi(hostPortStr)
+	if err != nil {
+		// This should ideally not happen if Docker API returns valid data
+		return 0, fmt.Errorf("failed to parse host port \"%s\" for box %s: %w", hostPortStr, id, err)
+	}
+
+	return hostPort, nil
 }

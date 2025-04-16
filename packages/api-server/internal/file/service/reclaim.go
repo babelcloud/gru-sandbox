@@ -7,13 +7,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/babelcloud/gbox/packages/api-server/pkg/file"
+	model "github.com/babelcloud/gbox/packages/api-server/pkg/file"
 )
 
 // ReclaimFiles removes files that haven't been accessed for more than 14 days
 func (s *FileService) ReclaimFiles(ctx context.Context) (*model.FileShareResult, error) {
 	cutoffTime := time.Now().Add(-defaultFileReclaimInterval)
 	var reclaimedFiles []string
+	var fileStats []model.FileStat
 	var errors []string
 	emptyDirs := make(map[string]bool) // Track empty directories
 
@@ -31,6 +32,17 @@ func (s *FileService) ReclaimFiles(ctx context.Context) (*model.FileShareResult,
 
 		// Check if file is older than cutoff time
 		if info.ModTime().Before(cutoffTime) {
+			// Collect file stats before deletion
+			fileStats = append(fileStats, model.FileStat{
+				Name:    info.Name(),
+				Path:    path,
+				Size:    info.Size(),
+				Mode:    info.Mode().String(),
+				ModTime: info.ModTime().Format("2006-01-02T15:04:05Z07:00"),
+				Type:    getFileType(info),
+				Mime:    getMimeType(path, info),
+			})
+
 			// For symbolic links, only remove the link itself
 			if info.Mode()&os.ModeSymlink != 0 {
 				if err := os.Remove(path); err != nil {
@@ -93,7 +105,7 @@ func (s *FileService) ReclaimFiles(ctx context.Context) (*model.FileShareResult,
 	response := &model.FileShareResult{
 		Success:  true,
 		Message:  "Files reclaimed successfully",
-		FileList: nil, // TODO: Add reclaimed files to FileList
+		FileList: fileStats,
 	}
 
 	return response, nil

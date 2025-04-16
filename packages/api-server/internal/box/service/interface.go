@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/babelcloud/gbox/packages/api-server/pkg/box"
 	"github.com/babelcloud/gbox/packages/api-server/internal/tracker"
+	model "github.com/babelcloud/gbox/packages/api-server/pkg/box"
 )
 
 // BoxService defines the interface for box operations
@@ -31,6 +31,9 @@ type BoxService interface {
 	GetArchive(ctx context.Context, id string, params *model.BoxArchiveGetParams) (*model.BoxArchiveResult, io.ReadCloser, error)
 	HeadArchive(ctx context.Context, id string, params *model.BoxArchiveHeadParams) (*model.BoxArchiveHeadResult, error)
 	ExtractArchive(ctx context.Context, id string, req *model.BoxArchiveExtractParams) error
+
+	// GetExternalPort retrieves the host port mapping for a specific internal port of a box.
+	GetExternalPort(ctx context.Context, id string, internalPort int) (int, error)
 }
 
 // Factory creates a new box service instance, accepting an AccessTracker

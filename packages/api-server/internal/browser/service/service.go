@@ -133,7 +133,7 @@ func (s *BrowserService) getOrCreateManagedBrowser(boxID string) (*ManagedBrowse
 
 	browserInstance, err := s.pw.Chromium.Connect(endpointURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to browser driver at %s: %w", endpointURL, boxID, err)
+		return nil, fmt.Errorf("failed to connect to browser driver at %s for box %s: %w", endpointURL, boxID, err)
 	}
 
 	mb = &ManagedBrowser{
@@ -149,6 +149,44 @@ func (s *BrowserService) getOrCreateManagedBrowser(boxID string) (*ManagedBrowse
 	})
 
 	return mb, nil
+}
+
+// GetPageInstance retrieves a specific page instance managed by the service.
+func (s *BrowserService) GetPageInstance(boxID, contextID, pageID string) (playwright.Page, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	mb, browserExists := s.managedBrowsers[boxID]
+	if !browserExists {
+		return nil, fmt.Errorf("%w: browser for box %s not managed", ErrBoxNotFound, boxID)
+	}
+
+	mb.mu.RLock()
+	defer mb.mu.RUnlock()
+	mc, contextExists := mb.Contexts[contextID]
+	if !contextExists {
+		return nil, fmt.Errorf("%w: context %s not found in box %s", ErrContextNotFound, contextID, boxID)
+	}
+
+	// Check the global page map for direct lookup
+	mp, pageExists := s.pageMap[pageID]
+	if !pageExists || mp.ParentContext != mc { // Ensure page belongs to the correct context
+		// Check context-local map as fallback (though pageMap should be canonical)
+		mc.mu.RLock()
+		mpLocal, pageExistsLocal := mc.Pages[pageID]
+		mc.mu.RUnlock()
+		if !pageExistsLocal {
+			return nil, fmt.Errorf("%w: page %s not found in context %s", ErrPageNotFound, pageID, contextID)
+		}
+		// If found locally but not globally or wrong context, log inconsistency?
+		return mpLocal.Instance, nil
+	}
+
+	if mp.Instance == nil { // Should not happen if in map
+		return nil, fmt.Errorf("internal error: page %s found but instance is nil", pageID)
+	}
+
+	return mp.Instance, nil
 }
 
 // cleanupManagedBrowser_locked removes contexts and pages associated with a browser.

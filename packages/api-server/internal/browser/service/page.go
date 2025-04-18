@@ -1,8 +1,12 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 
+	// "strings" // Removed as unused after merge
+
+	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/google/uuid"
 	"github.com/playwright-community/playwright-go"
 
@@ -137,57 +141,62 @@ func (s *BrowserService) ClosePage(boxID, contextID, pageID string) error {
 	return nil
 }
 
-// getCurrentPages gets the state of all currently open pages within a managed context.
-func (s *BrowserService) getCurrentPages(mc *ManagedContext) []model.Page { // Renamed function and return type
-	// Ensure mc is not nil before proceeding
-	if mc == nil {
-		// Consider logging this case if it shouldn't happen
-		return []model.Page{}
-	}
-
-	mc.mu.RLock() // Read-lock the context's page map
-	defer mc.mu.RUnlock()
-
-	// Determine the active page ID safely
-	activePageID := ""
-	if mc.ActivePage != nil { // Assuming ActivePage field exists on managedContext
-		activePageID = mc.ActivePage.ID
-	}
-
-	pages := make([]model.Page, 0, len(mc.Pages))
-
-	for pageID, mp := range mc.Pages { // Iterate using ID as well for logging clarity
-		// Ensure the managed page and its Playwright instance are valid and open
-		if mp != nil && mp.Instance != nil && !mp.Instance.IsClosed() {
-			pwPage := mp.Instance
-
-			title, err := pwPage.Title()
-			if err != nil {
-				fmt.Printf("WARN: Failed to get title for page %s: %v. Using empty title.\n", pageID, err)
-				title = "" // Use default value on error
-			}
-
-			url := pwPage.URL()
-			// URL() in playwright-go v0.4.0+ doesn't return an error, but checking defensively
-			// if url == "" {
-			//    fmt.Printf("WARN: Got empty URL for page %s\n", pageID)
-			// }
-
-			isActive := mp.ID == activePageID
-
-			pages = append(pages, model.Page{
-				Title:   title,
-				URL:     url,
-				Favicon: "", // Placeholder - Getting favicon requires extra JS evaluation
-				State: model.PageState{
-					Loading: false, // Placeholder - Reliably getting loading state is complex
-					Active:  isActive,
-				},
-			})
-		} else {
-			// Optional: Log if a page in the map is nil or closed unexpectedly
-			fmt.Printf("DEBUG: Skipping nil or closed page entry with ID %s in context %s\n", pageID, mc.ID)
+// GetPage retrieves details about a specific page, optionally including its content.
+func (s *BrowserService) GetPage(boxID, contextID, pageID string, withContent bool, mimeType string) (*model.GetPageResult, error) {
+	targetPage, err := s.GetPageInstance(boxID, contextID, pageID)
+	if err != nil {
+		// Wrap error for clarity if not found
+		if errors.Is(err, ErrPageNotFound) || errors.Is(err, ErrContextNotFound) || errors.Is(err, ErrBoxNotFound) {
+			return nil, fmt.Errorf("failed to get page instance: %w", err)
 		}
+		return nil, fmt.Errorf("internal error getting page instance: %w", err)
 	}
-	return pages
+
+	// Get URL (assuming it doesn't return an error, based on playwright-go common patterns)
+	pageURL := targetPage.URL()
+
+	// Get Title
+	pageTitle, err := targetPage.Title()
+	if err != nil {
+		// Title() *can* return an error according to playwright-go docs, handle it
+		pageTitle = "<error retrieving title>"
+		fmt.Printf("Warning: Failed to get title for page %s: %v\n", pageID, err)
+	}
+
+	result := &model.GetPageResult{
+		PageID: pageID,
+		URL:    pageURL,
+		Title:  pageTitle,
+	}
+
+	if withContent {
+		// Get raw HTML content
+		htmlContent, err := targetPage.Content()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get page content for %s: %w", pageID, err)
+		}
+
+		finalContent := htmlContent
+		finalContentType := "text/html" // Default to HTML initially
+
+		// Convert to Markdown if requested
+		if mimeType == "text/markdown" {
+			converter := md.NewConverter("", true, nil)
+			markdownContent, err := converter.ConvertString(htmlContent)
+			if err != nil {
+				// Log the error and return an error indicating conversion failure
+				fmt.Printf("Error converting HTML to Markdown for page %s: %v\n", pageID, err)
+				return nil, fmt.Errorf("markdown conversion failed for page %s: %w", pageID, err)
+			}
+			finalContent = markdownContent
+			finalContentType = "text/markdown"
+		}
+
+		result.Content = &finalContent
+		result.ContentType = &finalContentType
+	}
+
+	return result, nil
 }
+
+// --- Vision Actions --- (Placeholder - these would be moved here too if implemented)

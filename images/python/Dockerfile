@@ -63,11 +63,11 @@ RUN uv pip install --system \
     reportlab
 
 # Install Playwright and its dependencies
-RUN npx playwright install-deps \
-    && npx playwright install chromium
+RUN npx playwright@1.51.1 install-deps \
+    && npx playwright@1.51.1 install chromium
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 EXPOSE 3000
 
-CMD ["npx", "playwright", "run-server", "--port", "3000"]
+CMD ["npx", "playwright@1.51.1", "run-server", "--port", "3000"]

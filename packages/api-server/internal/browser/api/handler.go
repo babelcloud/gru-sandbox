@@ -9,7 +9,7 @@ import (
 	"github.com/emicklei/go-restful/v3"
 
 	browserSvc "github.com/babelcloud/gbox/packages/api-server/internal/browser/service"
-	"github.com/babelcloud/gbox/packages/api-server/pkg/browser"
+	model "github.com/babelcloud/gbox/packages/api-server/pkg/browser"
 )
 
 // Handler wraps the browser service to expose it via API endpoints.
@@ -162,10 +162,8 @@ func (h *Handler) ClosePage(req *restful.Request, resp *restful.Response) {
 	resp.WriteHeader(http.StatusNoContent)
 }
 
-// --- Action Handler ---
-
-// ExecuteAction handles POST /boxes/{id}/browser-contexts/{context_id}/pages/{page_id}/actions
-func (h *Handler) ExecuteAction(req *restful.Request, resp *restful.Response) {
+// GetPage handles GET /boxes/{id}/browser-contexts/{context_id}/pages/{page_id}
+func (h *Handler) GetPage(req *restful.Request, resp *restful.Response) {
 	boxID := req.PathParameter("id")
 	contextID := req.PathParameter("context_id")
 	pageID := req.PathParameter("page_id")
@@ -174,28 +172,38 @@ func (h *Handler) ExecuteAction(req *restful.Request, resp *restful.Response) {
 		return
 	}
 
-	var params model.PageActionParams
-	if err := req.ReadEntity(&params); err != nil {
-		writeError(resp, http.StatusBadRequest, fmt.Errorf("invalid request body: %w", err))
-		return
+	// Query parameters
+	withContentStr := req.QueryParameter("withContent")   // Defaults to "false" by route definition
+	contentTypeParam := req.QueryParameter("contentType") // Defaults to "html" by route definition
+
+	withContent := false
+	if strings.ToLower(withContentStr) == "true" {
+		withContent = true
 	}
 
-	// Basic validation for action type?
-	if params.Action == "" {
-		writeError(resp, http.StatusBadRequest, fmt.Errorf("action type is required"))
-		return
+	// Determine requested MIME type
+	mimeType := "text/html" // Default
+	if withContent {
+		switch strings.ToLower(contentTypeParam) {
+		case "markdown":
+			mimeType = "text/markdown"
+		case "html":
+			mimeType = "text/html"
+		default:
+			writeError(resp, http.StatusBadRequest, fmt.Errorf("invalid contentType: '%s', must be 'html' or 'markdown'", contentTypeParam))
+			return
+		}
 	}
 
-	result, err := h.service.ExecuteAction(boxID, contextID, pageID, params)
+	// Call service
+	result, err := h.service.GetPage(boxID, contextID, pageID, withContent, mimeType)
 	if err != nil {
 		if errors.Is(err, browserSvc.ErrContextNotFound) || errors.Is(err, browserSvc.ErrPageNotFound) {
 			writeError(resp, http.StatusNotFound, err)
-		} else if strings.Contains(err.Error(), "missing parameter") || strings.Contains(err.Error(), "unsupported action") {
-			// Catch specific errors from service like missing params or unsupported actions
-			writeError(resp, http.StatusBadRequest, err)
+		} else if strings.Contains(err.Error(), "conversion failed") { // Check for markdown conversion error
+			writeError(resp, http.StatusInternalServerError, fmt.Errorf("failed to process page content: %w", err))
 		} else {
-			// Other errors are likely internal
-			writeError(resp, http.StatusInternalServerError, fmt.Errorf("failed to execute action: %w", err))
+			writeError(resp, http.StatusInternalServerError, fmt.Errorf("failed to get page details: %w", err))
 		}
 		return
 	}
@@ -203,3 +211,95 @@ func (h *Handler) ExecuteAction(req *restful.Request, resp *restful.Response) {
 	resp.WriteHeader(http.StatusOK)
 	_ = resp.WriteAsJson(result)
 }
+
+// --- Vision Action Handlers ---
+
+func (h *Handler) ExecuteVisionClickAction(req *restful.Request, resp *restful.Response) {
+	executeSpecificAction[model.VisionClickParams, model.VisionClickResult](h, req, resp, h.service.ExecuteVisionClick)
+}
+
+func (h *Handler) ExecuteVisionDoubleClickAction(req *restful.Request, resp *restful.Response) {
+	executeSpecificAction[model.VisionDoubleClickParams, model.VisionDoubleClickResult](h, req, resp, h.service.ExecuteVisionDoubleClick)
+}
+
+func (h *Handler) ExecuteVisionTypeAction(req *restful.Request, resp *restful.Response) {
+	executeSpecificAction[model.VisionTypeParams, model.VisionTypeResult](h, req, resp, h.service.ExecuteVisionType)
+}
+
+func (h *Handler) ExecuteVisionDragAction(req *restful.Request, resp *restful.Response) {
+	executeSpecificAction[model.VisionDragParams, model.VisionDragResult](h, req, resp, h.service.ExecuteVisionDrag)
+}
+
+func (h *Handler) ExecuteVisionKeyPressAction(req *restful.Request, resp *restful.Response) {
+	executeSpecificAction[model.VisionKeyPressParams, model.VisionKeyPressResult](h, req, resp, h.service.ExecuteVisionKeyPress)
+}
+
+func (h *Handler) ExecuteVisionMoveAction(req *restful.Request, resp *restful.Response) {
+	executeSpecificAction[model.VisionMoveParams, model.VisionMoveResult](h, req, resp, h.service.ExecuteVisionMove)
+}
+
+func (h *Handler) ExecuteVisionScreenshotAction(req *restful.Request, resp *restful.Response) {
+	executeSpecificAction[model.VisionScreenshotParams, model.VisionScreenshotResult](h, req, resp, h.service.ExecuteVisionScreenshot)
+}
+
+func (h *Handler) ExecuteVisionScrollAction(req *restful.Request, resp *restful.Response) {
+	executeSpecificAction[model.VisionScrollParams, model.VisionScrollResult](h, req, resp, h.service.ExecuteVisionScroll)
+}
+
+// --- Specific Action Handlers ---
+
+// executeSpecificAction is a generic helper to reduce boilerplate in action handlers
+func executeSpecificAction[P any, R any]( // P: Params type, R: Result type
+	h *Handler,
+	req *restful.Request,
+	resp *restful.Response,
+	// Changed signature: Executor now takes IDs + Params
+	actionExecutor func(boxID, contextID, pageID string, params P) interface{},
+) {
+	boxID := req.PathParameter("id")
+	contextID := req.PathParameter("context_id")
+	pageID := req.PathParameter("page_id")
+	if boxID == "" || contextID == "" || pageID == "" {
+		writeError(resp, http.StatusBadRequest, fmt.Errorf("box ID, context ID and page ID are required"))
+		return
+	}
+
+	// 1. Read specific parameters
+	var params P
+	if err := req.ReadEntity(&params); err != nil {
+		writeError(resp, http.StatusBadRequest, fmt.Errorf("invalid request body: %w", err))
+		return
+	}
+
+	// 2. Execute the specific action via the provided executor function, passing IDs
+	result := actionExecutor(boxID, contextID, pageID, params)
+
+	// 4. Handle the result
+	if errResult, ok := result.(model.VisionErrorResult); ok {
+		// It's an error result from the service. Check the message content.
+		errMsg := errResult.Error // Get the actual error message string
+		if strings.Contains(errMsg, browserSvc.ErrBoxNotFound.Error()) ||
+			strings.Contains(errMsg, browserSvc.ErrContextNotFound.Error()) ||
+			strings.Contains(errMsg, browserSvc.ErrPageNotFound.Error()) {
+			// If the message indicates a Not Found error from GetPageInstance
+			writeError(resp, http.StatusNotFound, errors.New(errMsg))
+		} else {
+			// Assume other errors are client-actionable (e.g., bad params within the action) or internal
+			// Treat as Bad Request for now.
+			writeError(resp, http.StatusBadRequest, errors.New(errMsg))
+		}
+		return
+	}
+
+	// Check if the result type matches the expected successful result type R
+	if _, ok := result.(R); !ok {
+		writeError(resp, http.StatusInternalServerError, fmt.Errorf("internal error: unexpected result type %T", result))
+		return
+	}
+
+	// Success
+	resp.WriteHeader(http.StatusOK)
+	_ = resp.WriteAsJson(result)
+}
+
+// --- TODO: Add Snapshot Action Handlers ---

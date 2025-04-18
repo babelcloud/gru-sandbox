@@ -38,3 +38,14 @@ func NewListPagesResult(pageIDs []string) ListPagesResult {
 		PageIDs: pageIDs,
 	}
 }
+
+// --- Get Page --- MGHM
+
+// GetPageResult represents the response for getting page details.
+type GetPageResult struct {
+	PageID      string  `json:"page_id"`
+	URL         string  `json:"url"`
+	Title       string  `json:"title"`
+	Content     *string `json:"content,omitempty"`     // Content of the page (HTML or Markdown)
+	ContentType *string `json:"contentType,omitempty"` // MIME type (e.g., text/html, text/markdown)
+}

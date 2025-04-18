@@ -2,7 +2,6 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/playwright-community/playwright-go"
@@ -10,27 +9,49 @@ import (
 	model "github.com/babelcloud/gbox/packages/api-server/pkg/browser"
 )
 
-// executeSnapshotAction handles the execution of page actions operating in Snapshot mode.
-// Currently contains placeholders.
-func (s *BrowserService) executeSnapshotAction(targetPage playwright.Page, action model.PageActionType, paramsRaw json.RawMessage) (result interface{}, err error) {
-	// TODO: Implement snapshot action logic: unmarshal paramsRaw into specific snapshot param structs.
-	switch action {
-	case model.ActionSnapshotClick,
-		model.ActionSnapshotHover,
-		model.ActionSnapshotDrag,
-		model.ActionSnapshotType,
-		model.ActionSnapshotSelectOption,
-		model.ActionSnapshotCapture,
-		model.ActionSnapshotTakeScreenshot:
-		// Example placeholder for unmarshalling (when structs are defined):
-		// var props model.SnapshotClickParams
-		// if err := json.Unmarshal(paramsRaw, &props); err != nil {
-		// 	 return nil, fmt.Errorf("invalid params for %s: %w", action, err)
-		// }
-		return nil, fmt.Errorf("snapshot action '%s' is not yet implemented", action)
+// --- Snapshot Actions (Placeholders) ---
+// TODO: Implement these functions when snapshot logic is developed.
+// They should accept specific parameter structs (e.g., model.SnapshotClickParams)
+// and return specific result structs (e.g., model.SnapshotClickResult) or VisionErrorResult.
 
-	default:
-		// This case should ideally not be reached if the main dispatcher is correct
-		return nil, fmt.Errorf("unknown snapshot action: %s", action)
-	}
+func (s *BrowserService) ExecuteSnapshotClick(targetPage playwright.Page, params interface{}) interface{} {
+	// TODO: Type assert params to model.SnapshotClickParams, implement logic
+	err := fmt.Errorf("snapshot action '%s' is not yet implemented", model.ActionSnapshotClick)
+	return model.VisionErrorResult{Success: false, Error: err.Error()}
+}
+
+func (s *BrowserService) ExecuteSnapshotHover(targetPage playwright.Page, params interface{}) interface{} {
+	// TODO: Type assert params to model.SnapshotHoverParams, implement logic
+	err := fmt.Errorf("snapshot action '%s' is not yet implemented", model.ActionSnapshotHover)
+	return model.VisionErrorResult{Success: false, Error: err.Error()}
+}
+
+func (s *BrowserService) ExecuteSnapshotDrag(targetPage playwright.Page, params interface{}) interface{} {
+	// TODO: Type assert params to model.SnapshotDragParams, implement logic
+	err := fmt.Errorf("snapshot action '%s' is not yet implemented", model.ActionSnapshotDrag)
+	return model.VisionErrorResult{Success: false, Error: err.Error()}
+}
+
+func (s *BrowserService) ExecuteSnapshotType(targetPage playwright.Page, params interface{}) interface{} {
+	// TODO: Type assert params to model.SnapshotTypeParams, implement logic
+	err := fmt.Errorf("snapshot action '%s' is not yet implemented", model.ActionSnapshotType)
+	return model.VisionErrorResult{Success: false, Error: err.Error()}
+}
+
+func (s *BrowserService) ExecuteSnapshotSelectOption(targetPage playwright.Page, params interface{}) interface{} {
+	// TODO: Type assert params to model.SnapshotSelectOptionParams, implement logic
+	err := fmt.Errorf("snapshot action '%s' is not yet implemented", model.ActionSnapshotSelectOption)
+	return model.VisionErrorResult{Success: false, Error: err.Error()}
+}
+
+func (s *BrowserService) ExecuteSnapshotCapture(targetPage playwright.Page, params interface{}) interface{} {
+	// TODO: Type assert params to model.SnapshotCaptureParams, implement logic
+	err := fmt.Errorf("snapshot action '%s' is not yet implemented", model.ActionSnapshotCapture)
+	return model.VisionErrorResult{Success: false, Error: err.Error()}
+}
+
+func (s *BrowserService) ExecuteSnapshotTakeScreenshot(targetPage playwright.Page, params interface{}) interface{} {
+	// TODO: Type assert params to model.SnapshotTakeScreenshotParams, implement logic
+	err := fmt.Errorf("snapshot action '%s' is not yet implemented", model.ActionSnapshotTakeScreenshot)
+	return model.VisionErrorResult{Success: false, Error: err.Error()}
 }

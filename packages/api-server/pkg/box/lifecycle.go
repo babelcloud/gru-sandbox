@@ -2,14 +2,16 @@ package model
 
 // BoxCreateParams represents a request to create a box
 type BoxCreateParams struct {
-	Image           string            `json:"image,omitempty"`
-	ImagePullSecret string            `json:"image_pull_secret,omitempty"` // For docker: base64 encoded auth string, for k8s: secret name
-	Env             map[string]string `json:"env,omitempty"`
-	Cmd             string            `json:"cmd,omitempty"`
-	Args            []string          `json:"args,omitempty"`
-	WorkingDir      string            `json:"working_dir,omitempty"`
-	ExtraLabels     map[string]string `json:"extra_labels,omitempty"`
-	Volumes         []VolumeMount     `json:"volumes,omitempty"` // Volume mounts for the container
+	Image                      string            `json:"image,omitempty"`
+	ImagePullSecret            string            `json:"image_pull_secret,omitempty"` // For docker: base64 encoded auth string, for k8s: secret name
+	Env                        map[string]string `json:"env,omitempty"`
+	Cmd                        string            `json:"cmd,omitempty"`
+	Args                       []string          `json:"args,omitempty"`
+	WorkingDir                 string            `json:"working_dir,omitempty"`
+	ExtraLabels                map[string]string `json:"extra_labels,omitempty"`
+	Volumes                    []VolumeMount     `json:"volumes,omitempty"`                        // Volume mounts for the container
+	WaitForReady               bool              `json:"wait_for_ready,omitempty"`                 // + Wait for box to be ready (healthy)
+	WaitForReadyTimeoutSeconds int               `json:"wait_for_ready_timeout_seconds,omitempty"` // + Timeout for readiness check
 }
 
 // VolumeMount represents a volume mount configuration

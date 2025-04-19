@@ -3,6 +3,7 @@ package service
 
 import (
 	// "encoding/json" // No longer needed for unmarshalling here
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -152,9 +153,7 @@ func (s *BrowserService) ExecuteVisionMove(boxID, contextID, pageID string, para
 	return model.VisionMoveResult{Success: true}
 }
 
-// ExecuteVisionScreenshot handles the vision.screenshot action.
-// It always saves the screenshot to a file. If no path is specified,
-// it saves to the default shared directory with a timestamped filename.
+// ExecuteVisionScreenshot takes a screenshot and returns either its base64 content or a URL.
 func (s *BrowserService) ExecuteVisionScreenshot(boxID, contextID, pageID string, params model.VisionScreenshotParams) interface{} {
 	targetPage, err := s.GetPageInstance(boxID, contextID, pageID)
 	if err != nil {
@@ -163,62 +162,22 @@ func (s *BrowserService) ExecuteVisionScreenshot(boxID, contextID, pageID string
 
 	cfg := config.GetInstance() // Get config instance once
 	screenshotOpts := playwright.PageScreenshotOptions{}
-	savePath := ""
-	baseScreenshotDir := filepath.Join(cfg.File.Share, boxID, "screenshot") // Define base dir for defaults/relatives
-
-	// --- Determine Save Path ---
-	var fileExt string = "png"
-	if params.Type != nil && (*params.Type == "jpeg" || *params.Type == "jpg") {
-		fileExt = "jpeg"
+	outputFormat := "base64" // Default output format
+	if params.OutputFormat != nil && *params.OutputFormat == "url" {
+		outputFormat = "url"
 	}
 
-	if params.Path != nil && *params.Path != "" {
-		providedPath := *params.Path
-		if filepath.IsAbs(providedPath) {
-			// Use the user-provided absolute path
-			savePath = providedPath
-			fmt.Printf("DEBUG: Using provided absolute path: %s\n", savePath)
-		} else {
-			// Join the relative path with the base screenshot directory
-			savePath = filepath.Join(baseScreenshotDir, providedPath)
-			fmt.Printf("DEBUG: Relative path '%s' resolved to '%s'\n", providedPath, savePath)
-		}
-	} else {
-		// Generate default filename and join with base screenshot directory
-		timestamp := time.Now().Format("20060102_150405")
-		filename := fmt.Sprintf("screenshot_%s.%s", timestamp, fileExt)
-		savePath = filepath.Join(baseScreenshotDir, filename)
-		fmt.Printf("DEBUG: Using default generated path: %s\n", savePath)
-	}
-
-	// --- Ensure Directory Exists ---
-	// Get the directory part of the final save path
-	finalDir := filepath.Dir(savePath)
-	// Ensure the final target directory exists before attempting to save
-	if err := os.MkdirAll(finalDir, 0755); err != nil {
-		return model.VisionErrorResult{Success: false, Error: fmt.Sprintf("failed to create target directory '%s': %v", finalDir, err)}
-	}
-	// -----------------------------
-
-	screenshotOpts.Path = &savePath // Set the final path
-	// -------------------------
-
-	// --- Map other options from params to screenshotOpts ---
-	// Only set options if they are provided in params, otherwise let Playwright use defaults.
+	// --- Map common options from params to screenshotOpts ---
 	if params.Type != nil {
 		if *params.Type == "png" {
 			screenshotOpts.Type = playwright.ScreenshotTypePng
 		} else if *params.Type == "jpeg" || *params.Type == "jpg" {
 			screenshotOpts.Type = playwright.ScreenshotTypeJpeg
 		}
-		// Add warning or error if value is invalid?
 	}
-
 	if params.FullPage != nil {
 		screenshotOpts.FullPage = params.FullPage
 	}
-
-	// Check params.Type for JPEG before applying Quality
 	var isJpeg bool
 	if params.Type != nil && (*params.Type == "jpeg" || *params.Type == "jpg") {
 		isJpeg = true
@@ -226,16 +185,12 @@ func (s *BrowserService) ExecuteVisionScreenshot(boxID, contextID, pageID string
 	if params.Quality != nil && isJpeg {
 		screenshotOpts.Quality = params.Quality
 	}
-
 	if params.OmitBackground != nil {
 		screenshotOpts.OmitBackground = params.OmitBackground
 	}
-
 	if params.Timeout != nil {
 		screenshotOpts.Timeout = params.Timeout
 	}
-
-	// Map Rect (Clip)
 	if params.Clip != nil {
 		screenshotOpts.Clip = &playwright.Rect{
 			X:      params.Clip.X,
@@ -244,50 +199,81 @@ func (s *BrowserService) ExecuteVisionScreenshot(boxID, contextID, pageID string
 			Height: params.Clip.Height,
 		}
 	}
-
-	// Map Scale
 	if params.Scale != nil {
 		if *params.Scale == "css" {
 			screenshotOpts.Scale = playwright.ScreenshotScaleCss
 		} else if *params.Scale == "device" {
 			screenshotOpts.Scale = playwright.ScreenshotScaleDevice
 		}
-		// Add warning or error if value is invalid?
 	}
-
-	// Map Animations
 	if params.Animations != nil {
 		if *params.Animations == "disabled" {
 			screenshotOpts.Animations = playwright.ScreenshotAnimationsDisabled
 		} else if *params.Animations == "allow" {
 			screenshotOpts.Animations = playwright.ScreenshotAnimationsAllow
 		}
-		// Add warning or error if value is invalid?
 	}
-
-	// Map Caret
 	if params.Caret != nil {
 		if *params.Caret == "hide" {
 			screenshotOpts.Caret = playwright.ScreenshotCaretHide
 		} else if *params.Caret == "initial" {
 			screenshotOpts.Caret = playwright.ScreenshotCaretInitial
 		}
-		// Add warning or error if value is invalid?
 	}
 	// --------------------------------------------------------
 
-	// Log the options being used
-	fmt.Printf("DEBUG: Executing screenshot with options: %+v\n", screenshotOpts)
+	fmt.Printf("DEBUG: Executing screenshot with options: %+v, OutputFormat: %s\n", screenshotOpts, outputFormat)
 
-	// Execute the screenshot command
-	_, err = targetPage.Screenshot(screenshotOpts)
-	if err != nil {
-		// Consider checking for specific errors like permission denied vs other playwright errors
-		return model.VisionErrorResult{Success: false, Error: fmt.Sprintf("vision.screenshot failed: %v", err)}
+	if outputFormat == "url" {
+		// --- Handle URL Output ---
+		fileExt := "png" // Default extension
+		if screenshotOpts.Type == playwright.ScreenshotTypeJpeg {
+			fileExt = "jpeg"
+		}
+
+		// Define base dir and generate filename
+		baseScreenshotDir := filepath.Join(cfg.File.Share, boxID, "screenshot")
+		timestamp := time.Now().Format("20060102_150405")
+		filename := fmt.Sprintf("screenshot_%s.%s", timestamp, fileExt)
+		finalPath := filepath.Join(baseScreenshotDir, filename)
+		relativeSavePath := filepath.Join("screenshot", filename) // Path relative to box share dir
+
+		// Ensure the target directory exists
+		if err := os.MkdirAll(baseScreenshotDir, 0755); err != nil {
+			return model.VisionErrorResult{Success: false, Error: fmt.Sprintf("failed to create target directory '%s': %v", baseScreenshotDir, err)}
+		}
+
+		// Set the path for saving the file
+		screenshotOpts.Path = &finalPath
+
+		// Execute screenshot to file
+		_, err = targetPage.Screenshot(screenshotOpts)
+		if err != nil {
+			return model.VisionErrorResult{Success: false, Error: fmt.Sprintf("vision.screenshot (url mode) failed: %v", err)}
+		}
+
+		// Generate the access URL (adjust format as needed)
+		// Assuming /api/v1/files/shared/{boxID}/{relativePath}
+		accessURL := fmt.Sprintf("/api/v1/files/shared/%s/%s", boxID, relativeSavePath)
+
+		return model.VisionScreenshotResult{Success: true, URL: accessURL}
+
+	} else {
+		// --- Handle Base64 Output (Default) ---
+		// Ensure Path is not set when getting buffer
+		screenshotOpts.Path = nil
+
+		// Execute screenshot to buffer
+		buffer, err := targetPage.Screenshot(screenshotOpts)
+		if err != nil {
+			return model.VisionErrorResult{Success: false, Error: fmt.Sprintf("vision.screenshot (base64 mode) failed: %v", err)}
+		}
+
+		// Encode buffer to base64
+		encodedString := base64.StdEncoding.EncodeToString(buffer)
+
+		return model.VisionScreenshotResult{Success: true, Base64Content: encodedString}
 	}
-
-	// Always return the path where the file was saved
-	return model.VisionScreenshotResult{Success: true, SavedPath: savePath}
 }
 
 // ExecuteVisionScroll handles the vision.scroll action.

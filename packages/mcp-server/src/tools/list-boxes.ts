@@ -17,7 +17,7 @@ export const handleListBoxes = withLogging(
 
     const response = await gbox.box.getBoxes({ signal, sessionId });
 
-    logger.info(`Found ${response.boxes.length} boxes`);
+    logger.info(`Found ${response.count} boxes`);
 
     return {
       content: [

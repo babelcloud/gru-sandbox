@@ -56,24 +56,19 @@ export class Client {
     return response;
   }
 
-  async get(
-    path: string,
-    options: ClientRequestOptions = {}
-  ): Promise<Response> {
+  async get(path: string, options: ClientRequestOptions = {}): Promise<Response> {
     return this.request(path, { ...options, method: "GET" });
   }
 
-  async head(
-    path: string,
-    options: ClientRequestOptions = {}
-  ): Promise<Response> {
+  async head(path: string, options: ClientRequestOptions = {}): Promise<Response> {
     return this.request(path, { ...options, method: "HEAD" });
   }
 
-  async post(
-    path: string,
-    options: ClientRequestOptions = {}
-  ): Promise<Response> {
+  async post(path: string, options: ClientRequestOptions = {}): Promise<Response> {
     return this.request(path, { ...options, method: "POST" });
+  }
+
+  async delete(path: string, options: ClientRequestOptions = {}): Promise<Response> {
+    return this.request(path, { ...options, method: "DELETE" });
   }
 }

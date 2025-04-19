@@ -9,6 +9,7 @@ import (
 	"github.com/playwright-community/playwright-go"
 	// Removed uuid, browser imports as they are used in other files
 
+	"github.com/babelcloud/gbox/packages/api-server/config"
 	boxSvc "github.com/babelcloud/gbox/packages/api-server/internal/box/service"
 )
 
@@ -74,26 +75,48 @@ func NewBrowserService(boxMgr boxSvc.BoxService) (*BrowserService, error) {
 func (s *BrowserService) Close() error {
 	s.mu.Lock() // Lock the main map
 	var closeErrors error
-	// Close browsers (listeners should trigger cleanup, but do defensive cleanup too)
+	browsersToClose := make([]playwright.Browser, 0, len(s.managedBrowsers))
+	browserIDs := make([]string, 0, len(s.managedBrowsers))
+
+	// Collect browsers to close while holding the lock
 	for boxID, mb := range s.managedBrowsers {
 		if mb.Instance != nil && mb.Instance.IsConnected() {
-			if err := mb.Instance.Close(); err != nil {
-				errMsg := fmt.Errorf("failed closing browser for box %s: %w", boxID, err)
+			browsersToClose = append(browsersToClose, mb.Instance)
+			browserIDs = append(browserIDs, boxID) // Keep track of IDs for logging
+		}
+	}
+	// Clear the maps immediately *before* releasing lock and closing browsers
+	s.managedBrowsers = make(map[string]*ManagedBrowser)
+	s.pageMap = make(map[string]*ManagedPage)
+	s.mu.Unlock() // Release the lock BEFORE closing browsers
+
+	// Close browsers (listeners can now run handleBrowserDisconnect without deadlocking)
+	for i, browserInstance := range browsersToClose {
+		boxID := browserIDs[i] // Get corresponding ID for logging
+		fmt.Printf("INFO: Closing browser instance for box %s during service shutdown\n", boxID)
+		if err := browserInstance.Close(); err != nil {
+			errMsg := fmt.Errorf("failed closing browser for box %s: %w", boxID, err)
+			// Aggregate errors (consider using multierror)
+			if closeErrors == nil {
+				closeErrors = errMsg
+			} else {
 				closeErrors = fmt.Errorf("%v; %w", closeErrors, errMsg)
 			}
 		}
 	}
-	s.managedBrowsers = make(map[string]*ManagedBrowser) // Clear the maps
-	s.pageMap = make(map[string]*ManagedPage)
-	s.mu.Unlock()
 
-	// Stop the Playwright instance
-	if s.pw != nil {
-		if err := s.pw.Stop(); err != nil {
-			errMsg := fmt.Errorf("failed to stop playwright: %w", err)
-			closeErrors = fmt.Errorf("%v; %w", closeErrors, errMsg)
+	// Stop the Playwright instance (does not require s.mu)
+	// REMOVED: The service should not stop the main Playwright instance
+	// as it might be shared or managed externally.
+	/*
+		if s.pw != nil {
+			fmt.Println("INFO: Stopping Playwright instance...")
+			if err := s.pw.Stop(); err != nil {
+				errMsg := fmt.Errorf("failed to stop playwright: %w", err)
+				closeErrors = fmt.Errorf("%v; %w", closeErrors, errMsg)
+			}
 		}
-	}
+	*/
 	return closeErrors // Consider using multierror package for better error aggregation
 }
 
@@ -129,7 +152,8 @@ func (s *BrowserService) getOrCreateManagedBrowser(boxID string) (*ManagedBrowse
 	}
 
 	portStr := strconv.Itoa(portInt)
-	endpointURL := fmt.Sprintf("ws://localhost:%s", portStr)
+	host := config.GetInstance().Browser.Host
+	endpointURL := fmt.Sprintf("ws://%s:%s", host, portStr)
 
 	browserInstance, err := s.pw.Chromium.Connect(endpointURL)
 	if err != nil {

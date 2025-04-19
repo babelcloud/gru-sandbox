@@ -1,7 +1,7 @@
 import { withLogging } from "../utils.js";
 import { config } from "../config.js";
 import { GBox } from "../sdk/index.js";
-import { MCPLogger } from "../mcp-logger.js";
+import type { Logger } from "../sdk/types";
 import { z } from "zod";
 
 export const WRITE_FILE_TOOL = "write-file";
@@ -18,8 +18,7 @@ export const writeFileParams = {
 };
 
 export const handleWriteFile = withLogging(
-  async (log, { path, content, boxId }, { signal }) => {
-    const logger = new MCPLogger(log);
+  async (logger: Logger, { path, content, boxId }, { signal }) => {
     const gbox = new GBox({
       apiUrl: config.apiServer.url,
       logger,
@@ -27,7 +26,12 @@ export const handleWriteFile = withLogging(
 
     logger.info(`Writing to file: ${path} from box: ${boxId}`);
 
-    const writeResponse =  await gbox.file.writeFile(boxId, path, content, signal);
+    const writeResponse = await gbox.file.writeFile(
+      boxId,
+      path,
+      content,
+      signal
+    );
     if (!writeResponse || !writeResponse.success) {
       return {
         content: [

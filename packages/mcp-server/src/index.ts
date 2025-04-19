@@ -9,6 +9,8 @@ import {
   READ_FILE_DESCRIPTION,
   WRITE_FILE_TOOL,
   WRITE_FILE_DESCRIPTION,
+  LIST_BOXES_TOOL,
+  LIST_BOXES_DESCRIPTION,
   handleRunPython,
   handleRunBash,
   handleReadFile,
@@ -17,6 +19,11 @@ import {
   readFileParams,
   handleWriteFile,
   writeFileParams,
+  handleListBoxes,
+  VIEW_URL_AS_TOOL,
+  VIEW_URL_AS_DESCRIPTION,
+  viewUrlAsParams,
+  handleViewUrlAs,
 } from "./tools/index.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import express from "express";
@@ -91,13 +98,12 @@ mcpServer.prompt(
 
 // Register tools
 
-// This is meaningless for now, because we don't have a way to explicitly create a box.
-// mcpServer.tool(
-//   LIST_BOXES_TOOL,
-//   LIST_BOXES_DESCRIPTION,
-//   {},
-//   handleListBoxes(log)
-// );
+mcpServer.tool(
+  LIST_BOXES_TOOL,
+  LIST_BOXES_DESCRIPTION,
+  {},
+  handleListBoxes(logger)
+);
 
 mcpServer.tool(
   READ_FILE_TOOL,
@@ -127,6 +133,12 @@ mcpServer.tool(
   handleRunBash(logger)
 );
 
+mcpServer.tool(
+  VIEW_URL_AS_TOOL,
+  VIEW_URL_AS_DESCRIPTION,
+  viewUrlAsParams,
+  handleViewUrlAs(logger)
+);
 app.get("/sse", (req, res) => {
   transport = new SSEServerTransport("/messages", res);
   mcpServer.connect(transport);
@@ -141,5 +153,5 @@ app.post("/messages", (req, res) => {
 const port = process.env.PORT || 28090;
 
 app.listen(port, () => {
-  console.log(`Server started successfully on port ${port}`);
+  // console.log(`Server started successfully on port ${port}`);
 });

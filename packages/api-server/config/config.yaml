@@ -2,6 +2,9 @@
 server:
   port: 28080
 
+browser:
+  host: "localhost"
+
 # File service configuration
 file:
   # Base directories

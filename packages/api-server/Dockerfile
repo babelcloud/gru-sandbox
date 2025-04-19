@@ -1,5 +1,6 @@
 # Build stage
-FROM golang:1.23.7-alpine3.21 AS builder
+# Using Debian-based Go image for playwright.Run() compatibility
+FROM golang:1.23.7-bookworm AS builder
 
 # Build arguments for version information
 ARG VERSION=dev
@@ -14,8 +15,11 @@ WORKDIR /app
 # Copy go mod and sum files
 COPY go.mod go.sum ./
 
-# Download dependencies
+# Download Go dependencies
 RUN go mod download
+
+# Install the Playwright Go CLI tool binary
+RUN go install github.com/playwright-community/playwright-go/cmd/playwright@latest
 
 # Copy source code
 COPY . .
@@ -27,11 +31,16 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -X ${VERSION_PKG}.CommitID=${COMMIT_ID}" \
     -o api-server ./cmd/app/main.go
 
-# Final stage
-FROM alpine:3.21
+# --- Final stage ---
+# Switch to Debian Slim for glibc compatibility needed by playwright.Run() internals
+FROM debian:bookworm-slim
 
-# Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+# Install Node.js/npm (needed to RUN the playwright CLI tool for driver install) 
+# and essential runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set timezone
 ENV TZ=Asia/Shanghai
@@ -42,6 +51,14 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /app/api-server .
 
+# Copy the Playwright CLI tool binary built in the builder stage
+# The Go builder image typically puts binaries in /go/bin
+COPY --from=builder /go/bin/playwright /usr/local/bin/playwright
+
+# Run playwright install WITHOUT browser names to install only the drivers/Node runtime
+# This is what playwright.Run() seems to require internally
+RUN playwright install --with-deps chromium
+
 # Copy config files if any
 COPY --from=builder /app/config ./config
 
@@ -49,4 +66,5 @@ COPY --from=builder /app/config ./config
 EXPOSE 28080
 
 # Run the application
+# Playwright will auto-download its small drivers to ~/.cache/ms-playwright-go on first run
 CMD ["./api-server"] 

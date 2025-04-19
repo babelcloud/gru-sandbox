@@ -104,9 +104,6 @@ type VisionMoveParams struct {
 // VisionScreenshotParams corresponds to the props for the vision.screenshot action based on ScreenshotActionSchema.
 // Aligned with relevant options from playwright.PageScreenshotOptions.
 type VisionScreenshotParams struct {
-	// Path specifies the file path to save the screenshot to.
-	// If omitted, the screenshot is returned as a base64 encoded string.
-	Path *string `json:"path,omitempty"`
 
 	// When true, takes a screenshot of the full scrollable page. Defaults to false.
 	FullPage *bool `json:"fullPage,omitempty"`
@@ -135,7 +132,8 @@ type VisionScreenshotParams struct {
 	// Caret visibility ('hide', 'initial'). Defaults to 'hide'.
 	Caret *string `json:"caret,omitempty"` // Consider enum ScreenshotCaret
 
-	// TODO: Consider adding Mask, MaskColor, Style if needed later.
+	// Output format ('url' or 'base64'). Defaults to 'base64'.
+	OutputFormat *string `json:"output_format,omitempty"`
 }
 
 // VisionScrollParams corresponds to the props for the vision.scroll action based on ScrollActionSchema.
@@ -189,8 +187,9 @@ type VisionScrollResult struct {
 
 // VisionScreenshotResult is returned when ActionVisionScreenshot saves to a file.
 type VisionScreenshotResult struct {
-	Success   bool   `json:"success"`   // Always true for this type
-	SavedPath string `json:"savedPath"` // The absolute path where the screenshot was saved.
+	Success       bool   `json:"success"`                  // Always true for this type
+	URL           string `json:"url,omitempty"`            // URL if output_format is "url"
+	Base64Content string `json:"base64_content,omitempty"` // Base64 encoded content if output_format is "base64"
 }
 
 // VisionScreenshotBase64Result is returned when ActionVisionScreenshot returns base64 data.

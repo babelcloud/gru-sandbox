@@ -66,8 +66,17 @@ RUN uv pip install --system \
 RUN npx playwright@1.51.1 install-deps \
     && npx playwright@1.51.1 install chromium
 
-ENTRYPOINT ["/usr/bin/tini", "--"]
+# Copy pm2 config and entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 
 EXPOSE 3000
 
-CMD ["npx", "playwright@1.51.1", "run-server", "--port", "3000"]
+# Add health check to verify Playwright server is running
+# Waits 5s initially, checks every 10s, times out after 5s, 3 retries
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl --fail http://localhost:3000 || exit 1
+
+CMD ["sleep", "infinity"]

@@ -38,7 +38,14 @@ export class BoxService {
 
   // Get or create a box
   async getOrCreateBox(options: CreateBoxOptions): Promise<string> {
-    const { boxId, image, sessionId, signal } = options;
+    const {
+      boxId,
+      image,
+      sessionId,
+      signal,
+      waitForReady,
+      waitForReadyTimeoutSeconds,
+    } = options;
 
     // If boxId is provided, try to use existing box
     if (boxId) {
@@ -77,6 +84,8 @@ export class BoxService {
     const newBox = await this.createBox(image, this.defaultCmd, {
       sessionId,
       signal,
+      waitForReady,
+      waitForReadyTimeoutSeconds,
     });
     return newBox.id;
   }
@@ -85,10 +94,18 @@ export class BoxService {
   private async createBox(
     image: string,
     cmd: string | string[],
-    { sessionId, signal }: RunOptions
+    options: {
+      sessionId?: string;
+      signal?: AbortSignal;
+      waitForReady?: boolean;
+      waitForReadyTimeoutSeconds?: number;
+    }
   ): Promise<Box> {
     let command: string;
     let commandArgs: string[] | undefined;
+
+    const { sessionId, signal, waitForReady, waitForReadyTimeoutSeconds } =
+      options;
 
     if (Array.isArray(cmd)) {
       [command, ...commandArgs] = cmd;
@@ -103,6 +120,10 @@ export class BoxService {
           cmd: command,
           args: commandArgs,
           labels: sessionId ? { sessionId } : undefined,
+          ...(waitForReady ? { wait_for_ready: true } : {}),
+          ...(waitForReadyTimeoutSeconds
+            ? { wait_for_ready_timeout_seconds: waitForReadyTimeoutSeconds }
+            : {}),
         }),
         signal,
       });
@@ -121,7 +142,7 @@ export class BoxService {
 
       const result = await response.json();
       this.logger?.debug("Box created successfully: %o", result);
-      return result as Box;
+      return result;
     } catch (error) {
       this.logger?.error("Error creating box: %o", error);
       throw error;
@@ -184,7 +205,10 @@ export class BoxService {
     signal,
     sessionId,
     boxId,
-  }: RunOptions & { boxId?: string }): Promise<{ boxes: Box[] }> {
+  }: RunOptions & { boxId?: string }): Promise<{
+    boxes: Box[];
+    count: number;
+  }> {
     const filters = [];
 
     if (boxId) {
@@ -195,13 +219,13 @@ export class BoxService {
       });
     }
 
-    if (sessionId) {
-      filters.push({
-        field: "label",
-        operator: "=" as const,
-        value: `sessionId=${sessionId}`,
-      });
-    }
+    // if (sessionId) {
+    //   filters.push({
+    //     field: "label",
+    //     operator: "=" as const,
+    //     value: `sessionId=${sessionId}`,
+    //   });
+    // }
 
     const response = await this.client.get(
       `/boxes${this.buildQueryParams(filters)}`,

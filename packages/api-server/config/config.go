@@ -25,6 +25,7 @@ type Config struct {
 	Server  ServerConfig
 	File    FileConfig
 	Cluster ClusterConfig
+	Browser BrowserConfig
 }
 
 // ServerConfig represents server configuration
@@ -59,6 +60,11 @@ type K8sConfig struct {
 	Config string
 }
 
+// BrowserConfig represents browser service specific configuration
+type BrowserConfig struct {
+	Host string `yaml:"host"`
+}
+
 func init() {
 	v = viper.New()
 
@@ -74,7 +80,7 @@ func init() {
 	v.BindEnv("file.share", "GBOX_SHARE")
 	v.BindEnv("file.host_share", "GBOX_HOST_SHARE")
 	v.BindEnv("cluster.namespace", "GBOX_NAMESPACE")
-
+	v.BindEnv("browser.host", "GBOX_BROWSER_HOST")
 	// Config file
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
@@ -255,6 +261,9 @@ func New() (*Config, error) {
 				Config: findKubeConfig(os.Getenv("HOME")),
 			},
 		},
+		Browser: BrowserConfig{
+			Host: "localhost",
+		},
 	}
 
 	// Load configuration from viper
@@ -262,18 +271,21 @@ func New() (*Config, error) {
 		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
 	}
 
-	// Resolve paths
+	// Resolve paths (Original logic restored)
 	cfg.File.Home = os.ExpandEnv(cfg.File.Home)
 	cfg.File.Share = os.ExpandEnv(cfg.File.Share)
 	cfg.File.HostShare = os.ExpandEnv(cfg.File.HostShare)
 
 	// Create directories if they don't exist
 	if err := os.MkdirAll(cfg.File.Home, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create home directory: %v", err)
+		return nil, fmt.Errorf("failed to create home directory '%s': %v", cfg.File.Home, err)
 	}
 	if err := os.MkdirAll(cfg.File.Share, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create share directory: %v", err)
+		return nil, fmt.Errorf("failed to create share directory '%s': %v", cfg.File.Share, err)
 	}
+
+	// Note: findDockerSocket/findKubeConfig are called during default initialization.
+	// If Viper unmarshals non-empty values for Docker.Host or K8s.Config, those will be used.
 
 	return cfg, nil
 }

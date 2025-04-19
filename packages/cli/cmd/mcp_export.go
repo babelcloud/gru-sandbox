@@ -14,7 +14,8 @@ import (
 
 // Define the structure for the new MCP server entry using URL
 type McpServerEntry struct {
-	Url string `json:"url"`
+	Command string   `json:"command"`
+	Args    []string `json:"args"`
 }
 
 // Keep McpConfig using the specific new entry type for generation
@@ -111,10 +112,12 @@ func exportConfig(mergeTo string, dryRun bool) error {
 	cursorConfig := filepath.Join(homeDir, ".cursor", "mcp.json")
 
 	// configToExport remains the definitive new structure to be added/updated
+	mcpServerURL := strings.TrimSuffix(config.GetMcpServerUrl(), "/") + "/sse" // Get and format URL once
 	configToExport := McpConfig{
 		McpServers: map[string]McpServerEntry{
 			"gbox": {
-				Url: config.GetMcpServerUrl(), // Use URL from config
+				Command: "npx",
+				Args:    []string{"mcp-remote", mcpServerURL}, // Use formatted URL
 			},
 		},
 	}

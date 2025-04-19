@@ -17,6 +17,8 @@ import (
 	boxService "github.com/babelcloud/gbox/packages/api-server/internal/box/service"
 	_ "github.com/babelcloud/gbox/packages/api-server/internal/box/service/impl/docker"
 	_ "github.com/babelcloud/gbox/packages/api-server/internal/box/service/impl/k8s"
+	browserApi "github.com/babelcloud/gbox/packages/api-server/internal/browser/api"
+	browserService "github.com/babelcloud/gbox/packages/api-server/internal/browser/service"
 	"github.com/babelcloud/gbox/packages/api-server/internal/common"
 	"github.com/babelcloud/gbox/packages/api-server/internal/cron"
 	fileApi "github.com/babelcloud/gbox/packages/api-server/internal/file/api"
@@ -60,9 +62,17 @@ func main() {
 	}
 
 	miscSvc := miscService.New()
+
+	browserSvc, err := browserService.NewBrowserService(boxSvc)
 	if err != nil {
-		log.Fatal("Failed to initialize misc service: %v", err)
+		log.Fatal("Failed to initialize browser service: %v", err)
 	}
+	defer func() {
+		log.Info("Closing browser service...")
+		if err := browserSvc.Close(); err != nil {
+			log.Error("Error closing browser service: %v", err)
+		}
+	}()
 
 	// Initialize cron manager (pass fileSvc pointer)
 	cronManager := cron.NewManager(log, boxSvc, fileSvc)
@@ -73,6 +83,7 @@ func main() {
 	boxHandler := boxApi.NewBoxHandler(boxSvc)
 	fileHandler := fileApi.NewFileHandler(*fileSvc)
 	miscHandler := miscApi.NewMiscHandler(miscSvc)
+	browserHandler := browserApi.NewHandler(browserSvc)
 
 	// Create REST API container
 	container := restful.NewContainer()
@@ -87,6 +98,7 @@ func main() {
 	boxApi.RegisterRoutes(ws, boxHandler)
 	fileApi.RegisterRoutes(ws, fileHandler)
 	miscApi.RegisterRoutes(ws, miscHandler)
+	browserApi.RegisterBrowserRoutes(ws, browserHandler)
 
 	container.Add(ws)
 

@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -92,7 +93,8 @@ func (s *Service) Create(ctx context.Context, params *model.BoxCreateParams) (*m
 	}
 
 	hostConfig := &container.HostConfig{
-		Mounts: mounts,
+		Mounts:          mounts,
+		PublishAllPorts: true,
 	}
 
 	resp, err := s.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, containerName)
@@ -105,13 +107,72 @@ func (s *Service) Create(ctx context.Context, params *model.BoxCreateParams) (*m
 		return nil, fmt.Errorf("failed to start container: %w", err)
 	}
 
-	// Get container details
-	containerInfo, err := s.getContainerByID(ctx, boxID)
+	// --- Wait for container to be healthy if requested ---
+	if params.WaitForReady {
+		const defaultReadyTimeout = 60 // Default timeout 60 seconds
+		const checkInterval = 1 * time.Second
+
+		timeoutDuration := time.Duration(params.WaitForReadyTimeoutSeconds) * time.Second
+		if params.WaitForReadyTimeoutSeconds <= 0 {
+			timeoutDuration = time.Duration(defaultReadyTimeout) * time.Second
+		}
+
+		s.logger.Info("Waiting up to %v for box %s to become healthy...", timeoutDuration, boxID)
+		timeoutCtx, cancel := context.WithTimeout(ctx, timeoutDuration)
+		defer cancel()
+
+		startTime := time.Now()
+		for {
+			select {
+			case <-timeoutCtx.Done():
+				s.logger.Error("Timeout waiting for box %s to become healthy", boxID)
+				// Attempt to stop/remove the unhealthy container on timeout
+				_, _ = s.Stop(context.Background(), boxID)                                        // Ignore both return values
+				_, _ = s.Delete(context.Background(), boxID, &model.BoxDeleteParams{Force: true}) // Ignore both return values
+				return nil, fmt.Errorf("timeout waiting for box %s to become healthy after %v", boxID, timeoutDuration)
+			default:
+				inspectData, err := s.client.ContainerInspect(timeoutCtx, resp.ID)
+				if err != nil {
+					// Handle context cancellation specifically
+					if errors.Is(err, context.DeadlineExceeded) {
+						// This case is handled by the select statement, just log
+						s.logger.Warn("Context deadline exceeded while inspecting box %s health", boxID)
+					} else {
+						s.logger.Error("Error inspecting container %s for health check: %v", boxID, err)
+						// Consider if we should stop/delete here or let timeout handle it
+					}
+					// Wait before retrying inspection on error
+					time.Sleep(checkInterval)
+					continue
+				}
+
+				if inspectData.State != nil && inspectData.State.Health != nil {
+					s.logger.Debug("Box %s health status: %s", boxID, inspectData.State.Health.Status)
+					if inspectData.State.Health.Status == "healthy" {
+						s.logger.Info("Box %s is healthy after %v.", boxID, time.Since(startTime))
+						goto HealthCheckDone // Exit the loop
+					}
+					// If status is unhealthy, we could potentially exit early, but let's wait for timeout or healthy
+				} else {
+					// Health check might not be configured or running yet
+					s.logger.Debug("Box %s health status not available yet.", boxID)
+				}
+
+				// Wait before the next check
+				time.Sleep(checkInterval)
+			}
+		}
+	HealthCheckDone:
+	}
+	// --- End of wait logic ---
+
+	// Get container details (now potentially after waiting)
+	containerInfo, err := s.getContainerByID(ctx, boxID) // Use original ctx
 	if err != nil {
-		return nil, fmt.Errorf("failed to get container: %w", err)
+		return nil, fmt.Errorf("failed to get container details after start: %w", err)
 	}
 
-	// Update access time on successful creation
+	// Update access time on successful creation/readiness
 	s.accessTracker.Update(boxID)
 
 	return containerToBox(containerInfo), nil

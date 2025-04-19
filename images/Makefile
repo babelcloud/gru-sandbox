@@ -60,7 +60,7 @@ clean-%: ## Clean specific image (e.g., clean-python)
 
 # Pattern rule for running images
 run-%: ## Run image with custom command (e.g., run-python CMD="python -c 'print(1+1)'")
-	docker run --rm -it $(REGISTRY)/gbox-$*:latest $(CMD)
+	docker run --rm -it -P $(REGISTRY)/gbox-$*:latest $(CMD)
 
 # Pattern rule for testing images
 test-%: build-% ## Test image if test.sh exists (e.g., test-python)

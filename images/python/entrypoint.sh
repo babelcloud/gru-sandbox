@@ -1,40 +1,44 @@
 #!/bin/bash
 set -e
 
-# Start playwright server in the background
-echo "Starting Playwright server in background..."
-npx playwright@1.51.1 run-server --port 3000 --host 0.0.0.0 &
-playwright_pid=$!
+# ANSI Color Codes
+COLOR_BOLD_YELLOW='\033[1;33m'
+COLOR_RESET='\033[0m'
 
-echo "Waiting for Playwright server on port 3000 (PID: $playwright_pid)..."
-max_wait=30 # Maximum wait time in seconds
-waited=0
+# VNC Password Setup
+PLAINTEXT_PASSWD_PATH=/root/.vnc/plaintext_passwd # Path for readable password
+VNC_PASSWORD_TO_USE=""
 
-# Loop until port 3000 is listening or timeout
-# Use curl to check. It exits with 0 on success (2xx/3xx), non-zero otherwise.
-# --fail makes it exit non-zero for server errors (4xx/5xx).
-# --silent prevents output to stdout/stderr.
-# --head only fetches headers, faster.
-while ! curl --fail --silent --head http://localhost:3000 > /dev/null; do
-  # Check if the playwright process is still alive
-  if ! kill -0 $playwright_pid 2>/dev/null; then
-      echo "Error: Playwright server process (PID: $playwright_pid) exited prematurely." >&2
-      # Consider adding code here to show logs if playwright writes any
-      exit 1 # Exit container if the server died
-  fi
+if [ -n "${VNC_PASSWORD}" ]; then
+    echo "Using VNC password from VNC_PASSWORD environment variable."
+    VNC_PASSWORD_TO_USE="${VNC_PASSWORD}"
+    # Write the plaintext password to the file
+    echo "${VNC_PASSWORD_TO_USE}" > "${PLAINTEXT_PASSWD_PATH}"
+else
+    # Generate a random password
+    RANDOM_VNC_PASSWORD=$(pwgen -s 8 1)
+    VNC_PASSWORD_TO_USE="${RANDOM_VNC_PASSWORD}"
+    echo "VNC_PASSWORD environment variable not set."
+    # Log the password in bold yellow using variables
+    echo -e "Generating random VNC password: ${COLOR_BOLD_YELLOW}${VNC_PASSWORD_TO_USE}${COLOR_RESET}"
+    # Write the plaintext password to the file
+    echo "${VNC_PASSWORD_TO_USE}" > "${PLAINTEXT_PASSWD_PATH}"
+fi
 
-  # Check for timeout
-  if [ $waited -ge $max_wait ]; then
-    echo "Error: Timeout waiting for Playwright server on port 3000." >&2
-    # Optional: Attempt to kill the background process before exiting
-    # kill $playwright_pid 2>/dev/null || true 
-    exit 1
-  fi
-  
-  sleep 1
-  waited=$((waited + 1))
-done
+# Use the determined password with vncpasswd - NO LONGER NEEDED
+# echo "${VNC_PASSWORD_TO_USE}" | vncpasswd -f > "${VNC_PASSWD_PATH}"
 
-# Execute the command passed into the entrypoint (e.g., the CMD or runtime command)
-# This becomes the main foreground process managed by tini
+# Set permissions for the plaintext file only
+# chmod 600 "${VNC_PASSWD_PATH}" # Removed
+chmod 600 "${PLAINTEXT_PASSWD_PATH}"
+
+echo "VNC password set in plaintext file."
+
+# Start supervisord in the background
+# Logs will go to stdout/stderr based on supervisord.conf
+echo "Starting supervisord in background..."
+/usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf &
+
+# Execute the command passed into the entrypoint (CMD from Dockerfile or command override)
+echo "Executing CMD: $*"
 exec "$@" 

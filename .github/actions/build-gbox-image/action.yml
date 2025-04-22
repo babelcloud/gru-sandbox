@@ -2,8 +2,8 @@ name: "Build Gbox Image"
 description: "Build and push Docker image for Gbox"
 
 inputs:
-  build_default_branch_manifest:
-    description: "Whether to build default branch manifest"
+  add_default_branch_tags:
+    description: "Whether to add <branch_name> and latest tags when pushing to the default branch"
     required: false
     type: boolean
     default: false
@@ -38,6 +38,10 @@ inputs:
     description: "Docker registry password"
     required: true
     type: string
+  build_args:
+    description: "Build arguments"
+    required: false
+    type: string
 
 runs:
   using: "composite"
@@ -65,7 +69,7 @@ runs:
       run: echo "IMAGE_TAGS=${IMAGE_NAME}:$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
     - name: Resolve image tag with branch name
-      if: inputs.build_default_branch_manifest == true && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+      if: inputs.add_default_branch_tags == true && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
       shell: bash
       run: echo "IMAGE_TAGS=${IMAGE_TAGS},${IMAGE_NAME}:${GITHUB_REF_NAME},${IMAGE_NAME}:latest" >> $GITHUB_ENV
 
@@ -109,6 +113,7 @@ runs:
           COMMIT_ID=${{ env.COMMIT_ID }}
           VERSION=${{ env.VERSION }}
           BUILD_TIME=${{ env.BUILD_TIME }}
+          ${{ inputs.build_args }}
         cache-from: type=gha,scope=${{ env.CACHE_SCOPE }}
         cache-to: type=gha,scope=${{ env.CACHE_SCOPE }},mode=max
         target: ${{ inputs.target }}

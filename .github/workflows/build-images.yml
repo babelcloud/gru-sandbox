@@ -1,0 +1,68 @@
+name: Build Gbox Images
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+# Define a consistent tag for this build run based on commit SHA
+# env:
+#   IMAGE_TAG: sha-${{ github.sha }}
+
+jobs:
+  # --- Dependent Image Chain ---
+  build-python:
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image_variant: python
+      image_dir: images/python
+      # tag_to_build: ${{ env.IMAGE_TAG }}
+      # No base_image_built or base_image_tag needed
+    secrets:
+      docker_password: ${{ secrets.DOCKER_PASSWORD }}
+
+  build-playwright:
+    needs: build-python # Depends on python build completion and outputs
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image_variant: playwright
+      image_dir: images/playwright
+      base_image_built: ${{ needs.build-python.outputs.built }}
+      base_image_tag: ${{ needs.build-python.outputs.tag }}
+      # tag_to_build: ${{ env.IMAGE_TAG }}
+    secrets:
+      docker_password: ${{ secrets.DOCKER_PASSWORD }}
+
+  build-viewer:
+    needs: build-playwright # Depends on playwright build completion and outputs
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image_variant: viewer
+      image_dir: images/viewer
+      base_image_built: ${{ needs.build-playwright.outputs.built }}
+      base_image_tag: ${{ needs.build-playwright.outputs.tag }}
+      # tag_to_build: ${{ env.IMAGE_TAG }}
+    secrets:
+      docker_password: ${{ secrets.DOCKER_PASSWORD }}
+
+  # --- Independent Images ---
+  build-api-server: # Add job for api-server
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image_variant: api-server
+      image_dir: packages/api-server # Specify its directory
+      # tag_to_build: ${{ env.IMAGE_TAG }}
+      # base_image_built and base_image_tag use defaults (false, latest)
+    secrets:
+      docker_password: ${{ secrets.DOCKER_PASSWORD }}
+
+  build-mcp-server: # Add job for mcp-server
+    uses: ./.github/workflows/build-image.yml
+    with:
+      image_variant: mcp-server
+      image_dir: packages/mcp-server # Specify its directory
+      # tag_to_build: ${{ env.IMAGE_TAG }}
+      # base_image_built and base_image_tag use defaults (false, latest)
+    secrets:
+      docker_password: ${{ secrets.DOCKER_PASSWORD }}

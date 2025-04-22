@@ -1,0 +1,129 @@
+# .github/workflows/reusable-build-gbox-image.yml
+name: Reusable Gbox Image Build
+
+on:
+  workflow_call:
+    inputs:
+      image_variant: # e.g., python, playwright, viewer
+        required: true
+        type: string
+      image_dir: # e.g., images/python
+        required: true
+        type: string
+      base_image_built: # Output from the 'needs' context ('true' or 'false')
+        required: false
+        type: string
+        default: "false"
+      base_image_tag: # Tag from the 'needs' context (e.g., sha-xxxxxxx or commit-xxxxx)
+        required: false
+        type: string
+        default: "latest"
+      registry:
+        required: false
+        type: string
+        default: "babelcloud"
+      platforms:
+        required: false
+        type: string
+        default: "linux/amd64,linux/arm64"
+      add_default_branch_tags: # Renamed from build_default_branch_manifest
+        description: "Pass-through for action input: Add <branch> and latest tags on default branch push"
+        required: false
+        type: boolean
+        default: true # Keep the default behavior true here
+      timeout_minutes:
+        required: false
+        type: number
+        default: 30
+    secrets:
+      docker_password:
+        required: true
+    outputs:
+      built:
+        description: "Whether the image was built in this run"
+        value: ${{ jobs.build.outputs.built_output }}
+      tag:
+        description: "The tag used for the build (commit hash of image dir)"
+        value: ${{ jobs.build.outputs.tag_output }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      built_output: ${{ steps.check-changes.outputs.should_build }}
+      tag_output: ${{ steps.get-commit-tag.outputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for git log
+
+      - name: Get commit hash tag for ${{ inputs.image_dir }}
+        id: get-commit-tag
+        run: |
+          COMMIT_HASH=$(git log --pretty=tformat:"%h" -n1 -- "${{ inputs.image_dir }}")
+          if [ -z "$COMMIT_HASH" ]; then
+            echo "Warning: Could not get commit hash for directory '${{ inputs.image_dir }}'. Using 'latest'."
+            COMMIT_HASH="latest"
+          fi
+          TAG="$COMMIT_HASH" # Use only the hash as the tag
+          echo "Calculated tag: $TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Get changed files in image directory (${{ inputs.image_dir }})
+        id: changed-files-specific-dir
+        uses: tj-actions/changed-files@v46
+        with:
+          files: ${{ inputs.image_dir }}/**
+
+      - name: Get changed files in workflow and build config
+        id: changed-files-config # Config changes affect all images
+        uses: tj-actions/changed-files@v46
+        with:
+          files: |
+            .github/workflows/build-gbox-images.yml
+            .github/workflows/reusable-build-gbox-image.yml
+            .github/actions/build-gbox-image/**
+
+      - name: Check changes for ${{ inputs.image_variant }}
+        id: check-changes
+        run: |
+          SHOULD_BUILD="false"
+          echo "Checking changes for ${{ inputs.image_variant }}:"
+          echo "  Dir changed? ${{ steps.changed-files-specific-dir.outputs.any_changed }}"
+          echo "  Config changed? ${{ steps.changed-files-config.outputs.any_changed }}"
+          echo "  Base image built? ${{ inputs.base_image_built }}"
+
+          if [ "${{ steps.changed-files-specific-dir.outputs.any_changed }}" = "true" ] || \
+             [ "${{ steps.changed-files-config.outputs.any_changed }}" = "true" ] || \
+             [ "${{ inputs.base_image_built }}" = "true" ]; then
+            echo "--> Changes detected. Will build ${{ inputs.image_variant }}."
+            SHOULD_BUILD="true"
+          else
+            echo "--> No relevant changes detected for ${{ inputs.image_variant }}."
+          fi
+          echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
+
+      - name: Construct Build Args
+        id: build-args
+        run: |
+          ARGS=""
+          # If a specific base image tag is provided (not the default 'latest'),
+          # pass it as the TAG build argument, following convention.
+          if [ "${{ inputs.base_image_tag }}" != "latest" ]; then
+            ARGS="TAG=${{ inputs.base_image_tag }}"
+          fi
+          echo "args=$ARGS" >> $GITHUB_OUTPUT
+
+      - name: Build and push ${{ inputs.image_variant }} image
+        if: steps.check-changes.outputs.should_build == 'true'
+        uses: ./.github/actions/build-gbox-image
+        with:
+          add_default_branch_tags: ${{ inputs.add_default_branch_tags }} # Use the new input name
+          timeout_minutes: ${{ inputs.timeout_minutes }}
+          image_name: gbox-${{ inputs.image_variant }}
+          tag: ${{ steps.get-commit-tag.outputs.tag }}
+          build_context: ./${{ inputs.image_dir }}
+          file: ./${{ inputs.image_dir }}/Dockerfile
+          build_args: ${{ steps.build-args.outputs.args }}
+          docker_password: ${{ secrets.docker_password }}

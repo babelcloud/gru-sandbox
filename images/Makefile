@@ -36,7 +36,7 @@ CMD ?= /bin/bash
 # Default container name prefix
 CONTAINER_PREFIX ?= gbox-test
 
-.PHONY: build-all clean-all buildx-all help build-% buildx-% clean-% run-% start-% stop-% vnc-% test-% ttyd-%
+.PHONY: build-all clean-all buildx-all help build-% buildx-% clean-% run-% start-% stop-% viewer test-% ttyd-%
 
 # Default target
 .DEFAULT_GOAL := help
@@ -163,4 +163,4 @@ help: ## Show this help message
 # --- Explicit Build Dependencies --- #
 # These ensure images are built in the correct order when using build-all
 build-playwright: build-python
-build-vnc: build-playwright
+build-viewer: build-playwright

@@ -43,7 +43,7 @@ export const handleRunPython = withLogging(
     // Get or create box
     const id = await gbox.box.getOrCreateBox({
       boxId,
-      image: config.images.python,
+      image: config.images.playwright,
       sessionId,
       signal,
     });

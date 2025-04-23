@@ -9,6 +9,13 @@ ARG BUILD_TIME=unknown
 ARG MODULE_PREFIX=github.com/babelcloud/gbox
 ARG VERSION_PKG=${MODULE_PREFIX}/packages/api-server/internal/misc/service
 
+RUN go env -w GOCACHE=/go-cache
+RUN go env -w GOMODCACHE=/gomod-cache
+
+# Install the Playwright Go CLI tool binary
+RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache \
+    go install github.com/playwright-community/playwright-go/cmd/playwright@v0.5101.0
+
 # Set working directory
 WORKDIR /app
 
@@ -16,16 +23,14 @@ WORKDIR /app
 COPY go.mod go.sum ./
 
 # Download Go dependencies
-RUN go mod download
-
-# Install the Playwright Go CLI tool binary
-RUN go install github.com/playwright-community/playwright-go/cmd/playwright@latest
+RUN --mount=type=cache,target=/gomod-cache go mod download
 
 # Copy source code
 COPY . .
 
 # Build the application with version information
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache \
+    CGO_ENABLED=0 GOOS=linux go build \
     -ldflags "-X ${VERSION_PKG}.Version=${VERSION} \
     -X ${VERSION_PKG}.BuildTime=${BUILD_TIME} \
     -X ${VERSION_PKG}.CommitID=${COMMIT_ID}" \
@@ -45,19 +50,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set timezone
 ENV TZ=Asia/Shanghai
 
+# Copy the Playwright CLI tool binary built in the builder stage
+# The Go builder image typically puts binaries in /go/bin
+COPY --from=builder /go/bin/playwright /usr/local/bin/playwright
+
+# Install playwright drivers
+RUN playwright help
+
 # Set working directory
 WORKDIR /app
 
 # Copy binary from builder
 COPY --from=builder /app/api-server .
-
-# Copy the Playwright CLI tool binary built in the builder stage
-# The Go builder image typically puts binaries in /go/bin
-COPY --from=builder /go/bin/playwright /usr/local/bin/playwright
-
-# Run playwright install WITHOUT browser names to install only the drivers/Node runtime
-# This is what playwright.Run() seems to require internally
-RUN playwright install --with-deps chromium
 
 # Copy config files if any
 COPY --from=builder /app/config ./config

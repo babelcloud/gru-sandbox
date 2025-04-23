@@ -101,7 +101,7 @@ async function _handleViewUrlAs(
     // Get or create box
     actualBoxId = await gbox.box.getOrCreateBox({
       boxId,
-      image: config.images.python, // Assuming python image has the playwright server
+      image: config.images.playwright,
       sessionId,
       signal,
       waitForReady: true, // Wait for the box healthcheck to pass

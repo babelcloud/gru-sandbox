@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-IMG ?= ghcr.io/babelcloud/gbox-api-server:latest
+IMG ?= babelcloud/gbox-api-server:latest
 
 # Common prefix for Go packages
 MODULE_PREFIX := github.com/babelcloud/gbox
@@ -106,4 +106,4 @@ check-docker-socket: ## Check and create Docker socket symlink if needed
 # Run the docker container locally
 .PHONY: docker-run
 docker-run: docker-build check-docker-socket ## Run docker container locally
-	docker run -p 28080:28080 -v /var/run/docker.sock:/var/run/docker.sock ${IMG}
+	docker run -p 28080:28080 --rm -v /var/run/docker.sock:/var/run/docker.sock ${IMG}

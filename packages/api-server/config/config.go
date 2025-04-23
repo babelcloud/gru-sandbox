@@ -310,31 +310,30 @@ func CheckImageTag(imgName string) string {
 		parts := strings.Split(imgName, "/")
 		if len(parts) > 1 {
 			// Assuming format like "repo/image" or "registry/repo/image"
-			repoName = strings.Join(parts[:len(parts)-1], "/") + "/"
+			repoName = strings.Join(parts[:len(parts)-1], "/")
 			baseName = parts[len(parts)-1]
 		} // else: malformed name like "/imagename", treat imgName as baseName
 	}
 	log.Debug("Repo name: '%s', Base name: '%s'", repoName, baseName)
 
 	// 3. Generate Viper key: replace '-' with '.' and append '.img.tag'.
-	vipKey := strings.ReplaceAll(baseName, "-", ".") + ".img.tag"
+	tagKey := strings.ReplaceAll(baseName, "-", ".") + ".img.tag"
 	// Ensure key is lowercase if needed, although BindEnv is case-insensitive by default
-	vipKey = strings.ToLower(vipKey)
-	log.Debug("Dynamically generated key: %s", vipKey)
+	tagKey = strings.ToLower(tagKey)
 
-	// 4. Check if the dynamically generated key is set in Viper (maps to env var).
-	if v.IsSet(vipKey) {
-		tag := v.GetString(vipKey)
+	// 4. Check if the tag key is set in Viper (maps to env var).
+	if v.IsSet(tagKey) {
+		tag := v.GetString(tagKey)
 		if tag != "" {
 			// Use the extracted repoName and baseName
-			resolvedImage := repoName + baseName + ":" + tag
-			log.Info("Resolved image name '%s' to '%s' using dynamically generated key '%s'", imgName, resolvedImage, vipKey)
+			resolvedImage := fmt.Sprintf("%s/%s:%s", repoName, baseName, tag)
+			log.Info("Resolved image name '%s' to '%s' using tag key '%s'", imgName, resolvedImage, tagKey)
 			return resolvedImage // Return the fully formed image name with tag
 		} else {
-			log.Warn("Dynamically generated key '%s' for image '%s' is set but empty.", vipKey, imgName)
+			log.Warn("Image tag key '%s' for image '%s' is set but empty.", tagKey, imgName)
 		}
 	} else {
-		log.Debug("Dynamically generated key '%s' for image '%s' is not set.", vipKey, imgName)
+		log.Debug("Image tag key '%s' for image '%s' is not set.", tagKey, imgName)
 	}
 
 	// 5. If not resolved via env var, return the original untagged name..

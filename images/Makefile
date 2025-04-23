@@ -85,65 +85,28 @@ run-%: build-% ## Run image interactively (removes container on exit)
 	docker run --rm -it -P ${REGISTRY}/gbox-$*:latest $(CMD)
 
 # Pattern rule for starting images detached (persistent)
-start-%: build-% ## Start image detached with a persistent name (e.g., start-python)
-	@CONTAINER_NAME='${CONTAINER_PREFIX}-$*' ; \
-	 if ! docker container inspect "$${CONTAINER_NAME}" > /dev/null 2>&1; then \
-		echo "Starting container $${CONTAINER_NAME} from image ${REGISTRY}/gbox-$*:latest..." ; \
-		docker run -d --name "$${CONTAINER_NAME}" -P ${REGISTRY}/gbox-$*:latest; \
-		echo "Container $${CONTAINER_NAME} started. Use 'make stop-$*' to stop and remove." ; \
-	else \
-		echo "Container $${CONTAINER_NAME} already exists (may be stopped or running)." ; \
-	fi
+start-%: build-% ## Start image detached via script (e.g., start-python)
+	@export REGISTRY=$(REGISTRY) CONTAINER_PREFIX=$(CONTAINER_PREFIX); \
+	 ./scripts/start.sh $*
 
 # Pattern rule for stopping and removing detached containers
-stop-%: ## Stop and remove the detached container (e.g., stop-python)
-	@CONTAINER_NAME='${CONTAINER_PREFIX}-$*' ; \
-	 if docker container inspect "$${CONTAINER_NAME}" > /dev/null 2>&1; then \
-		echo "Stopping and removing container $${CONTAINER_NAME}..." ; \
-		docker stop "$${CONTAINER_NAME}" > /dev/null 2>&1 ; \
-		docker rm "$${CONTAINER_NAME}" > /dev/null 2>&1 ; \
-		echo "Container $${CONTAINER_NAME} stopped and removed." ; \
-	else \
-		echo "Container $${CONTAINER_NAME} not found." ; \
-	fi
+stop-%: ## Stop and remove container via script (e.g., stop-python)
+	@export CONTAINER_PREFIX=$(CONTAINER_PREFIX); \
+	 ./scripts/stop.sh $*
 
-# Pattern rule for opening noVNC web interface and showing stream URL for a running detached container
-viewer: start-viewer ## Open the noVNC web interface and show stream URL for the running container (e.g., novnc-viewer)
-	@./scripts/viewer.sh "${CONTAINER_PREFIX}-viewer"
-
-# Pattern rule for connecting via ttyd to a running detached container
-ttyd-%: start-% ## Open ttyd web terminal for the running container (e.g., ttyd-python)
-	@CONTAINER_NAME='${CONTAINER_PREFIX}-$*' ; \
-	 if ! docker container inspect "$${CONTAINER_NAME}" > /dev/null 2>&1; then \
-		 echo "Error: Container $${CONTAINER_NAME} is not running. Use 'make start-$*' first." >&2 ; \
-		 exit 1 ; \
-	 fi ; \
-	 echo "Attempting to open ttyd for container $${CONTAINER_NAME}..." ; \
-	 TTYD_PORT_MAPPING=$$(docker port "$${CONTAINER_NAME}" 7681/tcp) ; \
-	 if [ -z "$$TTYD_PORT_MAPPING" ]; then \
-		 echo "Error: Could not get port mapping for 7681/tcp in $${CONTAINER_NAME}." >&2 ; \
-		 echo "       Ensure the container exposed port 7681 and was run with -P or -p." >&2 ; \
-		 exit 1 ; \
-	 fi ; \
-	 HOST_PORT=$$(echo $$TTYD_PORT_MAPPING | sed 's/.*://') ; \
-	 TTYD_URL="http://localhost:$$HOST_PORT" ; \
-	 echo "  Container Name: $${CONTAINER_NAME}" ; \
-	 echo "  ttyd URL:       $(CYAN)$$TTYD_URL$(RESET)" ; \
-	 echo "Launching default web browser..." ; \
-	 open $$TTYD_URL
+# Pattern rule for opening ttyd web terminal
+ttyd-%: start-% ## Open ttyd web terminal via script (e.g., ttyd-python)
+	@export CONTAINER_PREFIX=$(CONTAINER_PREFIX); \
+	 ./scripts/ttyd.sh $*
 
 # Pattern rule for testing images
-test-%: start-% ## Test box-$* image using the running container $(CONTAINER_NAME)
-	@CONTAINER_NAME='${CONTAINER_PREFIX}-$*' ; \
-	 TEST_SCRIPT="$*/test.sh"; \
-	 if [ -f "$$TEST_SCRIPT" ]; then \
-		echo "$(CYAN)Running tests for $* against container $${CONTAINER_NAME}...$(RESET)" ; \
-		cd $* && ./test.sh "$${CONTAINER_NAME}" ; \
-	else \
-		echo "$(CYAN)No test script found for $* ($$TEST_SCRIPT)$(RESET)" ; \
-		echo "$(YELLOW)Checking contents of $*...$(RESET)" ; \
-		ls -l "$*" ; \
-	fi
+test-%: start-% ## Test image via script (e.g., test-python)
+	@export CONTAINER_PREFIX=$(CONTAINER_PREFIX); \
+	 ./scripts/test.sh $*
+
+# Target for viewer convenience script
+viewer: start-viewer ## Open viewers for the running viewer container
+	@./scripts/viewer.sh "${CONTAINER_PREFIX}-viewer"
 
 # Show help
 help: ## Show this help message

@@ -5,20 +5,54 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/playwright-community/playwright-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/babelcloud/gbox/packages/api-server/config"
-	// Use service alias to avoid clash with testing package
-
 	model "github.com/babelcloud/gbox/packages/api-server/pkg/browser"
 )
 
-// Helper function to setup playwright connection and a page for tests
-// Returns the page and a cleanup function
+// --- Mock BoxService --- (Moved to test_helpers.go)
+/*
+type mockBoxService struct {
+	dynamicPort int // Store the dynamic port for GetExternalPort
+}
+
+func (m *mockBoxService) Create(ctx context.Context, params *boxModel.BoxCreateParams) (*boxModel.Box, error) {
+// ... methods ...
+}
+var _ boxSvc.BoxService = (*mockBoxService)(nil)
+*/
+
+// ------------------------
+
+// FindFreePort finds an available TCP port and returns it (Moved to test_helpers.go)
+/*
+func FindFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+// ... function body ...
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
+*/
+
+// ------------------------
+
+// Helper function to get the file URL for the test page (Moved to test_helpers.go)
+// Note: This depends on runtime.Caller(0) and must be called from test_helpers.go
+/*
+func getTestPageURL(t *testing.T) string {
+// ... function body ...
+}
+*/
+
+// setupPlaywrightPage sets up playwright and navigates to the vision test page directly.
+// Returns the page and a cleanup function. Used for tests directly interacting with Playwright API.
 func setupPlaywrightPage(t *testing.T) (playwright.Page, func()) {
 	t.Helper()
 
@@ -28,7 +62,7 @@ func setupPlaywrightPage(t *testing.T) (playwright.Page, func()) {
 
 	// Launch browser locally
 	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(true),
+		Headless: playwright.Bool(false), // Run non-headless for debugging
 	})
 	require.NoError(t, err, "could not launch local browser")
 
@@ -38,15 +72,15 @@ func setupPlaywrightPage(t *testing.T) (playwright.Page, func()) {
 	page, err := context.NewPage()
 	require.NoError(t, err, "could not create page")
 
-	// Navigate to a real page for testing screenshots
-	targetURL := "https://gru.ai"
-	fmt.Printf("Navigating test page to %s...\n", targetURL)
-	_, err = page.Goto(targetURL, playwright.PageGotoOptions{
-		WaitUntil: playwright.WaitUntilStateLoad, // Change to Load state
-		Timeout:   playwright.Float(90000),       // Increase timeout to 90 seconds
+	// Navigate to the local test HTML file
+	testURL := getTestPageURL(t)
+	fmt.Printf("Navigating test page to %s...\n", testURL)
+	_, err = page.Goto(testURL, playwright.PageGotoOptions{
+		WaitUntil: playwright.WaitUntilStateLoad, // Wait for page to load
+		Timeout:   playwright.Float(10000),      // 10 second timeout for local file
 	})
-	require.NoError(t, err, "could not navigate to %s", targetURL)
-	fmt.Printf("Navigation to %s complete.\n", targetURL)
+	require.NoError(t, err, "could not navigate to test page %s", testURL)
+	fmt.Printf("Navigation to %s complete.\n", testURL)
 
 	// Cleanup closes local playwright resources
 	cleanup := func() {
@@ -59,8 +93,20 @@ func setupPlaywrightPage(t *testing.T) (playwright.Page, func()) {
 	return page, cleanup
 }
 
+// setupServiceWithVisionTestPage sets up a BrowserService connected to a local Playwright server
+// and navigates a page within that service to the vision-test.html file.
+// (Moved to test_helpers.go)
+/*
+func setupServiceWithVisionTestPage(t *testing.T) (*service.BrowserService, string, string, string, playwright.Page, func()) {
+	t.Helper()
+// ... function body ...
+	return browserService, testBoxID, testContextID, testPageID, pageInstance, cleanup
+}
+*/
+
 // TestVisionScreenshotOptions focuses on testing the mapping of VisionScreenshotParams
-// to playwright.PageScreenshotOptions and calling Playwright directly.
+// to playwright.PageScreenshotOptions and calling Playwright directly using the
+// local vision-test.html page.
 // NOTE: This does NOT test the full service logic (URL/Base64 generation, file saving in service).
 func TestVisionScreenshotOptions(t *testing.T) {
 	page, cleanup := setupPlaywrightPage(t)
@@ -293,3 +339,65 @@ func TestVisionScreenshotOptions(t *testing.T) {
 // 	err := os.MkdirAll(dirToCreate, 0755)
 // 	require.NoError(t, err, "Failed to create directory for relative path test: %s", dirToCreate)
 // }
+
+// TestVisionClick verifies the ExecuteVisionClick service method.
+func TestVisionClick(t *testing.T) {
+	// Use the new setup function that provides a configured service and page
+	svc, boxID, contextID, pageID, page, cleanup := setupServiceWithVisionTestPage(t)
+	defer cleanup()
+
+	// --- Create output directory ---
+	screenshotDir := filepath.Join("..", "..", "..", ".test-output", "screenshots") // Relative path to api-server/.test-output/screenshots
+	err := os.MkdirAll(screenshotDir, 0755)
+	require.NoError(t, err, "Failed to create screenshot directory: %s", screenshotDir)
+
+	// --- 1. Define Target and Get Coordinates ---
+	buttonSelector := "#click-btn"
+	buttonLocator := page.Locator(buttonSelector)
+	bbox, err := buttonLocator.BoundingBox()
+	require.NoError(t, err, "Failed to get bounding box for %s", buttonSelector)
+	require.NotNil(t, bbox, "Bounding box should not be nil for %s", buttonSelector)
+
+	clickX := bbox.X + bbox.Width/2
+	clickY := bbox.Y + bbox.Height/2
+
+	// --- 2. Take Pre-click Screenshot ---
+	// Save to project directory instead of temp
+	preClickPath := filepath.Join(screenshotDir, fmt.Sprintf("click_before_%s.png", uuid.NewString()))
+	_, err = page.Screenshot(playwright.PageScreenshotOptions{Path: &preClickPath})
+	require.NoError(t, err, "Failed to take pre-click screenshot")
+	t.Logf("Pre-click screenshot saved to: %s", preClickPath)
+
+	// --- 3. Setup Service (Now handled by setupServiceWithVisionTestPage) ---
+	// svc, boxID, contextID, pageID are now available from setup
+
+	// --- 4. Execute Click Action ---
+	params := model.VisionClickParams{
+		X:      int(clickX),
+		Y:      int(clickY),
+		Button: model.MouseButtonLeft, // Default left click
+	}
+	clickResult := svc.ExecuteVisionClick(boxID, contextID, pageID, params)
+
+	// --- 5. Assert Service Call Success ---
+	require.NotNil(t, clickResult, "ExecuteVisionClick returned nil result")
+	resultData, ok := clickResult.(model.VisionClickResult)
+	require.True(t, ok, "ExecuteVisionClick returned unexpected type: %T", clickResult)
+	assert.True(t, resultData.Success, "ExecuteVisionClick result.Success should be true")
+
+	// --- 6. Verify URL Hash Change ---
+	expectedHash := "#click-click_btn"
+	// Use require.Eventually for robustness, as hash change might not be instantaneous
+	require.Eventually(t, func() bool {
+		currentURL := page.URL()
+		return strings.HasSuffix(currentURL, expectedHash)
+	}, 5*time.Second, 100*time.Millisecond, "URL hash did not become '%s', current URL: %s", expectedHash, page.URL())
+	t.Logf("URL hash successfully updated to: %s", expectedHash)
+
+	// --- 7. Take Post-click Screenshot ---
+	// Save to project directory instead of temp
+	postClickPath := filepath.Join(screenshotDir, fmt.Sprintf("click_after_%s.png", uuid.NewString()))
+	_, err = page.Screenshot(playwright.PageScreenshotOptions{Path: &postClickPath})
+	require.NoError(t, err, "Failed to take post-click screenshot")
+	t.Logf("Post-click screenshot saved to: %s", postClickPath)
+}

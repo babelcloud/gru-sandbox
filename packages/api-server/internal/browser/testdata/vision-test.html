@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vision Action Test Page</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        #last-action { margin-bottom: 15px; font-weight: bold; color: #333; min-height: 1.2em; border: 1px solid #ccc; padding: 10px; background-color: #f9f9f9; }
+        button, input, .test-area { margin: 5px; padding: 10px; }
+        .test-area { border: 1px dashed grey; min-height: 50px; display: inline-block; vertical-align: top; }
+        #drag-source { width: 50px; height: 50px; background-color: dodgerblue; color: white; text-align: center; line-height: 50px; cursor: grab; user-select: none; }
+        #scroll-area { width: 200px; height: 100px; overflow: scroll; border: 1px solid grey; background-color: #eee; }
+        #scroll-content { height: 300px; padding: 5px; }
+        #move-area { width: 150px; height: 150px; background-color: lightgreen; }
+        #press-area { background-color: lightcoral; color: white; text-align: center; line-height: 50px; }
+        #press-area:focus { outline: 2px solid darkred; }
+        #coord-click-area { width: 200px; height: 100px; background-color: lightgoldenrodyellow; border: 1px solid orange; text-align: center; line-height: 100px; }
+    </style>
+</head>
+<body>
+
+    <h1>Vision Action Test Page</h1>
+
+    <div id="last-action">Last action: none</div>
+
+    <button id="click-btn">Click Button</button>
+    <button id="dblclick-btn">Double Click Button</button>
+    <br>
+
+    <input type="text" id="type-input" placeholder="Type here...">
+    <br>
+
+    <div id="drag-source" draggable="true">Drag Me</div>
+    <br>
+
+    <div id="scroll-area" class="test-area">
+        <div id="scroll-content">Scrollable content... <br>Line 1<br>Line 2<br>Line 3<br>Line 4<br>Line 5<br>Line 6<br>Line 7<br>Line 8<br>Line 9<br>Line 10<br>End.</div>
+    </div>
+    <br>
+
+    <div id="move-area" class="test-area">Move mouse here</div>
+    <br>
+
+    <div id="press-area" class="test-area" tabindex="0">Focus & Press Key Area</div>
+    <br>
+
+    <div id="coord-click-area" class="test-area">Click anywhere here</div>
+
+
+    <script>
+        const lastActionDisplay = document.getElementById('last-action');
+        const clickBtn = document.getElementById('click-btn');
+        const dblClickBtn = document.getElementById('dblclick-btn');
+        const typeInput = document.getElementById('type-input');
+        const dragSource = document.getElementById('drag-source');
+        const scrollArea = document.getElementById('scroll-area');
+        const moveArea = document.getElementById('move-area');
+        const pressArea = document.getElementById('press-area');
+        const coordClickArea = document.getElementById('coord-click-area');
+
+        let isDragging = false;
+        let lastMoveTimestamp = 0;
+        const moveUpdateThrottle = 50; // ms
+
+        function updateLastAction(actionName, details = '') {
+            const message = `Last action: ${actionName}${details ? ` (${details})` : ''}`;
+            console.log(message); // Log to console for debugging tests
+            lastActionDisplay.textContent = message;
+            // Update URL hash - simple way to check state from Playwright
+            window.location.hash = `${actionName}${details ? `-${details.replace(/[^a-zA-Z0-9]/g, '_')}` : ''}`;
+        }
+
+        // --- Event Listeners ---
+
+        // vision.click (on specific button)
+        clickBtn.addEventListener('click', () => updateLastAction('click', 'click-btn'));
+
+        // vision.doubleClick (on specific button)
+        dblClickBtn.addEventListener('dblclick', () => updateLastAction('doubleClick', 'dblclick-btn'));
+
+        // vision.click (on coordinates)
+        coordClickArea.addEventListener('click', (e) => {
+             // Get coordinates relative to the element
+            const rect = coordClickArea.getBoundingClientRect();
+            const x = Math.round(e.clientX - rect.left);
+            const y = Math.round(e.clientY - rect.top);
+            updateLastAction('click', `coord-click-area:${x},${y}`);
+        });
+         // Catch clicks elsewhere too
+        document.body.addEventListener('click', (e) => {
+            if (e.target !== clickBtn && e.target !== dblClickBtn && e.target !== coordClickArea && !coordClickArea.contains(e.target) ) {
+                updateLastAction('click', `body:${e.clientX},${e.clientY}`);
+            }
+        });
+
+
+        // vision.type
+        typeInput.addEventListener('input', () => updateLastAction('type', typeInput.value));
+
+        // vision.drag
+        dragSource.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            dragSource.style.cursor = 'grabbing';
+            // Don't call updateLastAction here, wait for move/up
+            console.log('Drag started');
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                // Only update on actual drag movement
+                updateLastAction('drag', `to:${e.clientX},${e.clientY}`);
+            }
+        });
+
+        document.addEventListener('mouseup', (e) => {
+            if (isDragging) {
+                isDragging = false;
+                dragSource.style.cursor = 'grab';
+                updateLastAction('dragEnd', `at:${e.clientX},${e.clientY}`);
+                console.log('Drag ended');
+            }
+        });
+         // Prevent default drag behavior which can interfere
+        dragSource.addEventListener('dragstart', (e) => e.preventDefault());
+
+
+        // vision.keyPress
+        pressArea.addEventListener('keydown', (e) => {
+            // Don't update for modifier keys themselves if they are the *only* key pressed
+            if (!['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
+                 updateLastAction('keyPress', e.key);
+            }
+        });
+         // Also listen globally in case focus isn't on the pressArea
+         document.addEventListener('keydown', (e) => {
+             if (document.activeElement !== pressArea && document.activeElement !== typeInput) {
+                 if (!['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
+                    updateLastAction('keyPress', `global:${e.key}`);
+                 }
+             }
+         });
+
+        // vision.move
+        moveArea.addEventListener('mousemove', (e) => {
+            const now = Date.now();
+            // Throttle updates slightly to avoid spamming hash changes
+            if (now - lastMoveTimestamp > moveUpdateThrottle) {
+                const rect = moveArea.getBoundingClientRect();
+                const x = Math.round(e.clientX - rect.left);
+                const y = Math.round(e.clientY - rect.top);
+                updateLastAction('move', `move-area:${x},${y}`);
+                lastMoveTimestamp = now;
+            }
+        });
+
+        // vision.scroll (specific element)
+        scrollArea.addEventListener('scroll', () => {
+             updateLastAction('scroll', `scroll-area:${scrollArea.scrollTop}`);
+        });
+
+        // vision.scroll (window)
+        window.addEventListener('scroll', () => {
+             updateLastAction('scroll', `window:${window.scrollY}`);
+        });
+
+        // Initial state
+        updateLastAction('pageLoad');
+
+    </script>
+
+</body>
+</html> 

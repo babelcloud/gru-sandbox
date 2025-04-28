@@ -1,3 +1,9 @@
+# ANSI Color Variables
+BOLD    := $(shell tput bold)
+GREEN   := $(shell tput setaf 2)
+BLUE    := $(shell tput setaf 4)
+RESET   := $(shell tput sgr0)
+
 # Image URL to use all building/pushing image targets
 IMG ?= babelcloud/gbox-api-server:latest
 
@@ -24,8 +30,8 @@ GOARCH ?= $(shell go env GOARCH)
 
 # LDFLAGS for embedding version information
 LDFLAGS := -ldflags "-X $(VERSION_PKG).Version=$(VERSION) \
-                     -X $(VERSION_PKG).BuildTime=$(BUILD_TIME) \
-                     -X $(VERSION_PKG).CommitID=$(COMMIT_ID)"
+                    -X $(VERSION_PKG).BuildTime=$(BUILD_TIME) \
+                    -X $(VERSION_PKG).CommitID=$(COMMIT_ID)"
 
 # Show help
 .PHONY: help
@@ -62,10 +68,10 @@ binary-all: ## Build binaries for all platforms
 .PHONY: docker-build
 docker-build: ## Build docker image locally
 	docker build \
-	  --build-arg VERSION=$(VERSION) \
-	  --build-arg COMMIT_ID=$(COMMIT_ID) \
-	  --build-arg BUILD_TIME=$(BUILD_TIME) \
-	  -t ${IMG} .
+		--build-arg VERSION=$(VERSION) \
+		--build-arg COMMIT_ID=$(COMMIT_ID) \
+		--build-arg BUILD_TIME=$(BUILD_TIME) \
+		-t ${IMG} .
 
 # Build multi-architecture docker image
 .PHONY: docker-buildx
@@ -107,3 +113,11 @@ check-docker-socket: ## Check and create Docker socket symlink if needed
 .PHONY: docker-run
 docker-run: docker-build check-docker-socket ## Run docker container locally
 	docker run -p 28080:28080 --rm -v /var/run/docker.sock:/var/run/docker.sock ${IMG}
+
+# Serve the vision test HTML page locally (Foreground) and open browser (macOS)
+.PHONY: serve-vision-test
+serve-vision-test: ## Serve vision-test.html on port 8070 (Foreground), open browser (macOS)
+	@bash -c 'sleep 0.3 && open http://localhost:8070/vision-test.html || echo "Failed to open browser automatically."' &
+	@echo "Serving vision-test.html at: $(BOLD)$(BLUE)http://localhost:8070/vision-test.html$(RESET)"
+	@echo "Press $(BOLD)$(GREEN)Ctrl+C$(RESET) to stop the server."
+	@cd internal/browser/testdata && python -m http.server -b 127.0.0.1 8070

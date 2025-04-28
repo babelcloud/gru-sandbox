@@ -62,13 +62,14 @@
         let isDragging = false;
         let lastMoveTimestamp = 0;
         const moveUpdateThrottle = 50; // ms
+        let ignoreNextBodyClick = false;
 
         function updateLastAction(actionName, details = '') {
             const message = `Last action: ${actionName}${details ? ` (${details})` : ''}`;
             console.log(message); // Log to console for debugging tests
             lastActionDisplay.textContent = message;
-            // Update URL hash - simple way to check state from Playwright
-            window.location.hash = `${actionName}${details ? `-${details.replace(/[^a-zA-Z0-9]/g, '_')}` : ''}`;
+            // Update URL hash - allow specific symbols (⌃⌥⇧⌘) in addition to alphanumerics
+            window.location.hash = `${actionName}${details ? `-${details.replace(/[^a-zA-Z0-9⌃⌥⇧⌘]/g, '_')}` : ''}`;
         }
 
         // --- Event Listeners ---
@@ -89,6 +90,9 @@
         });
          // Catch clicks elsewhere too
         document.body.addEventListener('click', (e) => {
+            if (ignoreNextBodyClick) {
+                return;
+            }
             if (e.target !== clickBtn && e.target !== dblClickBtn && e.target !== coordClickArea && !coordClickArea.contains(e.target) ) {
                 updateLastAction('click', `body:${e.clientX},${e.clientY}`);
             }
@@ -119,6 +123,8 @@
                 dragSource.style.cursor = 'grab';
                 updateLastAction('dragEnd', `at:${e.clientX},${e.clientY}`);
                 console.log('Drag ended');
+                ignoreNextBodyClick = true;
+                setTimeout(() => { ignoreNextBodyClick = false; }, 0); 
             }
         });
          // Prevent default drag behavior which can interfere
@@ -127,41 +133,95 @@
 
         // vision.keyPress
         pressArea.addEventListener('keydown', (e) => {
-            // Don't update for modifier keys themselves if they are the *only* key pressed
-            if (!['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
-                 updateLastAction('keyPress', e.key);
+            const combo = [];
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            if (e.ctrlKey) combo.push(isMac ? '⌃' : 'Ctrl');
+            if (e.altKey) combo.push(isMac ? '⌥' : 'Alt');
+            if (e.shiftKey) combo.push(isMac ? '⇧' : 'Shift');
+            if (e.metaKey) combo.push(isMac ? '⌘' : 'Meta');
+            
+            // Use e.code to get the physical key, ignoring Option/Alt effects
+            const keyCode = e.code;
+            // Determine if the pressed key is a modifier key itself
+            const isModifier = ['ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'ShiftLeft', 'ShiftRight', 'MetaLeft', 'MetaRight'].includes(keyCode);
+
+            if (!isModifier) {
+                // Clean up the code (e.g., KeyJ -> J, Digit1 -> 1)
+                let displayKey = keyCode.replace(/^(Key|Digit)/, '');
+                combo.push(displayKey); 
+            }
+            
+            // If only modifiers were pressed, use e.key as fallback (e.g., show 'Shift')
+            if (combo.length === 0 && ['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)){
+                combo.push(e.key);
+            }
+
+            if (combo.length > 0) {
+                updateLastAction('keyPress', combo.join('+'));
             }
         });
-         // Also listen globally in case focus isn't on the pressArea
-         document.addEventListener('keydown', (e) => {
-             if (document.activeElement !== pressArea && document.activeElement !== typeInput) {
-                 if (!['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) {
-                    updateLastAction('keyPress', `global:${e.key}`);
-                 }
-             }
-         });
+        
+        // Also listen globally in case focus isn't on the pressArea
+        document.addEventListener('keydown', (e) => {
+            if (document.activeElement !== pressArea && document.activeElement !== typeInput) {
+                const combo = [];
+                const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+                if (e.ctrlKey) combo.push(isMac ? '⌃' : 'Ctrl');
+                if (e.altKey) combo.push(isMac ? '⌥' : 'Alt');
+                if (e.shiftKey) combo.push(isMac ? '⇧' : 'Shift');
+                if (e.metaKey) combo.push(isMac ? '⌘' : 'Meta');
 
-        // vision.move
-        moveArea.addEventListener('mousemove', (e) => {
+                const keyCode = e.code;
+                const isModifier = ['ControlLeft', 'ControlRight', 'AltLeft', 'AltRight', 'ShiftLeft', 'ShiftRight', 'MetaLeft', 'MetaRight'].includes(keyCode);
+
+                if (!isModifier) {
+                    let displayKey = keyCode.replace(/^(Key|Digit)/, '');
+                    combo.push(displayKey);
+                }
+
+                if (combo.length === 0 && ['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)){
+                    combo.push(e.key);
+                }
+
+                if (combo.length > 0) {
+                    updateLastAction('keyPress', `global:${combo.join('+')}`);
+                }
+            }
+        });
+
+        // vision.move - Listener moved to document.body
+        // moveArea.addEventListener('mousemove', (e) => { // Removed listener from specific element
+        document.body.addEventListener('mousemove', (e) => { // Added listener to body
             const now = Date.now();
             // Throttle updates slightly to avoid spamming hash changes
-            if (now - lastMoveTimestamp > moveUpdateThrottle) {
-                const rect = moveArea.getBoundingClientRect();
-                const x = Math.round(e.clientX - rect.left);
-                const y = Math.round(e.clientY - rect.top);
-                updateLastAction('move', `move-area:${x},${y}`);
+            // Only update if not currently dragging to avoid conflict with drag events
+            if (!isDragging && now - lastMoveTimestamp > moveUpdateThrottle) {
+                // const rect = moveArea.getBoundingClientRect(); // No longer relevant for body
+                // const x = Math.round(e.clientX - rect.left);
+                // const y = Math.round(e.clientY - rect.top);
+
+                // Get coordinates relative to the viewport
+                const x = Math.round(e.clientX);
+                const y = Math.round(e.clientY);
+
+                // updateLastAction('move', `move-area:${x},${y}`); // Old update action
+
+                // Update hash to match the format expected by TestVisionMove
+                const details = `at_${x}_${y}`;
+                updateLastAction('mouseMove', details);
+
                 lastMoveTimestamp = now;
             }
         });
 
         // vision.scroll (specific element)
         scrollArea.addEventListener('scroll', () => {
-             updateLastAction('scroll', `scroll-area:${scrollArea.scrollTop}`);
+            updateLastAction('scroll', `scroll-area:${scrollArea.scrollTop}`);
         });
 
         // vision.scroll (window)
         window.addEventListener('scroll', () => {
-             updateLastAction('scroll', `window:${window.scrollY}`);
+            updateLastAction('scroll', `window:${window.scrollY}`);
         });
 
         // Initial state

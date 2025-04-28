@@ -99,7 +99,9 @@ func (s *BrowserService) ExecuteVisionDrag(boxID, contextID, pageID string, para
 	if err == nil {
 		var moveErr error
 		for i := 1; i < len(params.Path); i++ {
-			moveErr = mouse.Move(float64(params.Path[i].X), float64(params.Path[i].Y))
+			moveErr = mouse.Move(float64(params.Path[i].X), float64(params.Path[i].Y), playwright.MouseMoveOptions{
+				Steps: playwright.Int(5),
+			})
 			if moveErr != nil {
 				err = moveErr
 				break
@@ -280,11 +282,18 @@ func (s *BrowserService) ExecuteVisionScreenshot(boxID, contextID, pageID string
 func (s *BrowserService) ExecuteVisionScroll(boxID, contextID, pageID string, params model.VisionScrollParams) interface{} {
 	targetPage, err := s.GetPageInstance(boxID, contextID, pageID)
 	if err != nil {
-		return model.VisionErrorResult{Success: false, Error: fmt.Sprintf("vision.scroll failed: %v", err)}
+		return model.VisionErrorResult{Success: false, Error: fmt.Sprintf("vision.scroll failed to get page instance: %v", err)}
 	}
-	_, err = targetPage.Evaluate("window.scrollBy(arguments[0], arguments[1])", params.ScrollX, params.ScrollY)
+
+	// Always scroll the window
+	// Use page.Mouse().Wheel() for potentially more reliable scrolling simulation
+	err = targetPage.Mouse().Wheel(float64(params.ScrollX), float64(params.ScrollY))
 	if err != nil {
-		return model.VisionErrorResult{Success: false, Error: fmt.Sprintf("vision.scroll failed: %v", err)}
+		// Improve error reporting
+		errMsg := fmt.Sprintf("Mouse.Wheel failed: %v", err)
+		return model.VisionErrorResult{Success: false, Error: fmt.Sprintf("vision.scroll failed: %s", errMsg)}
 	}
+
+	// If successful, return the success result
 	return model.VisionScrollResult{Success: true}
 }

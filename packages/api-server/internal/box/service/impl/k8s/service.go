@@ -117,7 +117,16 @@ func (s *Service) List(ctx context.Context, params *model.BoxListParams) (*model
 }
 
 // Create creates a new box
-func (s *Service) Create(ctx context.Context, req *model.BoxCreateParams) (*model.Box, error) {
+func (s *Service) Create(ctx context.Context, req *model.BoxCreateParams, progressWriter io.Writer) (*model.Box, error) {
+	// Send progress information if writer is provided
+	if progressWriter != nil {
+		encoder := json.NewEncoder(progressWriter)
+		encoder.Encode(map[string]string{
+			"status":  "prepare",
+			"message": fmt.Sprintf("Preparing to create Kubernetes box with image: %s", req.Image),
+		})
+	}
+
 	boxID := id.GenerateBoxID()
 	s.logger.Info("Creating new box with ID: %s", boxID)
 	s.accessTracker.Update(boxID)
@@ -183,6 +192,23 @@ func (s *Service) Create(ctx context.Context, req *model.BoxCreateParams) (*mode
 	}
 
 	result, err := s.client.AppsV1().Deployments(tenantNamespace).Create(ctx, deployment, metav1.CreateOptions{})
+
+	// Send progress information about result if writer is provided
+	if progressWriter != nil {
+		encoder := json.NewEncoder(progressWriter)
+		if err != nil {
+			encoder.Encode(map[string]string{
+				"status":  "error",
+				"message": err.Error(),
+			})
+		} else {
+			encoder.Encode(map[string]string{
+				"status":  "creating",
+				"message": fmt.Sprintf("Box %s created, waiting for pod to start...", boxID),
+			})
+		}
+	}
+
 	if err != nil {
 		s.logger.Error("Failed to create deployment: %v", err)
 		return nil, fmt.Errorf("failed to create deployment: %v", err)
@@ -677,6 +703,69 @@ func (s *Service) GetExternalPort(ctx context.Context, id string, internalPort i
 
 	s.logger.Warn("Internal port %d not found in service %s", internalPort, id)
 	return 0, fmt.Errorf("internal port %d not found in service %s", internalPort, id)
+}
+
+// UpdateBoxImage updates the default image (usually playwright) based on the target tag from environment variables.
+// If dryRun is true, it only reports the planned operations without executing them.
+func (s *Service) UpdateBoxImage(ctx context.Context, params *model.ImageUpdateParams) (*model.ImageUpdateResponse, error) {
+	// TODO: Implement K8S version of image updating
+	// For now, return empty response
+	return &model.ImageUpdateResponse{
+		Images:       []model.ImageInfo{},
+		ErrorMessage: "Image update not implemented for Kubernetes environment",
+	}, nil
+}
+
+// UpdateBoxImageWithProgress is the streaming version of UpdateBoxImage for Kubernetes.
+// This is currently not implemented for K8s environment.
+func (s *Service) UpdateBoxImageWithProgress(ctx context.Context, params *model.ImageUpdateParams, progressWriter io.Writer) (*model.ImageUpdateResponse, error) {
+	// Write not implemented message to the progress writer
+	msg := struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}{
+		Status:  "error",
+		Message: "Image update with progress streaming not implemented for Kubernetes environment",
+	}
+
+	encoder := json.NewEncoder(progressWriter)
+	encoder.Encode(msg)
+
+	// Return the same response as non-streaming version
+	return &model.ImageUpdateResponse{
+		Images:       []model.ImageInfo{},
+		ErrorMessage: "Image update not implemented for Kubernetes environment",
+	}, nil
+}
+
+// CheckImageExists checks if an image exists locally
+// For K8s environment, this is a placeholder implementation
+func (s *Service) CheckImageExists(ctx context.Context, params *model.BoxCreateParams) (bool, string) {
+	image := params.Image
+	if image == "" {
+		image = defaultImage
+	}
+
+	// In K8s environment, we assume the image always exists (K8s cluster handles pulling)
+	s.logger.Info("CheckImageExists called in K8s environment for image: %s", image)
+	return true, image
+}
+
+// EnsureImagePulling ensures an image is being pulled, starting the pull process if not already in progress
+// For K8s environment, this is a placeholder implementation
+func (s *Service) EnsureImagePulling(ctx context.Context, imageName string) {
+	// In K8s environment, image pulling is managed by Kubernetes itself, no implementation needed
+	s.logger.Info("EnsureImagePulling called in K8s environment for image: %s (no-op)", imageName)
+}
+
+// WaitForImagePull returns a channel that is closed when image pull completes
+// For K8s environment, this is a placeholder implementation
+func (s *Service) WaitForImagePull(imageName string) <-chan struct{} {
+	s.logger.Info("WaitForImagePull called in K8s environment for image: %s", imageName)
+	// Return a closed channel to indicate the image is "already pulled"
+	ch := make(chan struct{})
+	close(ch)
+	return ch
 }
 
 // Helper functions

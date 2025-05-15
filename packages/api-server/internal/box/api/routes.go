@@ -23,7 +23,10 @@ func RegisterRoutes(ws *restful.WebService, boxHandler *BoxHandler) {
 	ws.Route(ws.POST("/boxes").To(boxHandler.CreateBox).
 		Doc("create a box").
 		Reads(model.BoxCreateParams{}).
+		Produces("application/json", "application/json-stream").
+		Param(ws.QueryParameter("timeout", "timeout duration for image pull (e.g. 30s, 1m)").DataType("string").Required(false)).
 		Returns(201, "Created", model.Box{}).
+		Returns(202, "Accepted", model.BoxError{}).
 		Returns(400, "Bad Request", model.BoxError{}).
 		Returns(500, "Internal Server Error", model.BoxError{}))
 
@@ -118,5 +121,15 @@ func RegisterRoutes(ws *restful.WebService, boxHandler *BoxHandler) {
 		Returns(200, "OK", nil).
 		Returns(400, "Bad Request", model.BoxError{}).
 		Returns(404, "Not Found", model.BoxError{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	// Image management operations
+	ws.Route(ws.POST("/boxes/images/update").To(boxHandler.UpdateBoxImage).
+		Doc("updates docker images, pulling latest and removing outdated versions").
+		Reads(model.ImageUpdateParams{}).
+		Produces("application/json", "application/json-stream").
+		Param(ws.QueryParameter("imageName", "image name to update (default: babelcloud/gbox-playwright)").DataType("string").Required(false)).
+		Param(ws.QueryParameter("dryRun", "if true, only reports planned actions without executing them").DataType("boolean").Required(false)).
+		Returns(200, "OK", model.ImageUpdateResponse{}).
 		Returns(500, "Internal Server Error", model.BoxError{}))
 }

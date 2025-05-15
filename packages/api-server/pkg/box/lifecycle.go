@@ -1,5 +1,31 @@
 package model
 
+import (
+	"io"
+	"time"
+)
+
+// ProgressStatus defines the type for progress statuses.
+// These are used in ProgressUpdate messages.
+type ProgressStatus string
+
+const (
+	// ProgressStatusPrepare indicates that an operation is being prepared.
+	ProgressStatusPrepare ProgressStatus = "prepare"
+	// ProgressStatusComplete indicates that an operation has completed successfully.
+	ProgressStatusComplete ProgressStatus = "complete"
+	// ProgressStatusError indicates that an error occurred during an operation.
+	ProgressStatusError ProgressStatus = "error"
+)
+
+// ProgressUpdate represents a generic progress update message streamed to the client.
+type ProgressUpdate struct {
+	Status  ProgressStatus `json:"status"`            // Status of the current operation
+	Message string         `json:"message,omitempty"` // Human-readable message describing the progress
+	Error   string         `json:"error,omitempty"`   // Error message, if an error occurred (used when Status is ProgressStatusError)
+	ImageID string         `json:"imageId,omitempty"` // Image ID, if relevant (e.g., after a successful image pull)
+}
+
 // BoxCreateParams represents a request to create a box
 type BoxCreateParams struct {
 	Image                      string            `json:"image,omitempty"`
@@ -12,6 +38,9 @@ type BoxCreateParams struct {
 	Volumes                    []VolumeMount     `json:"volumes,omitempty"`                        // Volume mounts for the container
 	WaitForReady               bool              `json:"wait_for_ready,omitempty"`                 // + Wait for box to be ready (healthy)
 	WaitForReadyTimeoutSeconds int               `json:"wait_for_ready_timeout_seconds,omitempty"` // + Timeout for readiness check
+	CreateTimeoutSeconds       int               `json:"create_timeout_seconds,omitempty"`         // Timeout for the create operation itself, specifically for non-streaming image pulls
+	Timeout                    time.Duration     `json:"-"`                                        // Timeout duration for image pull operation (from query param, not serialized)
+	ProgressWriter             io.Writer         `json:"-"`                                        // Writer for progress updates (not serialized)
 }
 
 // VolumeMount represents a volume mount configuration
@@ -50,17 +79,21 @@ type BoxesDeleteResult struct {
 	IDs     []string `json:"ids,omitempty"` // IDs of deleted boxes
 }
 
-// BoxStartResult represents a response from starting a box
-type BoxStartResult struct {
+// OperationResult represents a generic result for simple success/failure operations.
+type OperationResult struct {
 	Success bool   `json:"success"`
 	Message string `json:"message,omitempty"`
 }
 
-// BoxStopResult represents a response from stopping a box
-type BoxStopResult struct {
-	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
-}
+// BoxStartResult is an alias for OperationResult, representing a response from starting a box.
+// Using an alias maintains semantic clarity at the call sites.
+// DEPRECATED: Use OperationResult directly or define specific result types if they diverge.
+type BoxStartResult = OperationResult
+
+// BoxStopResult is an alias for OperationResult, representing a response from stopping a box.
+// Using an alias maintains semantic clarity at the call sites.
+// DEPRECATED: Use OperationResult directly or define specific result types if they diverge.
+type BoxStopResult = OperationResult
 
 // BoxReclaimResult represents a response from reclaiming boxes
 type BoxReclaimResult struct {

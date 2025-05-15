@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -307,4 +308,44 @@ func WaitForResponse(reader io.Reader) ([]byte, error) {
 		buf = append(buf, []byte(response.Status+"\n")...)
 	}
 	return buf, nil
+}
+
+// ProcessPullProgress reads Docker pull progress from reader and writes to the writer
+// Returns error if encountered
+func ProcessPullProgress(reader io.Reader, writer io.Writer) error {
+	decoder := json.NewDecoder(reader)
+	encoder := json.NewEncoder(writer)
+
+	for {
+		var response struct {
+			Status         string          `json:"status"`
+			ProgressDetail json.RawMessage `json:"progressDetail"`
+			ID             string          `json:"id,omitempty"`
+			Error          string          `json:"error,omitempty"`
+			Progress       string          `json:"progress,omitempty"`
+		}
+
+		if err := decoder.Decode(&response); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		if response.Error != "" {
+			return fmt.Errorf("%s", response.Error)
+		}
+
+		// Send progress to client
+		if err := encoder.Encode(response); err != nil {
+			return err
+		}
+
+		// Flush the writer if it's a flusher
+		if f, ok := writer.(http.Flusher); ok {
+			f.Flush()
+		}
+	}
+
+	return nil
 }

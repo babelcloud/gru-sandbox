@@ -38,16 +38,48 @@ export const handleRunPython = withLogging(
     );
 
     // Get or create box
-    const id = await gbox.boxes.getOrCreateBox({
+    const result = await gbox.boxes.getOrCreateBox({
       boxId,
       image: config.images.playwright,
       sessionId,
       signal,
     });
 
+    // Check if image is being pulled
+    if (result.imagePullStatus?.inProgress) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              status: "image_pulling",
+              message: result.imagePullStatus.message,
+              imageName: result.imagePullStatus.imageName
+            }, null, 2),
+          },
+        ],
+      };
+    }
+
+    // Ensure we have a valid boxId
+    if (!result.boxId) {
+      logger.error("Failed to get or create box");
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({
+              status: "error",
+              message: "Failed to get or create box"
+            }, null, 2),
+          },
+        ],
+      };
+    }
+
     // Run command
-    const result = await gbox.boxes.runInBox(
-      id,
+    const runResult = await gbox.boxes.runInBox(
+      result.boxId,
       ["python3"],
       code,
       100, // stdoutLineLimit
@@ -56,14 +88,14 @@ export const handleRunPython = withLogging(
     );
 
     logger.info("Python code executed successfully");
-    if (!result.stderr && !result.stdout) {
-      result.stdout = "[No output]";
+    if (!runResult.stderr && !runResult.stdout) {
+      runResult.stdout = "[No output]";
     }
     return {
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify(result, null, 2),
+          text: JSON.stringify(runResult, null, 2),
         },
       ],
     };

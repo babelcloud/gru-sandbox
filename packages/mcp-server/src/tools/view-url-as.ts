@@ -76,13 +76,41 @@ async function _handleViewUrlAs(
 
   try {
     // Get or create box
-    actualBoxId = await gbox.boxes.getOrCreateBox({
+    const boxResult = await gbox.boxes.getOrCreateBox({
       boxId,
       image: config.images.playwright,
       sessionId,
       signal,
       waitTimeoutSeconds: 60,
     });
+
+    // Check if image is being pulled
+    if (boxResult.imagePullStatus?.inProgress) {
+      logger.info(`Image ${boxResult.imagePullStatus.imageName} is being pulled: ${boxResult.imagePullStatus.message}`);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Image is being pulled: ${boxResult.imagePullStatus.message}`,
+          },
+        ],
+      };
+    }
+
+    // Ensure we have a valid boxId
+    if (!boxResult.boxId) {
+      logger.error("Failed to get or create box");
+      return {
+        content: [
+          {
+            type: "error" as const,
+            text: "Failed to get or create box",
+          },
+        ],
+      };
+    }
+
+    actualBoxId = boxResult.boxId;
 
     logger.info(
       `Attempting to view URL: ${url} as ${as} in box ${actualBoxId} ${

@@ -1,12 +1,14 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/babelcloud/gbox/packages/api-server/internal/box/service"
 	model "github.com/babelcloud/gbox/packages/api-server/pkg/box"
@@ -23,12 +25,6 @@ const (
 	mediaTypeRawStream         = "application/vnd.gbox.raw-stream"
 	mediaTypeMultiplexedStream = "application/vnd.gbox.multiplexed-stream"
 )
-
-// Local error struct replacing models.BoxError
-type apiError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
 
 // Configure the WebSocket upgrader
 var upgrader = websocket.Upgrader{
@@ -49,6 +45,68 @@ type BoxHandler struct {
 func NewBoxHandler(service service.BoxService) *BoxHandler {
 	return &BoxHandler{
 		service: service,
+	}
+}
+
+// streamServiceOperation is a helper function to handle streaming responses for service operations.
+// serviceFunc is expected to write intermediate progress to the progressWriter and return the final data object on success.
+func (h *BoxHandler) streamServiceOperation(
+	req *restful.Request,
+	resp *restful.Response,
+	serviceCallParams interface{}, // Parameters to be passed to the serviceFunc
+	serviceFunc func(ctx context.Context, params interface{}, progressWriter io.Writer) (finalData interface{}, err error),
+	isCreateBox bool, // Flag to determine the final success message structure
+) {
+	resp.Header().Set("Content-Type", "application/json-stream")
+	resp.Header().Set("X-Content-Type-Options", "nosniff")
+	resp.Header().Set("Cache-Control", "no-cache")
+	resp.Header().Set("Connection", "keep-alive")
+	resp.WriteHeader(http.StatusOK)
+
+	pr, pw := io.Pipe()
+
+	go func() {
+		defer pw.Close()
+		encoder := json.NewEncoder(pw)
+
+		// serviceFunc will use pw for intermediate progress (e.g., image pull)
+		// and return the final object or an error.
+		finalData, err := serviceFunc(req.Request.Context(), serviceCallParams, pw)
+
+		if err != nil {
+			// Encode the final error message to the stream.
+			// Intermediate errors (like pull failure) should have been written to pw by serviceFunc's components.
+			errorMsg := struct {
+				Status string `json:"status"`
+				Error  string `json:"error"`
+			}{Status: "error", Error: err.Error()}
+			if encodeErr := encoder.Encode(errorMsg); encodeErr != nil {
+				log.Errorf("Failed to encode error to stream: %v", encodeErr)
+			}
+			log.Debugf("Streaming operation failed: %v", err) // Log original error for server records
+			return
+		}
+
+		// Encode the final success message.
+		var successPayload interface{}
+		if isCreateBox {
+			successPayload = struct {
+				Status string      `json:"status"`
+				Box    interface{} `json:"box"`
+			}{Status: "complete", Box: finalData}
+		} else {
+			// For UpdateBoxImage, finalData is already the complete *model.ImageUpdateResponse
+			successPayload = finalData
+		}
+
+		if err := encoder.Encode(successPayload); err != nil {
+			log.Errorf("Failed to encode success payload to stream: %v", err)
+		}
+	}()
+
+	// Copy from pipe to response
+	if _, err := io.Copy(resp.ResponseWriter, pr); err != nil {
+		log.Errorf("Error copying stream to HTTP response: %v", err)
 	}
 }
 
@@ -98,6 +156,14 @@ func (h *BoxHandler) GetBox(req *restful.Request, resp *restful.Response) {
 }
 
 // CreateBox creates a new box
+//
+// If a timeout query parameter is provided and the image doesn't exist locally,
+// the API will pull the image asynchronously and return a 202 response
+// after the timeout, informing the user that the image is being pulled.
+// The user can retry creating the box later.
+//
+// Accepts the following query parameters:
+// - timeout: Image pull timeout duration, e.g. "30s", "1m", etc. If not provided, it will wait for the image pull to complete.
 func (h *BoxHandler) CreateBox(req *restful.Request, resp *restful.Response) {
 	// Read request body directly into the internal model type
 	var createParams model.BoxCreateParams
@@ -106,8 +172,69 @@ func (h *BoxHandler) CreateBox(req *restful.Request, resp *restful.Response) {
 		return
 	}
 
-	// Call the service method with the populated struct
-	box, err := h.service.Create(req.Request.Context(), &createParams)
+	// Parse timeout parameter, default to 0 (wait indefinitely)
+	timeoutStr := req.QueryParameter("timeout")
+	if timeoutStr != "" {
+		var err error
+		createParams.Timeout, err = time.ParseDuration(timeoutStr)
+		if err != nil {
+			writeError(resp, http.StatusBadRequest, "InvalidTimeout", "Invalid timeout format. Use a valid duration (e.g., 30s, 1m)")
+			return
+		}
+	}
+
+	// check if the client wants a stream response
+	acceptHeader := req.HeaderParameter("Accept")
+	streamRequest := acceptHeader == "application/json-stream"
+
+	if streamRequest {
+		// Define the service call for CreateBox compatible with streamServiceOperation
+		createBoxServiceCall := func(ctx context.Context, params interface{}, progressWriter io.Writer) (interface{}, error) {
+			cp, ok := params.(*model.BoxCreateParams)
+			if !ok {
+				return nil, fmt.Errorf("internal error: invalid params type for CreateBox service call")
+			}
+			// h.service.Create will use progressWriter for image pull progress (if any)
+			// and return the created Box object or an error.
+			return h.service.Create(ctx, cp, progressWriter)
+		}
+		h.streamServiceOperation(req, resp, &createParams, createBoxServiceCall, true)
+		return
+	}
+
+	// If timeout is specified, use async pull with timeout
+	if createParams.Timeout > 0 {
+		// Check if image exists locally first
+		imageExists, imageName := h.service.CheckImageExists(req.Request.Context(), &createParams)
+
+		if !imageExists {
+			// Start async pull if image doesn't exist
+			h.service.EnsureImagePulling(req.Request.Context(), imageName)
+
+			// Set a timeout context
+			ctx, cancel := context.WithTimeout(req.Request.Context(), createParams.Timeout)
+			defer cancel()
+
+			// Wait for image to be pulled or timeout
+			select {
+			case <-ctx.Done():
+				if ctx.Err() == context.DeadlineExceeded {
+					// If timeout, return a message that pull is in progress
+					log.Infof("Image pull for %s timed out after %s. Sending 202 ImagePullInProgress.", imageName, createParams.Timeout.String())
+					resp.WriteHeaderAndEntity(http.StatusAccepted, &model.BoxError{
+						Code:    "ImagePullInProgress",
+						Message: fmt.Sprintf("Image %s is being pulled, but not yet completed. Please try again later", imageName),
+					})
+					return
+				}
+			case <-h.service.WaitForImagePull(imageName):
+				// Image pull completed, continue with box creation
+			}
+		}
+	}
+
+	// standard JSON response (non-streaming) - wait for operation to complete
+	box, err := h.service.Create(req.Request.Context(), &createParams, nil)
 	if err != nil {
 		writeError(resp, http.StatusInternalServerError, "CreateBoxError", err.Error())
 		return
@@ -127,9 +254,6 @@ func (h *BoxHandler) DeleteBox(req *restful.Request, resp *restful.Response) {
 	// Parse request body directly into model.BoxDeleteParams
 	var deleteParams model.BoxDeleteParams
 	if err := req.ReadEntity(&deleteParams); err != nil {
-		// If no request body or error parsing, continue with default force=false
-		// (Assuming ReadEntity handles empty body gracefully or returns specific error)
-		// If ReadEntity fails on empty body, add check: if err != nil && err != io.EOF { ... }
 		deleteParams.Force = false // Default
 	}
 
@@ -491,6 +615,45 @@ func (h *BoxHandler) ExtractArchive(req *restful.Request, resp *restful.Response
 	resp.WriteHeader(http.StatusOK)
 }
 
+// UpdateBoxImage updates docker images used for boxes, pulling latest and removing outdated versions
+func (h *BoxHandler) UpdateBoxImage(req *restful.Request, resp *restful.Response) {
+	// parse query parameters
+	params := &model.ImageUpdateParams{
+		ImageReference: req.QueryParameter("image"),
+		DryRun:         req.QueryParameter("dryRun") == "true",
+		Force:          req.QueryParameter("force") == "true",
+	}
+
+	// check if the client wants a stream response
+	acceptHeader := req.HeaderParameter("Accept")
+	wantsStreamResponse := acceptHeader == "application/json-stream"
+
+	if wantsStreamResponse && !params.DryRun {
+		// Define the service call for UpdateBoxImage compatible with streamServiceOperation
+		updateImageServiceCall := func(ctx context.Context, p interface{}, progressWriter io.Writer) (interface{}, error) {
+			updateParams, ok := p.(*model.ImageUpdateParams)
+			if !ok {
+				return nil, fmt.Errorf("internal error: invalid params type for UpdateImage service call")
+			}
+			// h.service.UpdateBoxImageWithProgress will use progressWriter for image pull progress
+			// and return the ImageUpdateResponse object or an error.
+			return h.service.UpdateBoxImageWithProgress(ctx, updateParams, progressWriter)
+		}
+		h.streamServiceOperation(req, resp, params, updateImageServiceCall, false)
+		return
+	}
+
+	// standard JSON response (non-streaming)
+	result, err := h.service.UpdateBoxImage(req.Request.Context(), params)
+	if err != nil {
+		writeError(resp, http.StatusInternalServerError, "UpdateImageError", err.Error())
+		return
+	}
+
+	// return result
+	resp.WriteEntity(result)
+}
+
 // writeError writes an error response using local apiError struct
 func writeError(resp *restful.Response, status int, code, message string) {
 	// Ensure headers aren't already written (e.g., after hijack or partial response)
@@ -498,7 +661,7 @@ func writeError(resp *restful.Response, status int, code, message string) {
 	if resp.ResponseWriter.Header().Get("written") != "true" {
 		// Mark headers as written to prevent double writes
 		resp.Header().Set("written", "true")
-		resp.WriteHeaderAndEntity(status, &apiError{
+		resp.WriteHeaderAndEntity(status, &model.BoxError{
 			Code:    code,
 			Message: message,
 		})

@@ -1,5 +1,6 @@
 // No Node.js stream import needed for Web Streams
 
+
 // Basic structure for a Box object returned by the API
 export interface BoxData {
   id: string;
@@ -7,6 +8,13 @@ export interface BoxData {
   image: string;
   labels?: Record<string, string>;
   // Add other fields based on API responses (e.g., ports, created_at)
+}
+
+// Image pull status information
+export interface ImagePullStatus {
+  inProgress: boolean;
+  imageName: string;
+  message: string;
 }
 
 // Options for creating a new Box
@@ -19,6 +27,7 @@ export interface BoxCreateOptions {
   workingDir?: string;
   labels?: Record<string, string>; // Matches 'extra_labels' in Python API but mapped here
   volumes?: VolumeMount[];
+  timeout?: string; // Duration string for image pull timeout (e.g., '30s', '1m')
 }
 
 export interface VolumeMount {
@@ -43,7 +52,10 @@ export interface BoxListResponse {
 export type BoxGetResponse = BoxData; // Assuming API returns the box data directly
 
 // Response structure for creating a box
-export type BoxCreateResponse = BoxData & { message?: string };
+export type BoxCreateResponse = BoxData & { 
+  code?: string;
+  message?: string;
+};
 
 // Filters for listing boxes
 export interface BoxListFilters {

@@ -13,18 +13,16 @@ import (
 // BoxService defines the interface for box operations
 type BoxService interface {
 	// Box lifecycle operations
-	Create(ctx context.Context, params *model.BoxCreateParams) (*model.Box, error)
+	List(ctx context.Context, params *model.BoxListParams) (*model.BoxListResult, error)
+	Get(ctx context.Context, id string) (*model.Box, error)
+	Create(ctx context.Context, params *model.BoxCreateParams, progressWriter io.Writer) (*model.Box, error)
 	Delete(ctx context.Context, id string, params *model.BoxDeleteParams) (*model.BoxDeleteResult, error)
-	Start(ctx context.Context, id string) (*model.BoxStartResult, error)
-	Stop(ctx context.Context, id string) (*model.BoxStopResult, error)
 	DeleteAll(ctx context.Context, params *model.BoxesDeleteParams) (*model.BoxesDeleteResult, error)
 	Reclaim(ctx context.Context) (*model.BoxReclaimResult, error)
 
-	// Box query operations
-	Get(ctx context.Context, id string) (*model.Box, error)
-	List(ctx context.Context, params *model.BoxListParams) (*model.BoxListResult, error)
-
-	// Box run command operations
+	// Box runtime operations
+	Start(ctx context.Context, id string) (*model.BoxStartResult, error)
+	Stop(ctx context.Context, id string) (*model.BoxStopResult, error)
 	Exec(ctx context.Context, id string, params *model.BoxExecParams) (*model.BoxExecResult, error)
 	ExecWS(ctx context.Context, id string, params *model.BoxExecWSParams, wsConn *websocket.Conn) (*model.BoxExecResult, error)
 	Run(ctx context.Context, id string, params *model.BoxRunParams) (*model.BoxRunResult, error)
@@ -32,10 +30,22 @@ type BoxService interface {
 	// Box file operations
 	GetArchive(ctx context.Context, id string, params *model.BoxArchiveGetParams) (*model.BoxArchiveResult, io.ReadCloser, error)
 	HeadArchive(ctx context.Context, id string, params *model.BoxArchiveHeadParams) (*model.BoxArchiveHeadResult, error)
-	ExtractArchive(ctx context.Context, id string, req *model.BoxArchiveExtractParams) error
+	ExtractArchive(ctx context.Context, id string, params *model.BoxArchiveExtractParams) error
+
+	// Box image operations
+	UpdateBoxImage(ctx context.Context, params *model.ImageUpdateParams) (*model.ImageUpdateResponse, error)
+	UpdateBoxImageWithProgress(ctx context.Context, params *model.ImageUpdateParams, progressWriter io.Writer) (*model.ImageUpdateResponse, error)
 
 	// GetExternalPort retrieves the host port mapping for a specific internal port of a box.
 	GetExternalPort(ctx context.Context, id string, internalPort int) (int, error)
+
+	// Added image management interfaces
+	// CheckImageExists checks if an image exists locally
+	CheckImageExists(ctx context.Context, params *model.BoxCreateParams) (bool, string)
+	// EnsureImagePulling ensures an image is being pulled, if not already in progress it will start pulling
+	EnsureImagePulling(ctx context.Context, imageName string)
+	// WaitForImagePull waits for an image pull to complete
+	WaitForImagePull(imageName string) <-chan struct{}
 }
 
 // Factory creates a new box service instance, accepting an AccessTracker

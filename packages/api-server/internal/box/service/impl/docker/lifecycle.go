@@ -2,8 +2,10 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -22,10 +24,9 @@ import (
 const defaultStopTimeout = 10 * time.Second
 
 // Create implements Service.Create
-func (s *Service) Create(ctx context.Context, params *model.BoxCreateParams) (*model.Box, error) {
+func (s *Service) Create(ctx context.Context, params *model.BoxCreateParams, progressWriter io.Writer) (*model.Box, error) {
 	// Get image name - This now handles defaults, env var resolution, and adding :latest if needed.
 	img := GetImage(params.Image)
-	s.logger.Info("Image name: %s", img)
 
 	// Check if image exists
 	_, _, err := s.client.ImageInspectWithRaw(ctx, img)
@@ -36,16 +37,20 @@ func (s *Service) Create(ctx context.Context, params *model.BoxCreateParams) (*m
 			pullOptions.RegistryAuth = params.ImagePullSecret
 		}
 
-		s.logger.Info("Pulling image: %s ...", img)
-		reader, err := s.client.ImagePull(ctx, img, pullOptions)
-		if err != nil {
-			return nil, fmt.Errorf("failed to pull image: %w", err)
+		// Handle image pulling
+		if progressWriter != nil {
+			// Send initial status
+			initialStatus := model.ProgressUpdate{
+				Status:  model.ProgressStatusPrepare,
+				Message: fmt.Sprintf("Preparing to pull image: %s", img),
+			}
+			encoder := json.NewEncoder(progressWriter)
+			encoder.Encode(initialStatus)
 		}
-		defer reader.Close()
 
-		// Wait for the pull to complete
-		if _, err := WaitForResponse(reader); err != nil {
-			return nil, fmt.Errorf("failed to pull image: %w", err)
+		pullResult := s.pullImageInternal(ctx, img, pullOptions, progressWriter)
+		if !pullResult.success {
+			return nil, fmt.Errorf("failed to pull image: %s", pullResult.message)
 		}
 	}
 
@@ -105,7 +110,7 @@ func (s *Service) Create(ctx context.Context, params *model.BoxCreateParams) (*m
 	}
 
 	// Start container
-	if err := s.client.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+	if err := s.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return nil, fmt.Errorf("failed to start container: %w", err)
 	}
 
@@ -191,7 +196,7 @@ func (s *Service) Start(ctx context.Context, id string) (*model.BoxStartResult, 
 		return &model.BoxStartResult{Success: true, Message: fmt.Sprintf("Box %s is already running", id)}, nil
 	}
 
-	err = s.client.ContainerStart(ctx, containerInfo.ID, types.ContainerStartOptions{})
+	err = s.client.ContainerStart(ctx, containerInfo.ID, container.StartOptions{})
 	if err != nil {
 		return &model.BoxStartResult{
 			Success: false,

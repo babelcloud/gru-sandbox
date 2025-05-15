@@ -14,7 +14,8 @@ import {
     BoxBrowserManager,
     FileManager,
     GBoxFile,
-} from "@gru.ai/gbox";
+    type ImagePullStatus,
+} from "../../../sdk/typescript/src/index";
 
 const GBOX_URL = process.env.GBOX_URL || 'http://localhost:28080';
 
@@ -41,5 +42,6 @@ export {
     type VisionScreenshotResult,
     type VisionScreenshotParams,
     type FileShareApiResponse,
+    type ImagePullStatus,
 };
 

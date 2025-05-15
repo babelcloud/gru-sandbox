@@ -5,7 +5,8 @@ import {
     type BoxRunResponse, 
     type BoxRunOptions, 
     type BoxListFilters, 
-    type BoxCreateOptions 
+    type BoxCreateOptions, 
+    type ImagePullStatus 
 } from './gbox.instance.js';
 
 import { gbox } from './gbox.instance.js';
@@ -79,34 +80,6 @@ export class BoxService {
     }
 
     /**
-     * Creates a new Box instance using default command.
-     * Corresponds to the private createBox in the old SDK.
-     * Note: The new SDK handles creation via BoxManager.create.
-     */
-    private async createBox(
-        image: string,
-        options: {
-          sessionId?: string;
-          signal?: AbortSignal;
-        }
-      ): Promise<Box> {
-        const [cmdString, ...argsArray] = this.defaultCmd;
-
-        const createOptions: BoxCreateOptions = {
-          image: image,
-          cmd: cmdString,
-          args: argsArray,
-          labels: options.sessionId ? { sessionId: options.sessionId } : undefined,
-        };
-        try {
-            const newBox = await gbox.boxes.create(createOptions, options.signal);
-            return newBox;
-        } catch(error) {
-            throw error;
-        }
-    }
-
-    /**
      * Helper method to wait for a box to reach 'running' state.
      */
     private async _waitForBoxReady(boxId: string, timeoutSeconds?: number): Promise<void> {
@@ -150,7 +123,7 @@ export class BoxService {
         sessionId?: string;
         signal?: AbortSignal;
         waitTimeoutSeconds?: number;
-    }): Promise<string> {
+    }): Promise<{ boxId: string | null; imagePullStatus?: { inProgress: boolean; imageName: string; message: string } }> {
         const { boxId, image, sessionId, signal, waitTimeoutSeconds } = options;
 
         if (boxId) {
@@ -160,7 +133,7 @@ export class BoxService {
                     await this.startBox(boxId, signal);
                     await this._waitForBoxReady(boxId, waitTimeoutSeconds);
                 }
-                return boxId;
+                return { boxId };
             } catch (error: unknown) {
                  if (error instanceof NotFoundError || (error instanceof Error && error.message.includes('does not belong to session'))) {
                  } else {
@@ -177,7 +150,7 @@ export class BoxService {
             (box) => box.image.split(':')[0] === effectiveImage && box.status === 'running'
         );
         if (runningBox) {
-            return runningBox.id;
+            return { boxId: runningBox.id };
         }
 
         const stoppedBox = boxes.find(
@@ -186,15 +159,34 @@ export class BoxService {
         if (stoppedBox) {
             await this.startBox(stoppedBox.id, signal);
             await this._waitForBoxReady(stoppedBox.id, waitTimeoutSeconds);
-            return stoppedBox.id;
+            return { boxId: stoppedBox.id };
         }
 
-        const newBox = await this.createBox(effectiveImage, {
-            sessionId,
-            signal,
-        });
-        await this._waitForBoxReady(newBox.id, waitTimeoutSeconds);
-        return newBox.id;
+        // Create a new box with timeout
+        const createOptions: BoxCreateOptions = {
+          image: effectiveImage,
+          cmd: this.defaultCmd[0],
+          args: this.defaultCmd.slice(1),
+          labels: options.sessionId ? { sessionId: options.sessionId } : undefined,
+          timeout: '1000ms', // Use reasonable timeout for image pull
+        };
+
+        // We need to use 'any' here because the SDK type system hasn't been updated
+        // to reflect the new behavior of returning imagePullStatus
+        try {
+            const box = await gbox.boxes.create(createOptions, signal);
+            if (box.id) {
+                await this._waitForBoxReady(box.id, waitTimeoutSeconds);
+                return { boxId: box.id };
+            } else {
+                return { boxId: null };
+            }
+        } catch (error) {
+            if (error instanceof Error && error.message.includes('ImagePullInProgress')) {
+                return { boxId: null, imagePullStatus: { inProgress: true, imageName: createOptions.image, message: error.message } };
+            }
+            throw error;
+        }
     }
 
     /**

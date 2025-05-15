@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,9 +15,9 @@ import (
 	"strconv"
 	"testing"
 	"time"
-	
-	"github.com/gorilla/websocket"
+
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/playwright-community/playwright-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,9 +33,22 @@ type mockBoxService struct {
 	dynamicPort int // Store the dynamic port for GetExternalPort
 }
 
-func (m *mockBoxService) Create(ctx context.Context, params *boxModel.BoxCreateParams) (*boxModel.Box, error) {
+func (m *mockBoxService) Create(ctx context.Context, params *boxModel.BoxCreateParams, progressWriter io.Writer) (*boxModel.Box, error) {
+	// Send creation progress if writer is provided
+	if progressWriter != nil {
+		encoder := json.NewEncoder(progressWriter)
+		encoder.Encode(map[string]string{
+			"status":  "prepare",
+			"message": "Preparing mock box",
+		})
+		encoder.Encode(map[string]string{
+			"status":  "creating",
+			"message": "Creating mock box",
+		})
+	}
 	return &boxModel.Box{ID: "mock-box-" + uuid.NewString()}, nil
 }
+
 func (m *mockBoxService) Get(ctx context.Context, boxID string) (*boxModel.Box, error) {
 	return &boxModel.Box{ID: boxID, Status: "running"}, nil // Use string status
 }
@@ -79,6 +93,35 @@ func (m *mockBoxService) Run(ctx context.Context, id string, params *boxModel.Bo
 }
 func (m *mockBoxService) ExecWS(ctx context.Context, id string, params *boxModel.BoxExecWSParams, conn *websocket.Conn) (*boxModel.BoxExecResult, error) {
 	return nil, fmt.Errorf("mockBoxService.ExecWS not implemented")
+}
+func (m *mockBoxService) UpdateBoxImage(ctx context.Context, params *boxModel.ImageUpdateParams) (*boxModel.ImageUpdateResponse, error) {
+	return nil, fmt.Errorf("mockBoxService.UpdateBoxImage not implemented")
+}
+func (m *mockBoxService) UpdateBoxImageWithProgress(ctx context.Context, params *boxModel.ImageUpdateParams, progressWriter io.Writer) (*boxModel.ImageUpdateResponse, error) {
+	return nil, fmt.Errorf("mockBoxService.UpdateBoxImageWithProgress not implemented")
+}
+
+// CheckImageExists checks if an image exists locally (Mock implementation)
+func (m *mockBoxService) CheckImageExists(ctx context.Context, params *boxModel.BoxCreateParams) (bool, string) {
+	// In test environment, assume image always exists
+	image := params.Image
+	if image == "" {
+		image = "mockedDefaultImage"
+	}
+	return true, image
+}
+
+// EnsureImagePulling ensures an image is being pulled (Mock implementation)
+func (m *mockBoxService) EnsureImagePulling(ctx context.Context, imageName string) {
+	// No actual operation in test environment
+}
+
+// WaitForImagePull waits for an image pull to complete (Mock implementation)
+func (m *mockBoxService) WaitForImagePull(imageName string) <-chan struct{} {
+	// Return a closed channel to indicate the image pull is complete
+	ch := make(chan struct{})
+	close(ch)
+	return ch
 }
 
 var _ boxSvc.BoxService = (*mockBoxService)(nil)
@@ -231,4 +274,4 @@ func setupServiceWithVisionTestPage(t *testing.T) (*service.BrowserService, stri
 	}
 
 	return browserService, testBoxID, testContextID, testPageID, pageInstance, cleanup
-} 
+}

@@ -28,6 +28,7 @@ func NewBoxCommand() *cobra.Command {
 		NewBoxStopCommand(),
 		NewBoxReclaimCommand(),
 		NewBoxCpCommand(),
+		NewBoxImageCommand(),
 	)
 
 	return boxCmd

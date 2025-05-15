@@ -30,3 +30,9 @@ export * from './types/browser.ts';
 
 // Re-export SdkLogger and LogLevel for external use
 export { logger } from './logger.ts';
+
+// Export library components
+export * from './client.ts';
+
+// Export specific error classes (kept for backward compatibility)
+export { ImagePullInProgressError } from './api/box.api.ts';

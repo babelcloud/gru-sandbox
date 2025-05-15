@@ -57,6 +57,9 @@ export class BoxManager {
   async create(options: BoxCreateOptions, signal?: AbortSignal): Promise<Box> {
     const response = await this.boxApi.create(options, signal);
     // Instantiate Box model directly using the response data, passing both APIs
+    if (response.code === 'ImagePullInProgress') {
+      throw new Error(`Code: ${response.code}, Message: ${response.message}`);
+    }
     return new Box(response, this.boxApi, this.browserApi);
   }
 

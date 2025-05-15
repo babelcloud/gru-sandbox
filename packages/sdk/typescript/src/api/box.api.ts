@@ -145,14 +145,9 @@ export class BoxApi extends Client {
         signal
       );
 
-      // Check if responseData indicates ImagePullInProgress
-      // This assumes that if the server responds with 202 and a specific body for ImagePullInProgress,
-      // super.post() will return that body as responseData without throwing an error for the 202 status.
       if (responseData.code! === 'ImagePullInProgress') {
         return responseData;
       }
-
-      // Otherwise, it's treated as a regular successful box creation (e.g., 201 Created)
       return this.mapLabels(responseData);
   }
 

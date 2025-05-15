@@ -48,6 +48,68 @@ func NewBoxHandler(service service.BoxService) *BoxHandler {
 	}
 }
 
+// streamServiceOperation is a helper function to handle streaming responses for service operations.
+// serviceFunc is expected to write intermediate progress to the progressWriter and return the final data object on success.
+func (h *BoxHandler) streamServiceOperation(
+	req *restful.Request,
+	resp *restful.Response,
+	serviceCallParams interface{}, // Parameters to be passed to the serviceFunc
+	serviceFunc func(ctx context.Context, params interface{}, progressWriter io.Writer) (finalData interface{}, err error),
+	isCreateBox bool, // Flag to determine the final success message structure
+) {
+	resp.Header().Set("Content-Type", "application/json-stream")
+	resp.Header().Set("X-Content-Type-Options", "nosniff")
+	resp.Header().Set("Cache-Control", "no-cache")
+	resp.Header().Set("Connection", "keep-alive")
+	resp.WriteHeader(http.StatusOK)
+
+	pr, pw := io.Pipe()
+
+	go func() {
+		defer pw.Close()
+		encoder := json.NewEncoder(pw)
+
+		// serviceFunc will use pw for intermediate progress (e.g., image pull)
+		// and return the final object or an error.
+		finalData, err := serviceFunc(req.Request.Context(), serviceCallParams, pw)
+
+		if err != nil {
+			// Encode the final error message to the stream.
+			// Intermediate errors (like pull failure) should have been written to pw by serviceFunc's components.
+			errorMsg := struct {
+				Status string `json:"status"`
+				Error  string `json:"error"`
+			}{Status: "error", Error: err.Error()}
+			if encodeErr := encoder.Encode(errorMsg); encodeErr != nil {
+				log.Errorf("Failed to encode error to stream: %v", encodeErr)
+			}
+			log.Debugf("Streaming operation failed: %v", err) // Log original error for server records
+			return
+		}
+
+		// Encode the final success message.
+		var successPayload interface{}
+		if isCreateBox {
+			successPayload = struct {
+				Status string      `json:"status"`
+				Box    interface{} `json:"box"`
+			}{Status: "complete", Box: finalData}
+		} else {
+			// For UpdateBoxImage, finalData is already the complete *model.ImageUpdateResponse
+			successPayload = finalData
+		}
+
+		if err := encoder.Encode(successPayload); err != nil {
+			log.Errorf("Failed to encode success payload to stream: %v", err)
+		}
+	}()
+
+	// Copy from pipe to response
+	if _, err := io.Copy(resp.ResponseWriter, pr); err != nil {
+		log.Errorf("Error copying stream to HTTP response: %v", err)
+	}
+}
+
 // ListBoxes returns all boxes
 func (h *BoxHandler) ListBoxes(req *restful.Request, resp *restful.Response) {
 	// Parse query parameters into BoxListParams
@@ -123,54 +185,20 @@ func (h *BoxHandler) CreateBox(req *restful.Request, resp *restful.Response) {
 
 	// check if the client wants a stream response
 	acceptHeader := req.HeaderParameter("Accept")
-	wantsStreamResponse := acceptHeader == "application/json-stream"
+	streamRequest := acceptHeader == "application/json-stream"
 
-	if wantsStreamResponse {
-		// stream response handling
-		resp.Header().Set("Content-Type", "application/json-stream")
-		resp.Header().Set("X-Content-Type-Options", "nosniff")
-		resp.Header().Set("Cache-Control", "no-cache")
-		resp.Header().Set("Connection", "keep-alive")
-		resp.WriteHeader(http.StatusOK)
-
-		// create a pipe to connect image pull with HTTP response
-		pr, pw := io.Pipe()
-
-		// start a goroutine to create box and send progress
-		go func() {
-			defer pw.Close()
-
-			// create a JSON encoder
-			encoder := json.NewEncoder(pw)
-
-			// call service with progress writer
-			box, err := h.service.Create(req.Request.Context(), &createParams, pw)
-			if err != nil {
-				// send error as JSON
-				errMsg := struct {
-					Status string `json:"status"`
-					Error  string `json:"error"`
-				}{
-					Status: "error",
-					Error:  err.Error(),
-				}
-				encoder.Encode(errMsg)
-				return
+	if streamRequest {
+		// Define the service call for CreateBox compatible with streamServiceOperation
+		createBoxServiceCall := func(ctx context.Context, params interface{}, progressWriter io.Writer) (interface{}, error) {
+			cp, ok := params.(*model.BoxCreateParams)
+			if !ok {
+				return nil, fmt.Errorf("internal error: invalid params type for CreateBox service call")
 			}
-
-			// send success result
-			successMsg := struct {
-				Status string     `json:"status"`
-				Box    *model.Box `json:"box"`
-			}{
-				Status: "complete",
-				Box:    box,
-			}
-			encoder.Encode(successMsg)
-		}()
-
-		// copy from pipe to response
-		io.Copy(resp, pr)
+			// h.service.Create will use progressWriter for image pull progress (if any)
+			// and return the created Box object or an error.
+			return h.service.Create(ctx, cp, progressWriter)
+		}
+		h.streamServiceOperation(req, resp, &createParams, createBoxServiceCall, true)
 		return
 	}
 
@@ -601,40 +629,17 @@ func (h *BoxHandler) UpdateBoxImage(req *restful.Request, resp *restful.Response
 	wantsStreamResponse := acceptHeader == "application/json-stream"
 
 	if wantsStreamResponse && !params.DryRun {
-		// stream response handling
-		resp.Header().Set("Content-Type", "application/json-stream")
-		resp.Header().Set("X-Content-Type-Options", "nosniff")
-		resp.Header().Set("Cache-Control", "no-cache")
-		resp.Header().Set("Connection", "keep-alive")
-		resp.WriteHeader(http.StatusOK)
-
-		// create a pipe to connect image pull with HTTP response
-		pr, pw := io.Pipe()
-
-		// start a goroutine to update image and send progress
-		go func() {
-			defer pw.Close()
-
-			result, err := h.service.UpdateBoxImageWithProgress(req.Request.Context(), params, pw)
-			if err != nil {
-				// send error as JSON
-				encoder := json.NewEncoder(pw)
-				errMsg := struct {
-					Error string `json:"error"`
-				}{
-					Error: err.Error(),
-				}
-				encoder.Encode(errMsg)
-				return
+		// Define the service call for UpdateBoxImage compatible with streamServiceOperation
+		updateImageServiceCall := func(ctx context.Context, p interface{}, progressWriter io.Writer) (interface{}, error) {
+			updateParams, ok := p.(*model.ImageUpdateParams)
+			if !ok {
+				return nil, fmt.Errorf("internal error: invalid params type for UpdateImage service call")
 			}
-
-			// send final result
-			encoder := json.NewEncoder(pw)
-			encoder.Encode(result)
-		}()
-
-		// copy from pipe to response
-		io.Copy(resp, pr)
+			// h.service.UpdateBoxImageWithProgress will use progressWriter for image pull progress
+			// and return the ImageUpdateResponse object or an error.
+			return h.service.UpdateBoxImageWithProgress(ctx, updateParams, progressWriter)
+		}
+		h.streamServiceOperation(req, resp, params, updateImageServiceCall, false)
 		return
 	}
 

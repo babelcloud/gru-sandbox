@@ -1,5 +1,6 @@
 # gbox
 
+[![smithery badge](https://smithery.ai/badge/@babelcloud/gbox)](https://smithery.ai/server/@babelcloud/gbox)
 **gbox** is an open source project that provides a self-hostable sandbox for Agents to execute commands, read/write files, browse the web, operate iOS/Android. The sandbox can be used as a computer/phone/pad for agent. See "Features" section for details.
 
 This project is based on the technology behind [gru.ai](https://gru.ai). It has been tested over 100000 Agent jobs.
@@ -53,6 +54,14 @@ npm install @gru/gbox
 ## Use gbox as a CLI
 
 ## Installation
+
+### Installing via Smithery
+
+To install gbox for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@babelcloud/gbox):
+
+```bash
+npx -y @smithery/cli install @babelcloud/gbox --client claude
+```
 
 ### System Requirements
 

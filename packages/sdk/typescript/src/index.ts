@@ -23,6 +23,7 @@ export { BrowserContext } from './models/context.ts';
 export { BrowserPage } from './models/page.ts';
 export { BoxBrowserManager } from './managers/browser.manager.ts';
 export { FileManager } from './managers/file.manager.ts';
+export { GboxClient as SandboxClient } from './sandbox/client.ts';
 
 // Export new browser-related exports
 export * from './api/browser.api.ts';

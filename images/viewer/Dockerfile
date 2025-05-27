@@ -20,7 +20,7 @@ ENV DISPLAY=:1
 RUN mkdir -p /root/.vnc && chmod 700 /root/.vnc
 
 # Copy VNC-related supervisord config (merged)
-COPY supervisord.conf /etc/supervisor/conf.d/vnc.conf
+COPY supervisor/*.conf /etc/supervisor/conf.d/
 
 # Copy VNC initialization script
 RUN mkdir -p /entrypoint-init.d

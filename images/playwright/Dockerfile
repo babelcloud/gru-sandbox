@@ -39,7 +39,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright \
 
 # Install Playwright dependencies and browser using ARG
 ARG PLAYWRIGHT_VERSION
-RUN npx playwright@${PLAYWRIGHT_VERSION} install --with-deps --no-shell chromium
+RUN npx playwright@${PLAYWRIGHT_VERSION} install --with-deps chromium
 
 # Copy playwright supervisord config and substitute version placeholder
 COPY supervisord.conf /etc/supervisor/conf.d/playwright.conf

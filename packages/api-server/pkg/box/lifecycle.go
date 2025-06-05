@@ -41,6 +41,30 @@ type BoxCreateParams struct {
 	CreateTimeoutSeconds       int               `json:"create_timeout_seconds,omitempty"`         // Timeout for the create operation itself, specifically for non-streaming image pulls
 	Timeout                    time.Duration     `json:"-"`                                        // Timeout duration for image pull operation (from query param, not serialized)
 	ProgressWriter             io.Writer         `json:"-"`                                        // Writer for progress updates (not serialized)
+
+	// these are only supported for cloud version
+	OfCreateLinuxBox *LinuxAndroidBoxCreateParam `json:",inline"`
+	// This field is a request body variant, only one variant field can be set.
+	OfCreateAndroidBox *LinuxAndroidBoxCreateParam `json:",inline"`
+}
+
+type LinuxAndroidBoxCreateParam struct {
+	Type string `json:"type"`
+	Config CreateBoxConfigParam `json:"config"`
+}
+
+type CreateBoxConfigParam struct {
+	ExpiresIn string `json:"expiresIn"`
+	Envs map[string]string `json:"envs"`
+	Labels map[string]string `json:"labels"`
+}
+
+type AndroidBoxCreateParam struct {
+	CreateAndroidBox LinuxAndroidBoxCreateParam
+}
+
+type LinuxBoxCreateParam struct {
+	CreateLinuxBox LinuxAndroidBoxCreateParam
 }
 
 // VolumeMount represents a volume mount configuration

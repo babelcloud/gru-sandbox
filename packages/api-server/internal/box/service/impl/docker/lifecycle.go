@@ -185,6 +185,16 @@ func (s *Service) Create(ctx context.Context, params *model.BoxCreateParams, pro
 	return containerToBox(containerInfo), nil
 }
 
+// not implemented
+func (s *Service) CreateLinuxBox(ctx context.Context, params *model.LinuxBoxCreateParam, progressWriter io.Writer) (*model.Box, error) {
+	return nil, fmt.Errorf("CreateLinuxBox not implemented")
+}
+
+// not implemented
+func (s *Service) CreateAndroidBox(ctx context.Context, params *model.AndroidBoxCreateParam, progressWriter io.Writer) (*model.Box, error) {
+	return nil, fmt.Errorf("CreateAndroidBox not implemented")
+}
+
 // Start implements Service.Start
 func (s *Service) Start(ctx context.Context, id string) (*model.BoxStartResult, error) {
 	containerInfo, err := s.getContainerByID(ctx, id)

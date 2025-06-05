@@ -49,6 +49,14 @@ func (m *mockBoxService) Create(ctx context.Context, params *boxModel.BoxCreateP
 	return &boxModel.Box{ID: "mock-box-" + uuid.NewString()}, nil
 }
 
+func (m *mockBoxService) CreateLinuxBox(ctx context.Context, params *boxModel.LinuxBoxCreateParam, progressWriter io.Writer) (*boxModel.Box, error) {
+	return nil, fmt.Errorf("mockBoxService.CreateLinuxBox not implemented")
+}
+
+func (m *mockBoxService) CreateAndroidBox(ctx context.Context, params *boxModel.AndroidBoxCreateParam, progressWriter io.Writer) (*boxModel.Box, error) {
+	return nil, fmt.Errorf("mockBoxService.CreateAndroidBox not implemented")
+}
+
 func (m *mockBoxService) Get(ctx context.Context, boxID string) (*boxModel.Box, error) {
 	return &boxModel.Box{ID: boxID, Status: "running"}, nil // Use string status
 }

@@ -21,7 +21,10 @@ type BoxListParams struct {
 
 // BoxListResult represents a response from listing boxes
 type BoxListResult struct {
-	Boxes   []Box  `json:"boxes"`             // List of boxes
-	Count   int    `json:"count"`             // Total number of boxes
+	Data   []Box  `json:"data"`             // List of boxes
+	Total   int    `json:"total"`             // Total number of boxes
 	Message string `json:"message,omitempty"` // Response message
+	// these are only supported for cloud version
+	Page     float64 `json:"page"`
+	PageSize float64 `json:"pageSize"`
 }

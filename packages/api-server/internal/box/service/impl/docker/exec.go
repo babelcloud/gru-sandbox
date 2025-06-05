@@ -42,7 +42,7 @@ func (s *Service) Exec(ctx context.Context, id string, req *model.BoxExecParams)
 		DetachKeys:   "",  // Use default detach keys
 		Env:          nil, // No additional environment variables
 		WorkingDir:   common.DefaultWorkDirPath,
-		Cmd:          append(req.Cmd, req.Args...),
+		Cmd:          append(req.Commands, req.Args...),
 	}
 
 	// Create exec instance

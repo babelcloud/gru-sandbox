@@ -111,8 +111,8 @@ func (s *Service) List(ctx context.Context, params *model.BoxListParams) (*model
 
 	s.logger.Debug("Found %d boxes", len(boxes))
 	return &model.BoxListResult{
-		Boxes: boxes,
-		Count: len(boxes),
+		Data:  boxes,
+		Total: len(boxes),
 	}, nil
 }
 
@@ -220,6 +220,16 @@ func (s *Service) Create(ctx context.Context, req *model.BoxCreateParams, progre
 		Image:  req.Image,
 		Status: string(result.Status.AvailableReplicas),
 	}, nil
+}
+
+// CreateLinuxBox creates a new linux box
+func (s *Service) CreateLinuxBox(ctx context.Context, req *model.LinuxBoxCreateParam, progressWriter io.Writer) (*model.Box, error) {
+	return nil, fmt.Errorf("CreateLinuxBox not implemented")
+}
+
+// CreateAndroidBox creates a new android box
+func (s *Service) CreateAndroidBox(ctx context.Context, req *model.AndroidBoxCreateParam, progressWriter io.Writer) (*model.Box, error) {
+	return nil, fmt.Errorf("CreateAndroidBox not implemented")
 }
 
 // Delete deletes a box by ID

@@ -243,6 +243,14 @@ func (h *BoxHandler) CreateBox(req *restful.Request, resp *restful.Response) {
 	resp.WriteHeaderAndEntity(http.StatusCreated, box)
 }
 
+func (h *BoxHandler) CreateLinuxBox(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, "NotImplemented", "CreateLinuxBox endpoint is not implemented yet")
+}
+
+func (h *BoxHandler) CreateAndroidBox(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, "NotImplemented", "CreateAndroidBox endpoint is not implemented yet")
+}
+
 // DeleteBox deletes a box by ID
 func (h *BoxHandler) DeleteBox(req *restful.Request, resp *restful.Response) {
 	boxID := req.PathParameter("id")

@@ -20,3 +20,6 @@ Thumbs.db
 .gbox
 
 node_modules
+
+# test files
+test/

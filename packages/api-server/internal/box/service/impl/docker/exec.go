@@ -42,7 +42,7 @@ func (s *Service) Exec(ctx context.Context, id string, req *model.BoxExecParams)
 		DetachKeys:   "",  // Use default detach keys
 		Env:          nil, // No additional environment variables
 		WorkingDir:   common.DefaultWorkDirPath,
-		Cmd:          append(req.Cmd, req.Args...),
+		Cmd:          append(req.Commands, req.Args...),
 	}
 
 	// Create exec instance
@@ -244,18 +244,43 @@ func (s *Service) Run(ctx context.Context, id string, req *model.BoxRunParams) (
 		req.StderrLineLimit = 100
 	}
 
+	var cmd []string
+	var stdin string
+
+	// Check if Code and Type are both present for run-code functionality
+	if req.Code != "" && req.Language != "" {
+		// Use run-code capability based on Type
+		switch req.Language {
+		case "python3":
+			cmd = []string{"python3"}
+			stdin = req.Code
+		case "typescript":
+			cmd = []string{"npx", "ts-node"}
+			stdin = req.Code
+		case "bash":
+			cmd = []string{"sh", "-c", req.Code}
+			stdin = ""
+		default:
+			return nil, fmt.Errorf("unsupported code type: %s", req.Language)
+		}
+	} else {
+		// Use original cmd/argv functionality
+		cmd = append(req.Cmd, req.Argv...)
+		stdin = req.Stdin
+	}
+
 	execConfig := types.ExecConfig{
 		User:         "", // Use default user
 		Privileged:   false,
 		Tty:          false, // Run commands typically don't need TTY
-		AttachStdin:  req.Stdin != "",
+		AttachStdin:  stdin != "",
 		AttachStdout: true,
 		AttachStderr: true,
 		Detach:       false,
 		DetachKeys:   "",  // Use default detach keys
 		Env:          nil, // No additional environment variables
 		WorkingDir:   common.DefaultWorkDirPath,
-		Cmd:          append(req.Cmd, req.Args...),
+		Cmd:          cmd,
 	}
 
 	execResp, err := s.client.ContainerExecCreate(ctx, containerInfo.ID, execConfig)
@@ -289,9 +314,9 @@ func (s *Service) Run(ctx context.Context, id string, req *model.BoxRunParams) (
 	}()
 
 	// Write stdin if provided
-	if req.Stdin != "" {
+	if stdin != "" {
 		go func() {
-			_, err := io.WriteString(attachResp.Conn, req.Stdin)
+			_, err := io.WriteString(attachResp.Conn, stdin)
 			if err != nil {
 				s.logger.Error("Error writing stdin: %v", err)
 			}

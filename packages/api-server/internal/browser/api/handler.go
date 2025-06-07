@@ -303,3 +303,15 @@ func executeSpecificAction[P any, R any]( // P: Params type, R: Result type
 }
 
 // --- TODO: Add Snapshot Action Handlers ---
+
+// --- CDP Connection Handlers ---
+
+// GetCdpURL handles GET /boxes/{id}/browser/connect-url/cdp
+func (h *Handler) GetCdpURL(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, fmt.Errorf("This feature is exclusively available in the cloud version. Learn more at https://gbox.cloud/."))
+}
+
+// GetConnectURL handles GET /boxes/{id}/browser/connect-url
+func (h *Handler) GetConnectURL(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, fmt.Errorf("This feature is exclusively available in the cloud version. Learn more at https://gbox.cloud/."))
+}

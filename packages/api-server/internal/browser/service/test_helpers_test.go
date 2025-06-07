@@ -49,6 +49,14 @@ func (m *mockBoxService) Create(ctx context.Context, params *boxModel.BoxCreateP
 	return &boxModel.Box{ID: "mock-box-" + uuid.NewString()}, nil
 }
 
+func (m *mockBoxService) CreateLinuxBox(ctx context.Context, params *boxModel.LinuxBoxCreateParam, progressWriter io.Writer) (*boxModel.Box, error) {
+	return nil, fmt.Errorf("mockBoxService.CreateLinuxBox not implemented")
+}
+
+func (m *mockBoxService) CreateAndroidBox(ctx context.Context, params *boxModel.AndroidBoxCreateParam, progressWriter io.Writer) (*boxModel.Box, error) {
+	return nil, fmt.Errorf("mockBoxService.CreateAndroidBox not implemented")
+}
+
 func (m *mockBoxService) Get(ctx context.Context, boxID string) (*boxModel.Box, error) {
 	return &boxModel.Box{ID: boxID, Status: "running"}, nil // Use string status
 }
@@ -99,6 +107,49 @@ func (m *mockBoxService) UpdateBoxImage(ctx context.Context, params *boxModel.Im
 }
 func (m *mockBoxService) UpdateBoxImageWithProgress(ctx context.Context, params *boxModel.ImageUpdateParams, progressWriter io.Writer) (*boxModel.ImageUpdateResponse, error) {
 	return nil, fmt.Errorf("mockBoxService.UpdateBoxImageWithProgress not implemented")
+}
+func (m *mockBoxService) BoxActionClick(ctx context.Context, id string, params *boxModel.BoxActionClickParams) (*boxModel.BoxActionClickResult, error) {
+	return nil, fmt.Errorf("mockBoxService.BoxActionClick not implemented")
+}
+
+func (m *mockBoxService) BoxActionDrag(ctx context.Context, id string, params *boxModel.BoxActionDragParams) (*boxModel.BoxActionDragResult, error) {
+	return nil, fmt.Errorf("mockBoxService.BoxActionDrag not implemented")
+}
+
+func (m *mockBoxService) BoxActionMove(ctx context.Context, id string, params *boxModel.BoxActionMoveParams) (*boxModel.BoxActionMoveResult, error) {
+	return nil, fmt.Errorf("mockBoxService.BoxActionMove not implemented")
+}
+
+func (m *mockBoxService) BoxActionPress(ctx context.Context, id string, params *boxModel.BoxActionPressParams) (*boxModel.BoxActionPressResult, error) {
+	return nil, fmt.Errorf("mockBoxService.BoxActionPress not implemented")
+}
+
+func (m *mockBoxService) BoxActionScreenshot(ctx context.Context, id string, params *boxModel.BoxActionScreenshotParams) (*boxModel.BoxActionScreenshotResult, error) {
+	return nil, fmt.Errorf("mockBoxService.BoxActionScreenshot not implemented")
+}
+
+func (m *mockBoxService) BoxActionScroll(ctx context.Context, id string, params *boxModel.BoxActionScrollParams) (*boxModel.BoxActionScrollResult, error) {
+	return nil, fmt.Errorf("mockBoxService.BoxActionScroll not implemented")
+}
+
+func (m *mockBoxService) BoxActionTouch(ctx context.Context, id string, params *boxModel.BoxActionTouchParams) (*boxModel.BoxActionTouchResult, error) {
+	return nil, fmt.Errorf("mockBoxService.BoxActionTouch not implemented")
+}
+
+func (m *mockBoxService) BoxActionType(ctx context.Context, id string, params *boxModel.BoxActionTypeParams) (*boxModel.BoxActionTypeResult, error) {
+	return nil, fmt.Errorf("mockBoxService.BoxActionType not implemented")
+}
+
+func (m *mockBoxService) ListFiles(ctx context.Context, id string, params *boxModel.BoxFileListParams) (*boxModel.BoxFileListResult, error) {
+	return nil, fmt.Errorf("mockBoxService.ListFiles not implemented")
+}
+
+func (m *mockBoxService) ReadFile(ctx context.Context, id string, params *boxModel.BoxFileReadParams) (*boxModel.BoxFileReadResult, error) {
+	return nil, fmt.Errorf("mockBoxService.ReadFile not implemented")
+}
+
+func (m *mockBoxService) WriteFile(ctx context.Context, id string, params *boxModel.BoxFileWriteParams) (*boxModel.BoxFileWriteResult, error) {
+	return nil, fmt.Errorf("mockBoxService.WriteFile not implemented")
 }
 
 // CheckImageExists checks if an image exists locally (Mock implementation)

@@ -6,27 +6,40 @@ import (
 
 // BoxExecParams represents a request to execute a command in a box
 type BoxExecParams struct {
-	Cmd    []string           `json:"cmd"`              // Command to execute
-	Args   []string           `json:"args,omitempty"`   // Arguments to pass to the command
-	Stdin  bool               `json:"stdin,omitempty"`  // Whether to attach stdin
-	Stdout bool               `json:"stdout,omitempty"` // Whether to attach stdout
-	Stderr bool               `json:"stderr,omitempty"` // Whether to attach stderr
-	TTY    bool               `json:"tty,omitempty"`    // Whether to allocate a TTY
-	Conn   io.ReadWriteCloser `json:"-"`                // Connection for streaming
+	Commands []string           `json:"commands"`
+	Args     []string           `json:"args,omitempty"`
+	Stdin    bool               `json:"stdin,omitempty"`
+	Stdout   bool               `json:"stdout,omitempty"`
+	Stderr   bool               `json:"stderr,omitempty"`
+	TTY      bool               `json:"tty,omitempty"`
+	Conn     io.ReadWriteCloser `json:"-"` // Connection for streaming
+
+	Timeout    string `json:"timeout"` // timeout for the command execution
+	WorkingDir string `json:"workingDir,omitempty"` // Working directory inside the container
+	Envs       map[string]string `json:"envs,omitempty"` // Environment variables for the command execution
 }
 
 // BoxExecResult represents the response from an exec operation
 type BoxExecResult struct {
 	ExitCode int `json:"exitCode,omitempty"` // Exit code of the command
+	Stdout   string `json:"stdout,omitempty"` // Standard output from command execution
+	Stderr   string `json:"stderr,omitempty"` // Standard error from command execution
 }
 
 // BoxRunParams represents a request to run a command in a box
 type BoxRunParams struct {
 	Cmd             []string `json:"cmd,omitempty"`
-	Args            []string `json:"args,omitempty"`
+	Argv            []string `json:"argv,omitempty"`
 	Stdin           string   `json:"stdin,omitempty"`
 	StdoutLineLimit int      `json:"stdoutLineLimit,omitempty"`
 	StderrLineLimit int      `json:"stderrLineLimit,omitempty"`
+
+	// this is only supported for cloud version
+	Code      string `json:"code,omitempty"`
+	Language  string `json:"language,omitempty"` // type of the code to run, e.g. "python3", "typescript", "bash"
+	Timeout   string `json:"timeout,omitempty"`
+	WorkingDir string `json:"workingDir,omitempty"`
+	Envs       map[string]string `json:"envs,omitempty"` // Environment variables for the command execution
 }
 
 // BoxRunResult represents the response from a run operation

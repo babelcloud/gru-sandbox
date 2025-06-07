@@ -243,6 +243,45 @@ func (h *BoxHandler) CreateBox(req *restful.Request, resp *restful.Response) {
 	resp.WriteHeaderAndEntity(http.StatusCreated, box)
 }
 
+func (h *BoxHandler) CreateLinuxBox(req *restful.Request, resp *restful.Response) {
+	// Read request body directly into the internal model type
+	var createParams model.LinuxBoxCreateParam
+	if err := req.ReadEntity(&createParams); err != nil {
+		writeError(resp, http.StatusBadRequest, "InvalidRequest", err.Error())
+		return
+	}
+
+	// check if the client wants a stream response
+	acceptHeader := req.HeaderParameter("Accept")
+	streamRequest := acceptHeader == "application/json-stream"
+
+	if streamRequest {
+		// Define the service call for CreateLinuxBox compatible with streamServiceOperation
+		createLinuxBoxServiceCall := func(ctx context.Context, params interface{}, progressWriter io.Writer) (interface{}, error) {
+			cp, ok := params.(*model.LinuxBoxCreateParam)
+			if !ok {
+				return nil, fmt.Errorf("internal error: invalid params type for CreateLinuxBox service call")
+			}
+			return h.service.CreateLinuxBox(ctx, cp, progressWriter)
+		}
+		h.streamServiceOperation(req, resp, &createParams, createLinuxBoxServiceCall, true)
+		return
+	}
+
+	// standard JSON response (non-streaming) - wait for operation to complete
+	box, err := h.service.CreateLinuxBox(req.Request.Context(), &createParams, nil)
+	if err != nil {
+		writeError(resp, http.StatusInternalServerError, "CreateLinuxBoxError", err.Error())
+		return
+	}
+
+	resp.WriteHeaderAndEntity(http.StatusCreated, box)
+}
+
+func (h *BoxHandler) CreateAndroidBox(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, "NotImplemented", "This feature is exclusively available in the cloud version. Learn more at https://gbox.cloud/.")
+}
+
 // DeleteBox deletes a box by ID
 func (h *BoxHandler) DeleteBox(req *restful.Request, resp *restful.Response) {
 	boxID := req.PathParameter("id")
@@ -615,6 +654,102 @@ func (h *BoxHandler) ExtractArchive(req *restful.Request, resp *restful.Response
 	resp.WriteHeader(http.StatusOK)
 }
 
+// ListFiles lists files in a directory
+func (h *BoxHandler) ListFiles(req *restful.Request, resp *restful.Response) {
+	boxID := req.PathParameter("id")
+	path := req.QueryParameter("path")
+	depthStr := req.QueryParameter("depth")
+
+	// Parse depth parameter
+	var depth float64 = 1 // default depth
+	if depthStr != "" {
+		var err error
+		depth, err = strconv.ParseFloat(depthStr, 64)
+		if err != nil {
+			writeError(resp, http.StatusBadRequest, "InvalidDepth", "Invalid depth parameter")
+			return
+		}
+	}
+
+	// If path is empty, default to root
+	if path == "" {
+		path = "/"
+	}
+
+	listParams := &model.BoxFileListParams{
+		Path:  path,
+		Depth: depth,
+	}
+
+	result, err := h.service.ListFiles(req.Request.Context(), boxID, listParams)
+	if err != nil {
+		if err == service.ErrBoxNotFound {
+			writeError(resp, http.StatusNotFound, "BoxNotFound", err.Error())
+			return
+		}
+		writeError(resp, http.StatusInternalServerError, "ListFilesError", err.Error())
+		return
+	}
+
+	resp.WriteHeaderAndEntity(http.StatusOK, result)
+}
+
+// ReadFile reads file content
+func (h *BoxHandler) ReadFile(req *restful.Request, resp *restful.Response) {
+	boxID := req.PathParameter("id")
+	path := req.QueryParameter("path")
+
+	if path == "" {
+		writeError(resp, http.StatusBadRequest, "InvalidRequest", "Path parameter is required")
+		return
+	}
+
+	readParams := &model.BoxFileReadParams{
+		Path: path,
+	}
+
+	result, err := h.service.ReadFile(req.Request.Context(), boxID, readParams)
+	if err != nil {
+		if err == service.ErrBoxNotFound {
+			writeError(resp, http.StatusNotFound, "BoxNotFound", err.Error())
+			return
+		}
+		writeError(resp, http.StatusInternalServerError, "ReadFileError", err.Error())
+		return
+	}
+
+	resp.WriteHeaderAndEntity(http.StatusOK, result)
+}
+
+// WriteFile writes file content
+func (h *BoxHandler) WriteFile(req *restful.Request, resp *restful.Response) {
+	boxID := req.PathParameter("id")
+
+	// Read content from request body
+	var writeParams model.BoxFileWriteParams
+	if err := req.ReadEntity(&writeParams); err != nil {
+		writeError(resp, http.StatusBadRequest, "InvalidRequest", err.Error())
+		return
+	}
+
+	if writeParams.Path == "" {
+		writeError(resp, http.StatusBadRequest, "InvalidRequest", "Path parameter is required")
+		return
+	}
+
+	result, err := h.service.WriteFile(req.Request.Context(), boxID, &writeParams)
+	if err != nil {
+		if err == service.ErrBoxNotFound {
+			writeError(resp, http.StatusNotFound, "BoxNotFound", err.Error())
+			return
+		}
+		writeError(resp, http.StatusInternalServerError, "WriteFileError", err.Error())
+		return
+	}
+
+	resp.WriteHeaderAndEntity(http.StatusOK, result)
+}
+
 // UpdateBoxImage updates docker images used for boxes, pulling latest and removing outdated versions
 func (h *BoxHandler) UpdateBoxImage(req *restful.Request, resp *restful.Response) {
 	// parse query parameters
@@ -652,6 +787,38 @@ func (h *BoxHandler) UpdateBoxImage(req *restful.Request, resp *restful.Response
 
 	// return result
 	resp.WriteEntity(result)
+}
+
+func (h *BoxHandler) BoxActionClick(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, "NotImplemented", "This feature is exclusively available in the cloud version. Learn more at https://gbox.cloud/.")
+}
+
+func (h *BoxHandler) BoxActionDrag(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, "NotImplemented", "This feature is exclusively available in the cloud version. Learn more at https://gbox.cloud/.")
+}
+
+func (h *BoxHandler) BoxActionMove(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, "NotImplemented", "This feature is exclusively available in the cloud version. Learn more at https://gbox.cloud/.")
+}
+
+func (h *BoxHandler) BoxActionPress(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, "NotImplemented", "This feature is exclusively available in the cloud version. Learn more at https://gbox.cloud/.")
+}
+
+func (h *BoxHandler) BoxActionScreenshot(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, "NotImplemented", "This feature is exclusively available in the cloud version. Learn more at https://gbox.cloud/.")
+}
+
+func (h *BoxHandler) BoxActionScroll(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, "NotImplemented", "This feature is exclusively available in the cloud version. Learn more at https://gbox.cloud/.")
+}
+
+func (h *BoxHandler) BoxActionTouch(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, "NotImplemented", "This feature is exclusively available in the cloud version. Learn more at https://gbox.cloud/.")
+}
+
+func (h *BoxHandler) BoxActionType(req *restful.Request, resp *restful.Response) {
+	writeError(resp, http.StatusNotImplemented, "NotImplemented", "This feature is exclusively available in the cloud version. Learn more at https://gbox.cloud/.")
 }
 
 // writeError writes an error response using local apiError struct

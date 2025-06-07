@@ -25,6 +25,22 @@ const defaultStopTimeout = 10 * time.Second
 
 // Create implements Service.Create
 func (s *Service) Create(ctx context.Context, params *model.BoxCreateParams, progressWriter io.Writer) (*model.Box, error) {
+	// Handle SDK format (inline parameters with Type field)
+	if params.LinuxAndroidBoxCreateParam != nil && params.Type != "" {
+		switch params.Type {
+		case "android":
+			return nil, fmt.Errorf("Android box creation is not supported yet, please use the cloud version")
+		case "linux":
+			s.logger.Info("Creating Linux box with SDK parameters: %+v", params.LinuxAndroidBoxCreateParam)
+			return s.createLinuxBox(ctx, params.LinuxAndroidBoxCreateParam, progressWriter)
+		default:
+			return nil, fmt.Errorf("unsupported box type: %s", params.Type)
+		}
+	}
+
+	// Handle legacy format (individual parameters)
+	s.logger.Info("Creating box with legacy parameters: %+v", params)
+	// Original logic continues if both new parameters are nil
 	// Get image name - This now handles defaults, env var resolution, and adding :latest if needed.
 	img := GetImage(params.Image)
 
@@ -183,6 +199,116 @@ func (s *Service) Create(ctx context.Context, params *model.BoxCreateParams, pro
 	s.accessTracker.Update(boxID)
 
 	return containerToBox(containerInfo), nil
+}
+
+// createLinuxBox creates an Alpine Linux box with specific parameters
+func (s *Service) createLinuxBox(ctx context.Context, params *model.LinuxAndroidBoxCreateParam, progressWriter io.Writer) (*model.Box, error) {
+	// Use Alpine Linux as the default image
+	img := "alpine:latest"
+
+	// Check if image exists
+	_, _, err := s.client.ImageInspectWithRaw(ctx, img)
+	if err != nil {
+		// Image not found, try to pull it
+		pullOptions := types.ImagePullOptions{}
+
+		// Handle image pulling
+		if progressWriter != nil {
+			// Send initial status
+			initialStatus := model.ProgressUpdate{
+				Status:  model.ProgressStatusPrepare,
+				Message: fmt.Sprintf("Preparing to pull image: %s", img),
+			}
+			encoder := json.NewEncoder(progressWriter)
+			encoder.Encode(initialStatus)
+		}
+
+		pullResult := s.pullImageInternal(ctx, img, pullOptions, progressWriter)
+		if !pullResult.success {
+			return nil, fmt.Errorf("failed to pull image: %s", pullResult.message)
+		}
+	}
+
+	// Generate box ID
+	boxID := id.GenerateBoxID()
+	containerName := containerName(boxID)
+
+	// Create a BoxCreateParams struct to use PrepareLabels function
+	// This ensures consistent labeling with the Create method
+	tempParams := &model.BoxCreateParams{
+		Image: img,
+		Env:   params.Config.Envs,
+	}
+	if params.Config.Labels != nil {
+		tempParams.ExtraLabels = params.Config.Labels
+	}
+
+	// Use the same PrepareLabels function as Create method
+	labels := PrepareLabels(boxID, tempParams)
+
+	// Add Linux-specific labels
+	labels["gbox.type"] = "linux"
+	if params.Config.ExpiresIn != "" {
+		labels["gbox.expires_in"] = params.Config.ExpiresIn
+	}
+
+	// Create share directory for the box
+	shareDir := filepath.Join(config.GetInstance().File.Share, boxID)
+	if err := os.MkdirAll(shareDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create share directory: %w", err)
+	}
+
+	// Prepare mounts (same as Create method)
+	var mounts []mount.Mount
+	mounts = append(mounts, mount.Mount{
+		Type:   mount.TypeBind,
+		Source: filepath.Join(config.GetInstance().File.HostShare, boxID),
+		Target: common.DefaultShareDirPath,
+	})
+
+	// Create container with same logic as Create method
+	containerConfig := &container.Config{
+		Image:  img,
+		Cmd:    GetCommand("", nil), // Use GetCommand for consistent behavior
+		Env:    MapToEnv(params.Config.Envs),
+		Labels: labels,
+	}
+
+	hostConfig := &container.HostConfig{
+		Mounts:          mounts,
+		PublishAllPorts: true,
+	}
+
+	resp, err := s.client.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, containerName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create container: %w", err)
+	}
+
+	// Start container
+	if err := s.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return nil, fmt.Errorf("failed to start container: %w", err)
+	}
+
+	// Get container details after start (same as Create method)
+	containerInfo, err := s.getContainerByID(ctx, boxID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get container details after start: %w", err)
+	}
+
+	// Update access time on successful creation (same as Create method)
+	s.accessTracker.Update(boxID)
+
+	return containerToBox(containerInfo), nil
+}
+
+// not implemented
+func (s *Service) CreateLinuxBox(ctx context.Context, params *model.LinuxBoxCreateParam, progressWriter io.Writer) (*model.Box, error) {
+	return nil, fmt.Errorf("CreateLinuxBox not implemented")
+}
+
+// not implemented
+func (s *Service) CreateAndroidBox(ctx context.Context, params *model.AndroidBoxCreateParam, progressWriter io.Writer) (*model.Box, error) {
+	return nil, fmt.Errorf("CreateAndroidBox not implemented")
 }
 
 // Start implements Service.Start

@@ -16,6 +16,9 @@ type BoxService interface {
 	List(ctx context.Context, params *model.BoxListParams) (*model.BoxListResult, error)
 	Get(ctx context.Context, id string) (*model.Box, error)
 	Create(ctx context.Context, params *model.BoxCreateParams, progressWriter io.Writer) (*model.Box, error)
+	// these are only supported for cloud version
+	CreateLinuxBox(ctx context.Context, params *model.LinuxBoxCreateParam, progressWriter io.Writer) (*model.Box, error)
+	CreateAndroidBox(ctx context.Context, params *model.AndroidBoxCreateParam, progressWriter io.Writer) (*model.Box, error)
 	Delete(ctx context.Context, id string, params *model.BoxDeleteParams) (*model.BoxDeleteResult, error)
 	DeleteAll(ctx context.Context, params *model.BoxesDeleteParams) (*model.BoxesDeleteResult, error)
 	Reclaim(ctx context.Context) (*model.BoxReclaimResult, error)
@@ -32,6 +35,11 @@ type BoxService interface {
 	HeadArchive(ctx context.Context, id string, params *model.BoxArchiveHeadParams) (*model.BoxArchiveHeadResult, error)
 	ExtractArchive(ctx context.Context, id string, params *model.BoxArchiveExtractParams) error
 
+	// Box filesystem operations
+	ListFiles(ctx context.Context, id string, params *model.BoxFileListParams) (*model.BoxFileListResult, error)
+	ReadFile(ctx context.Context, id string, params *model.BoxFileReadParams) (*model.BoxFileReadResult, error)
+	WriteFile(ctx context.Context, id string, params *model.BoxFileWriteParams) (*model.BoxFileWriteResult, error)
+
 	// Box image operations
 	UpdateBoxImage(ctx context.Context, params *model.ImageUpdateParams) (*model.ImageUpdateResponse, error)
 	UpdateBoxImageWithProgress(ctx context.Context, params *model.ImageUpdateParams, progressWriter io.Writer) (*model.ImageUpdateResponse, error)
@@ -46,6 +54,14 @@ type BoxService interface {
 	EnsureImagePulling(ctx context.Context, imageName string)
 	// WaitForImagePull waits for an image pull to complete
 	WaitForImagePull(imageName string) <-chan struct{}
+
+	// Box action operations, these are only supported for cloud version
+	BoxActionClick(ctx context.Context, id string, params *model.BoxActionClickParams) (*model.BoxActionClickResult, error)
+	BoxActionDrag(ctx context.Context, id string, params *model.BoxActionDragParams) (*model.BoxActionDragResult, error)
+	BoxActionMove(ctx context.Context, id string, params *model.BoxActionMoveParams) (*model.BoxActionMoveResult, error)
+	BoxActionPress(ctx context.Context, id string, params *model.BoxActionPressParams) (*model.BoxActionPressResult, error)
+	BoxActionScreenshot(ctx context.Context, id string, params *model.BoxActionScreenshotParams) (*model.BoxActionScreenshotResult, error)
+	BoxActionScroll(ctx context.Context, id string, params *model.BoxActionScrollParams) (*model.BoxActionScrollResult, error)
 }
 
 // Factory creates a new box service instance, accepting an AccessTracker

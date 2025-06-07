@@ -28,6 +28,7 @@ type ProgressUpdate struct {
 
 // BoxCreateParams represents a request to create a box
 type BoxCreateParams struct {
+	// Legacy parameters for backwards compatibility
 	Image                      string            `json:"image,omitempty"`
 	ImagePullSecret            string            `json:"image_pull_secret,omitempty"` // For docker: base64 encoded auth string, for k8s: secret name
 	Env                        map[string]string `json:"env,omitempty"`
@@ -39,8 +40,38 @@ type BoxCreateParams struct {
 	WaitForReady               bool              `json:"wait_for_ready,omitempty"`                 // + Wait for box to be ready (healthy)
 	WaitForReadyTimeoutSeconds int               `json:"wait_for_ready_timeout_seconds,omitempty"` // + Timeout for readiness check
 	CreateTimeoutSeconds       int               `json:"create_timeout_seconds,omitempty"`         // Timeout for the create operation itself, specifically for non-streaming image pulls
-	Timeout                    time.Duration     `json:"-"`                                        // Timeout duration for image pull operation (from query param, not serialized)
-	ProgressWriter             io.Writer         `json:"-"`                                        // Writer for progress updates (not serialized)
+
+	// Internal fields (not serialized)
+	Timeout        time.Duration `json:"-"` // Timeout duration for image pull operation (from query param, not serialized)
+	ProgressWriter io.Writer     `json:"-"` // Writer for progress updates (not serialized)
+
+	// SDK format support - inline fields for Linux/Android box creation
+	*LinuxAndroidBoxCreateParam `json:",inline"`
+}
+
+// LinuxAndroidBoxCreateParam represents parameters for creating Linux or Android boxes
+// This struct is used inline in BoxCreateParams to support SDK format
+type LinuxAndroidBoxCreateParam struct {
+	Type    string               `json:"type"`              // Box type: "linux" or "android"
+	Timeout string               `json:"timeout,omitempty"` // Timeout for the box operation (e.g., "30s")
+	Wait    bool                 `json:"wait,omitempty"`    // Wait for the box operation to complete
+	Config  CreateBoxConfigParam `json:"config"`            // Box configuration
+}
+
+// CreateBoxConfigParam represents the configuration for a box
+type CreateBoxConfigParam struct {
+	ExpiresIn string            `json:"expiresIn"` // Box expiration duration (e.g., "1000s")
+	Envs      map[string]string `json:"envs"`      // Environment variables
+	Labels    map[string]string `json:"labels"`    // Key-value labels
+}
+
+// Legacy types - kept for backwards compatibility but deprecated
+type AndroidBoxCreateParam struct {
+	CreateAndroidBox LinuxAndroidBoxCreateParam
+}
+
+type LinuxBoxCreateParam struct {
+	CreateLinuxBox LinuxAndroidBoxCreateParam
 }
 
 // VolumeMount represents a volume mount configuration
@@ -83,6 +114,14 @@ type BoxesDeleteResult struct {
 type OperationResult struct {
 	Success bool   `json:"success"`
 	Message string `json:"message,omitempty"`
+
+	ID        string               `json:"id"`
+	Config    CreateBoxConfigParam `json:"config"`
+	CreatedAt time.Time            `json:"createdAt"`
+	ExpiresAt time.Time            `json:"expiresAt"`
+	Status    string               `json:"status"`
+	Type      string               `json:"type"`
+	UpdatedAt time.Time            `json:"updatedAt"`
 }
 
 // BoxStartResult is an alias for OperationResult, representing a response from starting a box.

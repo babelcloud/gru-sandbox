@@ -172,5 +172,20 @@ func RegisterBrowserRoutes(ws *restful.WebService, handler *Handler) {
 		Returns(http.StatusNotFound, "Not Found", model.VisionErrorResult{}).
 		Returns(http.StatusInternalServerError, "Internal Server Error", model.VisionErrorResult{}))
 
-	// TODO: Add routes for Snapshot actions
+	// --- CDP Connection Routes ---
+
+	ws.Route(ws.GET("/boxes/{id}/browser/connect-url/cdp").To(handler.GetCdpURL).
+		Doc("Get CDP URL for browser connection").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Returns(http.StatusOK, "OK", "string").
+		Returns(http.StatusNotImplemented, "Not Implemented", nil).
+		Returns(http.StatusInternalServerError, "Internal Server Error", nil))
+
+	ws.Route(ws.GET("/boxes/{id}/browser/connect-url").To(handler.GetConnectURL).
+		Doc("Get connect URL information for browser").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Returns(http.StatusOK, "OK", model.ConnectURLResult{}).
+		Returns(http.StatusNotImplemented, "Not Implemented", nil).
+		Returns(http.StatusInternalServerError, "Internal Server Error", nil))
+
 }

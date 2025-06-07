@@ -111,8 +111,8 @@ func (s *Service) List(ctx context.Context, params *model.BoxListParams) (*model
 
 	s.logger.Debug("Found %d boxes", len(boxes))
 	return &model.BoxListResult{
-		Boxes: boxes,
-		Count: len(boxes),
+		Data:  boxes,
+		Total: len(boxes),
 	}, nil
 }
 
@@ -220,6 +220,16 @@ func (s *Service) Create(ctx context.Context, req *model.BoxCreateParams, progre
 		Image:  req.Image,
 		Status: string(result.Status.AvailableReplicas),
 	}, nil
+}
+
+// CreateLinuxBox creates a new linux box
+func (s *Service) CreateLinuxBox(ctx context.Context, req *model.LinuxBoxCreateParam, progressWriter io.Writer) (*model.Box, error) {
+	return nil, fmt.Errorf("CreateLinuxBox not implemented")
+}
+
+// CreateAndroidBox creates a new android box
+func (s *Service) CreateAndroidBox(ctx context.Context, req *model.AndroidBoxCreateParam, progressWriter io.Writer) (*model.Box, error) {
+	return nil, fmt.Errorf("CreateAndroidBox not implemented")
 }
 
 // Delete deletes a box by ID
@@ -819,6 +829,61 @@ func getEnvVars(env map[string]string) []corev1.EnvVar {
 		})
 	}
 	return vars
+}
+
+func (s *Service) BoxActionClick(ctx context.Context, id string, params *model.BoxActionClickParams) (*model.BoxActionClickResult, error) {
+	// unimplemented
+	return nil, nil
+}
+
+func (s *Service) BoxActionDrag(ctx context.Context, id string, params *model.BoxActionDragParams) (*model.BoxActionDragResult, error) {
+	// unimplemented
+	return nil, nil
+}
+
+func (s *Service) BoxActionMove(ctx context.Context, id string, params *model.BoxActionMoveParams) (*model.BoxActionMoveResult, error) {
+	// unimplemented
+	return nil, nil
+}
+
+func (s *Service) BoxActionPress(ctx context.Context, id string, params *model.BoxActionPressParams) (*model.BoxActionPressResult, error) {
+	// unimplemented
+	return nil, nil
+}
+
+func (s *Service) BoxActionScreenshot(ctx context.Context, id string, params *model.BoxActionScreenshotParams) (*model.BoxActionScreenshotResult, error) {
+	// unimplemented
+	return nil, nil
+}
+
+func (s *Service) BoxActionScroll(ctx context.Context, id string, params *model.BoxActionScrollParams) (*model.BoxActionScrollResult, error) {
+	// unimplemented
+	return nil, nil
+}
+
+func (s *Service) BoxActionTouch(ctx context.Context, id string, params *model.BoxActionTouchParams) (*model.BoxActionTouchResult, error) {
+	// unimplemented
+	return nil, nil
+}
+
+func (s *Service) BoxActionType(ctx context.Context, id string, params *model.BoxActionTypeParams) (*model.BoxActionTypeResult, error) {
+	// unimplemented
+	return nil, nil
+}
+
+func (s *Service) ListFiles(ctx context.Context, id string, params *model.BoxFileListParams) (*model.BoxFileListResult, error) {
+	// unimplemented
+	return nil, nil
+}
+
+func (s *Service) ReadFile(ctx context.Context, id string, params *model.BoxFileReadParams) (*model.BoxFileReadResult, error) {
+	// unimplemented
+	return nil, nil
+}
+
+func (s *Service) WriteFile(ctx context.Context, id string, params *model.BoxFileWriteParams) (*model.BoxFileWriteResult, error) {
+	// unimplemented
+	return nil, nil
 }
 
 func init() {

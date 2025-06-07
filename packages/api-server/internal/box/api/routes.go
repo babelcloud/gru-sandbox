@@ -10,6 +10,9 @@ func RegisterRoutes(ws *restful.WebService, boxHandler *BoxHandler) {
 	// Box Lifecycle Operations
 	ws.Route(ws.GET("/boxes").To(boxHandler.ListBoxes).
 		Doc("list all boxes").
+		//page and pageSize are only supported for cloud version
+		Param(ws.QueryParameter("page", "page number").DataType("float64").Required(false)).
+		Param(ws.QueryParameter("pageSize", "page size").DataType("float64").Required(false)).
 		Returns(200, "OK", []model.Box{}).
 		Returns(500, "Internal Server Error", model.BoxError{}))
 
@@ -25,6 +28,24 @@ func RegisterRoutes(ws *restful.WebService, boxHandler *BoxHandler) {
 		Reads(model.BoxCreateParams{}).
 		Produces("application/json", "application/json-stream").
 		Param(ws.QueryParameter("timeout", "timeout duration for image pull (e.g. 30s, 1m)").DataType("string").Required(false)).
+		Returns(201, "Created", model.Box{}).
+		Returns(202, "Accepted", model.BoxError{}).
+		Returns(400, "Bad Request", model.BoxError{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	ws.Route(ws.POST("/boxes/linux").To(boxHandler.CreateLinuxBox).
+		Doc("create a linux box").
+		Reads(model.LinuxAndroidBoxCreateParam{}).
+		Produces("application/json", "application/json-stream").
+		Returns(201, "Created", model.Box{}).
+		Returns(202, "Accepted", model.BoxError{}).
+		Returns(400, "Bad Request", model.BoxError{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	ws.Route(ws.POST("/boxes/android").To(boxHandler.CreateAndroidBox).
+		Doc("create a android box").
+		Reads(model.LinuxAndroidBoxCreateParam{}).
+		Produces("application/json", "application/json-stream").
 		Returns(201, "Created", model.Box{}).
 		Returns(202, "Accepted", model.BoxError{}).
 		Returns(400, "Bad Request", model.BoxError{}).
@@ -49,7 +70,7 @@ func RegisterRoutes(ws *restful.WebService, boxHandler *BoxHandler) {
 		Returns(500, "Internal Server Error", model.BoxError{}))
 
 	// Box Runtime Operations
-	ws.Route(ws.POST("/boxes/{id}/exec").To(boxHandler.ExecBox).
+	ws.Route(ws.POST("/boxes/{id}/commands").To(boxHandler.ExecBox).
 		Doc("execute a command in a box").
 		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
 		Reads(model.BoxExecParams{}).
@@ -60,8 +81,8 @@ func RegisterRoutes(ws *restful.WebService, boxHandler *BoxHandler) {
 		Returns(404, "Not Found", model.BoxError{}).
 		Returns(500, "Internal Server Error", model.BoxError{}))
 
-	ws.Route(ws.POST("/boxes/{id}/run").To(boxHandler.RunBox).
-		Doc("run a command in a box").
+	ws.Route(ws.POST("/boxes/{id}/run-code").To(boxHandler.RunBox).
+		Doc("run code in a box").
 		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
 		Reads(model.BoxRunParams{}).
 		Returns(200, "OK", model.BoxRunResult{}).
@@ -123,6 +144,38 @@ func RegisterRoutes(ws *restful.WebService, boxHandler *BoxHandler) {
 		Returns(404, "Not Found", model.BoxError{}).
 		Returns(500, "Internal Server Error", model.BoxError{}))
 
+	// Box Filesystem Operations
+	ws.Route(ws.GET("/boxes/{id}/fs/list").To(boxHandler.ListFiles).
+		Doc("list files in a directory").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Param(ws.QueryParameter("path", "path to list files from").DataType("string").Required(false)).
+		Param(ws.QueryParameter("depth", "depth of directory listing").DataType("number").Required(false)).
+		Produces("application/json").
+		Returns(200, "OK", model.BoxFileListResult{}).
+		Returns(400, "Bad Request", model.BoxError{}).
+		Returns(404, "Not Found", model.BoxError{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	ws.Route(ws.GET("/boxes/{id}/fs/read").To(boxHandler.ReadFile).
+		Doc("read file content").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Param(ws.QueryParameter("path", "path to file to read").DataType("string").Required(true)).
+		Produces("application/json").
+		Returns(200, "OK", model.BoxFileReadResult{}).
+		Returns(400, "Bad Request", model.BoxError{}).
+		Returns(404, "Not Found", model.BoxError{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	ws.Route(ws.POST("/boxes/{id}/fs/write").To(boxHandler.WriteFile).
+		Doc("write file content").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Reads(model.BoxFileWriteParams{}).
+		Produces("application/json").
+		Returns(200, "OK", model.BoxFileWriteResult{}).
+		Returns(400, "Bad Request", model.BoxError{}).
+		Returns(404, "Not Found", model.BoxError{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
 	// Image management operations
 	ws.Route(ws.POST("/boxes/images/update").To(boxHandler.UpdateBoxImage).
 		Doc("updates docker images, pulling latest and removing outdated versions").
@@ -132,4 +185,71 @@ func RegisterRoutes(ws *restful.WebService, boxHandler *BoxHandler) {
 		Param(ws.QueryParameter("dryRun", "if true, only reports planned actions without executing them").DataType("boolean").Required(false)).
 		Returns(200, "OK", model.ImageUpdateResponse{}).
 		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	// these are only supported for cloud version
+	ws.Route(ws.POST("/boxes/{id}/actions/click").To(boxHandler.BoxActionClick).
+		Doc("click in a box").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Reads(model.BoxActionClickParams{}).
+		Produces("application/json").
+		Returns(200, "OK", model.BoxActionClickResult{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	ws.Route(ws.POST("/boxes/{id}/actions/drag").To(boxHandler.BoxActionDrag).
+		Doc("drag in a box").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Reads(model.BoxActionDragParams{}).
+		Produces("application/json").
+		Returns(200, "OK", model.BoxActionDragResult{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	ws.Route(ws.POST("/boxes/{id}/actions/move").To(boxHandler.BoxActionMove).
+		Doc("move in a box").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Reads(model.BoxActionMoveParams{}).
+		Produces("application/json").
+		Returns(200, "OK", model.BoxActionMoveResult{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	ws.Route(ws.POST("/boxes/{id}/actions/press").To(boxHandler.BoxActionPress).
+		Doc("press in a box").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Reads(model.BoxActionPressParams{}).
+		Produces("application/json").
+		Returns(200, "OK", model.BoxActionPressResult{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	ws.Route(ws.POST("/boxes/{id}/actions/screenshot").To(boxHandler.BoxActionScreenshot).
+		Doc("take a screenshot in a box").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Reads(model.BoxActionScreenshotParams{}).
+		Produces("application/json").
+		Returns(200, "OK", model.BoxActionScreenshotResult{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	ws.Route(ws.POST("/boxes/{id}/actions/scroll").To(boxHandler.BoxActionScroll).
+		Doc("scroll in a box").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Reads(model.BoxActionScrollParams{}).
+		Produces("application/json").
+		Returns(200, "OK", model.BoxActionScrollResult{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	ws.Route(ws.POST("/boxes/{id}/actions/touch").To(boxHandler.BoxActionTouch).
+		Doc("touch in a box").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Reads(model.BoxActionTouchParams{}).
+		Produces("application/json").
+		Returns(200, "OK", model.BoxActionTouchResult{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	ws.Route(ws.POST("/boxes/{id}/actions/type").To(boxHandler.BoxActionType).
+		Doc("type in a box").
+		Param(ws.PathParameter("id", "identifier of the box").DataType("string")).
+		Reads(model.BoxActionTypeParams{}).
+		Produces("application/json").
+		Returns(200, "OK", model.BoxActionTypeResult{}).
+		Returns(500, "Internal Server Error", model.BoxError{}))
+
+	//ws.
 }

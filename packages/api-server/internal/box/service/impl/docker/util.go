@@ -93,6 +93,7 @@ func handleContainerError(err error, id string) error {
 func containerToBox(c interface{}) *model.Box {
 	var id, status, image string
 	var labels map[string]string
+	var env []string
 	var createdAt time.Time
 
 	switch c := c.(type) {
@@ -101,6 +102,7 @@ func containerToBox(c interface{}) *model.Box {
 		status = mapContainerState(c.State.Status)
 		image = c.Config.Image
 		labels = c.Config.Labels
+		env = c.Config.Env
 		if t, err := time.Parse(time.RFC3339, c.Created); err == nil {
 			createdAt = t
 		}
@@ -144,12 +146,65 @@ func containerToBox(c interface{}) *model.Box {
 	}
 	// --- End Restored Original logic ---
 
+	// Parse environment variables to map
+	envMap := make(map[string]string)
+	for _, envVar := range env {
+		if parts := strings.SplitN(envVar, "=", 2); len(parts) == 2 {
+			envMap[parts[0]] = parts[1]
+		}
+	}
+
+	// Extract working directory from labels if available
+	workingDir := ""
+	if wd, exists := labels["gbox.working_dir"]; exists {
+		workingDir = wd
+	}
+
+	// Parse expires_in from labels to set ExpiresAt
+	var expiresAt time.Time
+	if expiresIn, exists := labels["gbox.expires_in"]; exists && expiresIn != "" {
+		// Try to parse expires_in as duration and add to CreatedAt
+		if duration, err := time.ParseDuration(expiresIn); err == nil {
+			expiresAt = createdAt.Add(duration)
+		}
+	}
+
+	// TODO: better way to determine box type
+	boxType := "linux" // default
+	if t, exists := labels["gbox.type"]; exists {
+		boxType = t
+	} else if strings.Contains(image, "android") {
+		boxType = "android"
+	}
+
+	// Use current time as UpdatedAt (could be enhanced to track actual updates)
+	updatedAt := time.Now()
+
 	return &model.Box{
 		ID:          id,
 		Status:      status,
 		Image:       image,
 		CreatedAt:   createdAt,
+		ExpiresAt:   expiresAt,
+		Type:        boxType,
+		UpdatedAt:   updatedAt,
 		ExtraLabels: extraLabels,
+		Config: model.LinuxAndroidBoxConfig{
+			Envs:       envMap,
+			Labels:     extraLabels, // Use the cleaned extra labels
+			WorkingDir: workingDir,
+			// TODO: extract from container limits if available
+			CPU:     0.0,
+			Memory:  0.0,
+			Storage: 0.0,
+			Browser: model.LinuxAndroidBoxConfigBrowser{
+				Type:    "",
+				Version: "",
+			},
+			Os: model.LinuxAndroidBoxConfigOs{
+				Version: "", // Could be detected from image
+			},
+		},
 	}
 }
 

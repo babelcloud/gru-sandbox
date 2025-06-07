@@ -74,8 +74,8 @@ func (s *Service) List(ctx context.Context, params *model.BoxListParams) (*model
 	}
 
 	return &model.BoxListResult{
-		Boxes: boxes,
-		Count: len(boxes),
+		Data:  boxes,
+		Total: len(boxes),
 	}, nil
 }
 

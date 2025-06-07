@@ -209,3 +209,17 @@ type VisionErrorResult struct {
 
 // --- Snapshot Mode Action Result Structs (Placeholders) ---
 // TODO: Define structs for Snapshot action results when implemented.
+
+// --- CDP Connection Result Structs ---
+
+// ConnectURLParams represents the parameters for the connect-url action.
+type ConnectURLParams struct {
+	// No parameters needed for the connect-url action
+}
+
+// ConnectURLResult represents the response from the GET /boxes/{id}/browser/connect-url endpoint.
+// This matches the V1BoxBrowserConnectURLResponse from the SDK.
+type ConnectURLResult struct {
+	// CDP URL for connecting to the browser via Chrome DevTools Protocol
+	CdpURL string `json:"cdpUrl"`
+}

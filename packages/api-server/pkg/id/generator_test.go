@@ -13,31 +13,30 @@ func TestGenerateBoxID(t *testing.T) {
 	generatedIDs := make(map[string]bool)
 	iterations := 1000
 
+	// UUID v4 pattern
+	pattern := `^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`
+
 	for i := 0; i < iterations; i++ {
 		boxID := id.GenerateBoxID()
 
-		// Check format matches word-word-XXXX where XXXX is 4 digits
-		pattern := `^[a-z]+-[a-z]+-\d{4}$`
+		// Check format matches UUID v4 pattern
 		matched, err := regexp.MatchString(pattern, boxID)
 		assert.NoError(t, err)
-		assert.True(t, matched, "Generated ID %s does not match expected pattern", boxID)
+		assert.True(t, matched, "Generated ID %s does not match UUID v4 pattern", boxID)
 
 		// Check uniqueness
 		_, exists := generatedIDs[boxID]
 		assert.False(t, exists, "Generated duplicate ID: %s", boxID)
 		generatedIDs[boxID] = true
 
-		// Check length constraints
-		parts := regexp.MustCompile(`-`).Split(boxID, -1)
-		assert.Equal(t, 3, len(parts), "Generated ID should have 3 parts")
+		// Check length is correct (36 characters including hyphens)
+		assert.Equal(t, 36, len(boxID), "UUID length should be 36 characters")
 
-		// Check numeric part is 4 digits
-		assert.Equal(t, 4, len(parts[2]), "Numeric part should be 4 digits")
+		// Check that the version bits are set correctly (version 4)
+		assert.Equal(t, "4", string(boxID[14]), "UUID version should be 4")
 
-		// Check numeric part is between 1000-9999
-		numPattern := `^[1-9]\d{3}$`
-		matched, err = regexp.MatchString(numPattern, parts[2])
-		assert.NoError(t, err)
-		assert.True(t, matched, "Numeric part %s is not between 1000-9999", parts[2])
+		// Check that the variant bits are set correctly (variant 1)
+		variantChar := boxID[19]
+		assert.Contains(t, "89ab", string(variantChar), "UUID variant should be 1 (RFC 4122)")
 	}
 }
